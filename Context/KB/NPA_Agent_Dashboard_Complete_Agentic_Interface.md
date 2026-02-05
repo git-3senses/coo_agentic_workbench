@@ -36,7 +36,7 @@
 ├────────────────────────────────────────────────────────────┤
 │ SECTION 4: Knowledge Bases Linked                          │
 ├────────────────────────────────────────────────────────────┤
-│ SECTION 5: Services & Integrations (APIs, MCPs)            │
+│ SECTION 5: Services & Integrations (APIs, MCPs)            │c
 ├────────────────────────────────────────────────────────────┤
 │ SECTION 6: Active Work Items (Tasks in Progress)           │
 ├────────────────────────────────────────────────────────────┤

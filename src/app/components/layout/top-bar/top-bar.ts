@@ -17,8 +17,8 @@ import { LayoutService } from '../../../services/layout.service';
            
          <!-- Logo -->
          <div class="flex items-center justify-center select-none overflow-hidden h-full py-3" [class.w-full]="isCollapsed()">
-             <img *ngIf="!isCollapsed()" src="/Expanded_Logo.svg" alt="Mistral AI" class="h-8 max-w-[180px] object-contain">
-             <img *ngIf="isCollapsed()" src="/Collapsed_Logo.svg" alt="Mistral AI" class="h-8 w-8 object-contain">
+             <img *ngIf="!isCollapsed()" src="assets/logos/Expanded_Logo.svg" alt="Mistral AI" class="h-8 max-w-[180px] object-contain">
+             <img *ngIf="isCollapsed()" src="assets/logos/Collapsed_Logo.svg" alt="Mistral AI" class="h-8 w-8 object-contain">
         </div>
 
          <!-- Menu Toggle (Visible ONLY when Expanded) -> Pushed to right by justify-between -->
