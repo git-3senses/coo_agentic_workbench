@@ -59,7 +59,7 @@ interface NpaItem {
             <div class="space-y-3">
                <div>
                   <h1 class="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                     COO Control Tower
+                     NPA Control Tower
                      <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100 uppercase tracking-wide">Live Dashboard</span>
                   </h1>
                   <p class="text-lg text-slate-500 max-w-2xl leading-relaxed mt-1">
