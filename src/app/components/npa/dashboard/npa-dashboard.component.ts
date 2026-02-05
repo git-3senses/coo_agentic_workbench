@@ -1,12 +1,23 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Output, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { RouterModule } from '@angular/router';
+import { DifyAgentService, AgentCapability, AgentWorkItem, HealthMetrics } from '../../../services/dify/dify-agent.service';
+import { CapabilityCardComponent } from './capability-card.component';
+import { WorkItemListComponent } from './work-item-list.component';
+import { AgentHealthPanelComponent } from './agent-health-panel.component';
 
 @Component({
    selector: 'app-npa-dashboard',
    standalone: true,
-   imports: [CommonModule, LucideAngularModule, RouterModule],
+   imports: [
+      CommonModule,
+      LucideAngularModule,
+      RouterModule,
+      CapabilityCardComponent,
+      WorkItemListComponent,
+      AgentHealthPanelComponent
+   ],
    template: `
     <div class="min-h-screen bg-slate-50/50 pb-20 font-sans">
       
@@ -37,7 +48,7 @@ import { RouterModule } from '@angular/router';
                      <span class="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100 uppercase tracking-wide">v2.1 Online</span>
                   </h1>
                   <p class="text-lg text-slate-500 max-w-2xl leading-relaxed mt-1">
-                     Your AI assistant for New Product Approvals. I can create NPAs, predict outcomes, validat docs, and orchestrate approvals across 8 departments.
+                     Your AI assistant for New Product Approvals. I can create NPAs, predict outcomes, validate docs, and orchestrate approvals associated with Dify Agents.
                   </p>
                </div>
                
@@ -85,7 +96,12 @@ import { RouterModule } from '@angular/router';
 
       <div class="max-w-7xl mx-auto px-6 sm:px-10 space-y-12 mt-12">
 
-        <!-- SECTION 2: CAPABILITIES (What I Can Do) -->
+        <!-- SECTION 7: AGENT HEALTH & PERFORMANCE (Moved to Top) -->
+        <section>
+           <app-agent-health-panel [metrics]="(healthMetrics$ | async) || emptyMetrics"></app-agent-health-panel>
+        </section>
+
+        <!-- SECTION 2: CAPABILITIES (Dynamically Loaded from Dify) -->
         <section>
            <div class="flex items-center gap-3 mb-6">
               <div class="p-2 bg-blue-100 text-blue-700 rounded-lg">
@@ -95,62 +111,19 @@ import { RouterModule } from '@angular/router';
                  Agent Capabilities
               </h2>
            </div>
+           
            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-              <!-- Cap Card 1 -->
-              <div class="group bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer">
-                 <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <lucide-icon name="file-edit" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <h3 class="font-bold text-slate-900 mb-1">Create New NPA</h3>
-                 <p class="text-sm text-slate-500 mb-4 line-clamp-2">Guides you through 10 questions to build a complete NPA with 78% auto-fill.</p>
-                 <div class="flex items-center justify-between text-xs">
-                    <span class="font-mono text-slate-400">1,248 Creates</span>
-                    <span class="text-blue-600 font-semibold group-hover:translate-x-1 transition-transform">Start →</span>
-                 </div>
-              </div>
-              
-              <!-- Cap Card 2 -->
-              <div class="group bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-purple-200 transition-all cursor-pointer">
-                 <div class="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <lucide-icon name="sparkles" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <h3 class="font-bold text-slate-900 mb-1">Find Similar NPAs</h3>
-                 <p class="text-sm text-slate-500 mb-4 line-clamp-2">Search 1,784 historical records by semantic similarity using vector embeddings.</p>
-                 <div class="flex items-center justify-between text-xs">
-                    <span class="font-mono text-slate-400">94% Match Rate</span>
-                    <span class="text-purple-600 font-semibold group-hover:translate-x-1 transition-transform">Search →</span>
-                 </div>
-              </div>
-
-              <!-- Cap Card 3 -->
-              <div class="group bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-200 transition-all cursor-pointer">
-                 <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <lucide-icon name="trending-up" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <h3 class="font-bold text-slate-900 mb-1">Predict Outcome</h3>
-                 <p class="text-sm text-slate-500 mb-4 line-clamp-2">ML precision forecasts on approval likelihood, timeline, and potential bottlenecks.</p>
-                 <div class="flex items-center justify-between text-xs">
-                    <span class="font-mono text-slate-400">92% Accuracy</span>
-                    <span class="text-amber-600 font-semibold group-hover:translate-x-1 transition-transform">Predict →</span>
-                 </div>
-              </div>
-
-               <!-- Cap Card 4 -->
-              <div class="group bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-green-200 transition-all cursor-pointer">
-                 <div class="w-10 h-10 rounded-lg bg-green-50 text-green-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <lucide-icon name="book-open" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <h3 class="font-bold text-slate-900 mb-1">Policy Q&A</h3>
-                 <p class="text-sm text-slate-500 mb-4 line-clamp-2">Ask anything about MAS regulations and internal DBS policies. Citations included.</p>
-                 <div class="flex items-center justify-between text-xs">
-                    <span class="font-mono text-slate-400">200+ Docs</span>
-                    <span class="text-green-600 font-semibold group-hover:translate-x-1 transition-transform">Ask →</span>
-                 </div>
-              </div>
+              <app-capability-card
+                *ngFor="let cap of capabilities$ | async"
+                [capability]="cap"
+                [isExpanded]="expandedCardId === cap.id"
+                (expand)="onCardExpand(cap.id)"
+                (action)="onCapabilityAction(cap.id)">
+              </app-capability-card>
            </div>
         </section>
 
-        <!-- SECTION 2.5: NPA TASK AGENTS (The Workers) -->
+        <!-- SECTION 2.5: NPA TASK AGENTS (The Workers) of OLD -->
         <section>
            <div class="flex items-center gap-3 mb-6">
               <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
@@ -341,7 +314,7 @@ import { RouterModule } from '@angular/router';
                   </div>
                </div>
 
-                <!-- Utility Card 5: Audit -->
+               <!-- Utility Card 5: Audit -->
                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
                   <div class="flex items-center justify-between mb-2">
                      <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-red-600">
@@ -356,6 +329,82 @@ import { RouterModule } from '@angular/router';
                      </div>
                      <div class="flex justify-between text-[10px] text-slate-500">
                         <span>Coverage</span> <span class="font-mono text-slate-900">100%</span>
+                     </div>
+                  </div>
+               </div>
+
+                <!-- Utility Card 6: Notification -->
+               <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
+                  <div class="flex items-center justify-between mb-2">
+                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-pink-600">
+                        <lucide-icon name="bell" class="w-3.5 h-3.5"></lucide-icon>
+                     </span>
+                     <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
+                  </div>
+                  <h4 class="font-bold text-xs text-slate-700">Notification</h4>
+                  <div class="mt-2 space-y-1">
+                     <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>Sent</span> <span class="font-mono text-slate-900">892</span>
+                     </div>
+                     <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>Open Rate</span> <span class="font-mono text-slate-900">68%</span>
+                     </div>
+                  </div>
+               </div>
+
+                <!-- Utility Card 7: Analytics -->
+               <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
+                  <div class="flex items-center justify-between mb-2">
+                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-sky-600">
+                        <lucide-icon name="bar-chart-2" class="w-3.5 h-3.5"></lucide-icon>
+                     </span>
+                     <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
+                  </div>
+                  <h4 class="font-bold text-xs text-slate-700">Analytics</h4>
+                  <div class="mt-2 space-y-1">
+                     <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>Metrics</span> <span class="font-mono text-slate-900">45</span>
+                     </div>
+                     <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>Real-time</span> <span class="font-mono text-slate-900">Yes</span>
+                     </div>
+                  </div>
+               </div>
+
+                <!-- Utility Card 8: Loop-Back -->
+               <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
+                  <div class="flex items-center justify-between mb-2">
+                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-lime-600">
+                        <lucide-icon name="refresh-cw" class="w-3.5 h-3.5"></lucide-icon>
+                     </span>
+                     <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
+                  </div>
+                  <h4 class="font-bold text-xs text-slate-700">Loop-Back</h4>
+                  <div class="mt-2 space-y-1">
+                     <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>Retries</span> <span class="font-mono text-slate-900">12</span>
+                     </div>
+                     <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>Resolved</span> <span class="font-mono text-slate-900">100%</span>
+                     </div>
+                  </div>
+               </div>
+
+               <!-- Utility Card 9: Data Retrieval -->
+               <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
+                  <div class="flex items-center justify-between mb-2">
+                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-violet-600">
+                        <lucide-icon name="server" class="w-3.5 h-3.5"></lucide-icon>
+                     </span>
+                     <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
+                  </div>
+                  <h4 class="font-bold text-xs text-slate-700">Data Retrieval</h4>
+                  <div class="mt-2 space-y-1">
+                     <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>Sources</span> <span class="font-mono text-slate-900">8</span>
+                     </div>
+                     <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>Cache</span> <span class="font-mono text-slate-900">HIT</span>
                      </div>
                   </div>
                </div>
@@ -430,6 +479,23 @@ import { RouterModule } from '@angular/router';
                        <div class="flex items-center gap-3">
                           <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">SYNCED</span>
                           <lucide-icon name="chevron-right" class="w-4 h-4 text-slate-300 group-hover:text-cyan-400"></lucide-icon>
+                       </div>
+                    </div>
+
+                     <!-- Item 4 (Missing Gap): Product Classifications -->
+                    <div class="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group">
+                       <div class="flex items-center gap-4">
+                          <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                             <lucide-icon name="tag" class="w-5 h-5"></lucide-icon>
+                          </div>
+                          <div>
+                             <h4 class="text-sm font-bold text-slate-900 group-hover:text-emerald-600">Product Classifications</h4>
+                             <p class="text-xs text-slate-500">Taxonomy, Asset Classes • Updated Today</p>
+                          </div>
+                       </div>
+                       <div class="flex items-center gap-3">
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">SYNCED</span>
+                          <lucide-icon name="chevron-right" class="w-4 h-4 text-slate-300 group-hover:text-emerald-400"></lucide-icon>
                        </div>
                     </div>
                  </div>
@@ -526,7 +592,7 @@ import { RouterModule } from '@angular/router';
             </section>
         </div>
 
-        <!-- SECTION 6: ACTIVE WORK ITEMS -->
+        <!-- SECTION 6: ACTIVE WORK ITEMS (Live from Dify) -->
         <section>
            <div class="flex items-center gap-3 mb-6">
               <div class="p-2 bg-sky-100 text-sky-700 rounded-lg">
@@ -537,83 +603,10 @@ import { RouterModule } from '@angular/router';
               </h2>
            </div>
            
-           <div class="bg-slate-900 rounded-xl overflow-hidden shadow-lg border border-slate-800 font-mono text-sm">
-              <div class="bg-slate-950 px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
-                 <div class="flex gap-4">
-                    <span>JOB ID</span>
-                    <span>AGENT</span>
-                    <span>OPERATION</span>
-                 </div>
-                 <div class="flex gap-4 mr-8">
-                    <span>STATUS</span>
-                    <span>DURATION</span>
-                 </div>
-              </div>
-              <div class="divide-y divide-slate-800/50">
-                 <!-- Row 1 -->
-                 <div class="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex gap-4 items-center">
-                       <span class="text-slate-500">JOB-992</span>
-                       <span class="text-blue-400 w-32">TemplateAutoFill</span>
-                       <span class="text-slate-300">Parsing "Term_Sheet_FX.pdf"</span>
-                    </div>
-                    <div class="flex gap-4 w-32 justify-end">
-                       <span class="text-green-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span> Running</span>
-                       <span class="text-slate-500">1.2s</span>
-                    </div>
-                 </div>
-                 <!-- Row 2 -->
-                 <div class="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex gap-4 items-center">
-                       <span class="text-slate-500">JOB-991</span>
-                       <!-- Changed from ClassRouter to match Classification Router -->
-                       <span class="text-purple-400 w-32">Classification</span>
-                       <span class="text-slate-300">Classifying TSG2025-041</span>
-                    </div>
-                    <div class="flex gap-4 w-32 justify-end">
-                       <span class="text-slate-400">Completed</span>
-                       <span class="text-slate-500">450ms</span>
-                    </div>
-                 </div>
-                 <!-- Row 3 -->
-                  <div class="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex gap-4 items-center">
-                       <span class="text-slate-500">JOB-990</span>
-                       <span class="text-amber-400 w-32">Orchestration</span>
-                       <span class="text-slate-300">Handing off to Human (Ops)</span>
-                    </div>
-                    <div class="flex gap-4 w-32 justify-end">
-                       <span class="text-slate-400">Waiting</span>
-                       <span class="text-slate-500">12m</span>
-                    </div>
-                 </div>
-                 <!-- Row 4 -->
-                 <div class="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex gap-4 items-center">
-                       <span class="text-slate-500">JOB-989</span>
-                       <span class="text-fuchsia-400 w-32">KB Search</span>
-                       <span class="text-slate-300">Indexing "MAS_Guidelines_v9.pdf"</span>
-                    </div>
-                    <div class="flex gap-4 w-32 justify-end">
-                       <span class="text-slate-400">Completed</span>
-                       <span class="text-slate-500">890ms</span>
-                    </div>
-                 </div>
-                 <!-- Row 5 -->
-                 <div class="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex gap-4 items-center">
-                       <span class="text-slate-500">JOB-988</span>
-                       <span class="text-red-400 w-32">Prohibited List</span>
-                       <span class="text-slate-300">Scanning "Sanctions_List.csv"</span>
-                    </div>
-                    <div class="flex gap-4 w-32 justify-end">
-                       <span class="text-green-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span> Running</span>
-                       <span class="text-slate-500">2.1s</span>
-                    </div>
-                 </div>
-              </div>
-           </div>
+           <app-work-item-list [items]="(workItems$ | async) || []"></app-work-item-list>
         </section>
+
+
 
       </div>
     </div>
@@ -624,11 +617,27 @@ import { RouterModule } from '@angular/router';
     }
   `]
 })
-export class NpaDashboardComponent {
+export class NpaDashboardComponent implements OnInit {
    @Output() navigateToCreate = new EventEmitter<void>();
    @Output() navigateToDraft = new EventEmitter<void>();
 
+   private difyService = inject(DifyAgentService);
+
+   capabilities$ = this.difyService.getCapabilities();
+   workItems$ = this.difyService.getActiveWorkItems();
+   healthMetrics$ = this.difyService.getAgentHealth();
+
+   expandedCardId: string | null = null;
+
+   emptyMetrics: HealthMetrics = {
+      status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalDecisions: 0
+   };
+
    constructor() { }
+
+   ngOnInit() {
+      // Logic to refresh data if needed
+   }
 
    onCreateNew() {
       this.navigateToCreate.emit();
@@ -638,7 +647,23 @@ export class NpaDashboardComponent {
       this.navigateToDraft.emit();
    }
 
-   onViewAll(type: string) {
-      console.log('View All clicked:', type);
+   onCardExpand(id: string) {
+      if (this.expandedCardId === id) {
+         this.expandedCardId = null; // Collapse if already open
+      } else {
+         this.expandedCardId = id;
+      }
+   }
+
+   onCapabilityAction(id: string) {
+      console.log('[DifyAgentService] Triggering capability:', id);
+      if (id === 'create_npa') {
+         this.onCreateNew();
+      }
+   }
+
+   onViewAll(section: string) {
+      console.log('Viewing all for section:', section);
+      // Implementation for routing or modal would go here
    }
 }

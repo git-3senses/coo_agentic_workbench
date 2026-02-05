@@ -1,14 +1,17 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
+import { NpaTemplateEditorComponent } from '../npa-template-editor/npa-template-editor.component';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'CHAT';
 
 @Component({
    selector: 'app-npa-detail',
    standalone: true,
-   imports: [CommonModule, LucideAngularModule],
+   imports: [CommonModule, LucideAngularModule, NpaTemplateEditorComponent],
    template: `
+    <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false"></app-npa-template-editor>
+    
     <!-- FULL SCREEN OVERLAY -->
     <div class="fixed inset-0 z-[100] flex flex-col h-screen w-screen bg-slate-50 overscroll-none font-sans">
       
@@ -21,7 +24,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
           </button>
           
           <div>
-            <div class="flex items-center gap-3 text-xs text-gray-500 mb-1">
+            <div class="flex items-center gap-3 text-xs text-gray-500 mb-2">
               <span class="font-medium text-gray-400">NPA Pipeline</span>
               <lucide-icon name="chevron-right" class="w-3 h-3 text-gray-300"></lucide-icon>
               <span class="font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded">TSG2025-042</span>
@@ -235,8 +238,11 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
 
                    <!-- NPA Template Status -->
                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                         <h3 class="text-sm font-bold text-gray-900 mb-4">Template Completion</h3>
+                      <div (click)="showTemplateEditor = true" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
+                         <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <lucide-icon name="external-link" class="w-4 h-4 text-blue-500"></lucide-icon>
+                         </div>
+                         <h3 class="text-sm font-bold text-gray-900 mb-4 group-hover:text-blue-700">Template Completion</h3>
                          <div class="relative w-40 h-40 mx-auto">
                             <!-- Circular Progress Mock -->
                             <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
@@ -253,13 +259,13 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
                          </div>
                       </div>
 
-                      <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl border border-indigo-100 p-6">
-                         <h3 class="text-sm font-bold text-indigo-900 mb-2">KB Source Match</h3>
-                         <p class="text-sm text-indigo-700/80 mb-4">
+                      <div class="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100 p-6">
+                         <h3 class="text-sm font-bold text-blue-900 mb-2">KB Source Match</h3>
+                         <p class="text-sm text-blue-800/80 mb-4">
                             Data auto-filled based on 94% match with historical NPA:
                          </p>
-                         <div class="bg-white rounded-lg p-3 border border-indigo-100 shadow-sm flex items-start gap-3">
-                            <div class="p-2 bg-indigo-100 rounded text-indigo-600">
+                         <div class="bg-white rounded-lg p-3 border border-blue-100 shadow-sm flex items-start gap-3">
+                            <div class="p-2 bg-blue-100 rounded text-blue-600">
                                <lucide-icon name="database" class="w-5 h-5"></lucide-icon>
                             </div>
                             <div>
@@ -453,7 +459,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
                          <div class="absolute -left-[37px] top-0 w-6 h-6 rounded-full bg-blue-600 border-4 border-white shadow-md flex items-center justify-center">
                             <lucide-icon name="check" class="w-3 h-3 text-white"></lucide-icon>
                          </div>
-                         <h3 class="text-lg font-bold text-gray-900 mb-1">Ingestion & Triage</h3>
+                         <h3 class="text-lg font-bold text-gray-900 mb-1">Stage 1: Initiation</h3>
                          <p class="text-xs text-gray-500 uppercase tracking-wide mb-4">Completed: Dec 16, 09:42 AM (Duration: 38m)</p>
                          
                          <div class="bg-gray-50 rounded-lg p-4 border border-gray-200/60 space-y-3">
@@ -480,13 +486,13 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
                          <div class="absolute -left-[37px] top-0 w-6 h-6 rounded-full bg-white border-[3px] border-blue-600 shadow-md flex items-center justify-center animate-pulse">
                             <div class="w-2 h-2 bg-blue-600 rounded-full"></div>
                          </div>
-                         <h3 class="text-lg font-bold text-blue-700 mb-1">Review & Sign-Off</h3>
+                         <h3 class="text-lg font-bold text-blue-700 mb-1">Stage 2: Review & Sign-Off</h3>
                          <p class="text-xs text-blue-600 uppercase tracking-wide mb-4">In Progress • Start: Dec 16, 10:00 AM</p>
 
                           <div class="bg-white rounded-lg p-5 border border-blue-200 shadow-sm space-y-4">
                             <div class="flex items-center gap-3">
                                <lucide-icon name="eye" class="w-4 h-4 text-gray-400"></lucide-icon>
-                               <span class="text-sm text-gray-900 font-medium">Checker Review</span>
+                               <span class="text-sm text-gray-900 font-medium">NPA Champion Review</span>
                                <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded ml-auto">PENDING</span>
                             </div>
                             <div class="pl-7 text-xs text-gray-500 border-l border-gray-100 ml-2">
@@ -498,7 +504,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
                       <!-- Stage 3: Launch (Future) -->
                       <div class="relative group opacity-50">
                          <div class="absolute -left-[37px] top-0 w-6 h-6 rounded-full bg-gray-200 border-4 border-white shadow-sm"></div>
-                         <h3 class="text-lg font-bold text-gray-500 mb-1">Launch</h3>
+                         <h3 class="text-lg font-bold text-gray-500 mb-1">Stage 4: Launch</h3>
                          <p class="text-xs text-gray-400 uppercase tracking-wide mb-4">Estimated: Dec 20</p>
                       </div>
 
@@ -552,9 +558,9 @@ export class NpaDetailComponent {
    activeTab: DetailTab = 'PRODUCT_SPECS';
 
    tabs: { id: DetailTab, label: string, icon: string, badge?: string }[] = [
-      { id: 'PRODUCT_SPECS', label: 'Product Specs', icon: 'clipboard-list' },
+      { id: 'PRODUCT_SPECS', label: 'NPA Proposal', icon: 'clipboard-list' },
       { id: 'ANALYSIS', label: 'Analysis & Predictions', icon: 'brain-circuit', badge: '78%' },
-      { id: 'APPROVALS', label: 'Approvals', icon: 'users', badge: '6' },
+      { id: 'APPROVALS', label: 'Sign-Off Status', icon: 'users', badge: '6' },
       { id: 'WORKFLOW', label: 'Workflow', icon: 'git-branch' },
       { id: 'CHAT', label: 'Assistant', icon: 'message-square' },
    ];
@@ -578,4 +584,6 @@ export class NpaDetailComponent {
          default: return 'text-gray-600 bg-gray-100';
       }
    }
+
+   showTemplateEditor = false;
 }
