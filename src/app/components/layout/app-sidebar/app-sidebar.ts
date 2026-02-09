@@ -1,13 +1,13 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import { SharedIconsModule } from '../../../shared/icons/shared-icons.module';
 import { LayoutService } from '../../../services/layout.service';
 
 @Component({
     selector: 'app-app-sidebar',
     standalone: true,
-    imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule],
+    imports: [CommonModule, RouterLink, RouterLinkActive, SharedIconsModule],
     template: `
     <aside class="flex flex-col h-full bg-[#f9f9f9] text-[#4b5563] text-[13px] font-medium tracking-tight select-none overflow-hidden transition-all duration-300 border-r border-border/40 relative z-30"
            [class.items-center]="isCollapsed()">
@@ -32,6 +32,11 @@ import { LayoutService } from '../../../services/layout.service';
              <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                 <lucide-icon name="layout-dashboard" class="w-4 h-4 flex-none"></lucide-icon>
                 <span *ngIf="!isCollapsed()" class="truncate">Workspace</span>
+             </a>
+             <a routerLink="/approvals" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <lucide-icon name="check-square" class="w-4 h-4 flex-none"></lucide-icon>
+                <span *ngIf="!isCollapsed()" class="truncate">Approvals</span>
+                <span *ngIf="!isCollapsed()" class="ml-auto bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">3</span>
              </a>
           </div>
 

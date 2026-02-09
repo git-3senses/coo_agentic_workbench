@@ -5,7 +5,7 @@ import { Observable, of, delay, map } from 'rxjs';
 export interface DifyAgentResponse {
     answer: string;
     metadata?: {
-        agent_action?: 'ROUTE_WORK_ITEM' | 'ASK_CLARIFICATION' | 'STOP_PROCESS';
+        agent_action?: 'ROUTE_WORK_ITEM' | 'ASK_CLARIFICATION' | 'STOP_PROCESS' | 'FINALIZE_DRAFT';
         payload?: any;
     };
 }
@@ -83,12 +83,12 @@ export class DifyService {
             if (isCrossBorder) {
                 answer += "*   **Mandatory Sign-Offs Added**: Finance, Credit, MLR, Tech, Ops\n";
             }
-            answer += "\nI have prepared the Work Item shell. Please click below to generate it.";
+            answer += "\nI have prepared the Work Item shell. Access the draft via the notification or the button below.";
 
             return of({
                 answer: answer,
                 metadata: {
-                    agent_action: 'ROUTE_WORK_ITEM',
+                    agent_action: 'FINALIZE_DRAFT',
                     payload: {
                         track: 'NPA_LITE',
                         isCrossBorder: isCrossBorder,

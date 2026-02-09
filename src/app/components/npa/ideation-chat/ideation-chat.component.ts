@@ -26,6 +26,20 @@ interface AgentIdentity {
     imports: [CommonModule, FormsModule, LucideAngularModule, MarkdownModule],
     template: `
     <div class="flex flex-col h-full bg-white relative">
+      <!-- TOAST NOTIFICATION -->
+      <div *ngIf="showToast" class="absolute top-4 right-4 z-50 bg-white border-l-4 border-l-green-500 border-gray-200 shadow-xl p-4 rounded-lg animate-fade-in flex items-center gap-3 transition-all">
+          <div class="h-8 w-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+              <lucide-icon name="check" class="w-5 h-5"></lucide-icon>
+          </div>
+          <div>
+              <h4 class="font-bold text-gray-900 text-sm">Proposal Ready</h4>
+              <p class="text-xs text-gray-500">Draft generated successfully.</p>
+          </div>
+          <button (click)="onComplete.emit()" class="ml-4 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700 shadow-sm">
+              View
+          </button>
+      </div>
+
       <!-- Transcript -->
       <div class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scroll-smooth" #scrollContainer>
          <div *ngFor="let msg of messages" class="flex gap-4 group" [ngClass]="{'flex-row-reverse': msg.role === 'user'}">
@@ -58,6 +72,27 @@ interface AgentIdentity {
 
       <!-- Input -->
       <div class="p-4 bg-gray-50 border-t border-gray-200">
+         <!-- DRAFT READY BANNER (Contextual) -->
+         <div *ngIf="isDraftReady" class="mb-3 px-1 flex items-center justify-between bg-green-50 p-3 rounded-xl border border-green-100 animate-fade-in">
+             <div class="flex items-center gap-2">
+                 <div class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                    <lucide-icon name="file-check" class="w-3.5 h-3.5"></lucide-icon>
+                 </div>
+                 <span class="text-sm font-bold text-green-900">Draft Proposal Ready</span>
+             </div>
+             <button (click)="onComplete.emit()" class="px-4 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg shadow-sm hover:bg-green-700 flex items-center gap-2 transition-colors">
+                 Review Now <lucide-icon name="arrow-right" class="w-3.5 h-3.5"></lucide-icon>
+             </button>
+         </div>
+
+         <!-- Status Indicator (Only if NO draft yet) -->
+         <div *ngIf="!isDraftReady" class="flex items-center justify-between mb-3 px-1">
+             <div class="flex items-center gap-2">
+                 <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">AI Agent Active</span>
+             </div>
+         </div>
+         
          <div class="relative flex items-center">
              <input type="text" 
                     [(ngModel)]="userInput" 
@@ -79,8 +114,8 @@ interface AgentIdentity {
     :host { display: block; height: 100%; }
     .scrollbar-thin::-webkit-scrollbar { width: 6px; }
     .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 3px; }
-    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-    .animate-fade-in { animation: fade-in 0.3s ease-out; }
+    @keyframes fade-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in { animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
   `]
 })
 export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
@@ -89,6 +124,8 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
 
     userInput = '';
     isThinking = false;
+    isDraftReady = false;
+    showToast = false;
     messages: ChatMessage[] = [];
     nextAgent: AgentIdentity | null = null;
 
@@ -117,7 +154,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
         this.difyService.reset();
         this.messages.push({
             role: 'agent',
-            content: 'Hello! I am your **NPA Agent**. I can assist you with all your product approval tasks, including strategy drafting, risk assessment, and compliance checks. How can I help you today?',
+            content: 'Hello! I am your **NPA Agent**. I can assist you with all your product approval tasks. When you are ready to generate a draft, simply say **"Confirm"**.',
             timestamp: new Date()
         });
     }
@@ -137,9 +174,18 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
         this.userInput = '';
         this.isThinking = true;
 
-        // 2. ORCHESTRATION LOGIC (Hidden/Background)
-        // In a real app, this would route to different agents, but we will just pass the intent to the single Dify flow.
+        // 2. ORCHESTRATION LOGIC (Realtime from Dify Agent)
         this.callAgentResponse(content, this.currentAgent);
+    }
+
+    private finishDraft() {
+        this.isDraftReady = true;
+        this.showToast = true;
+
+        // Hide Toast after 5s
+        setTimeout(() => {
+            this.showToast = false;
+        }, 5000);
     }
 
     private determineTargetAgent(content: string): AgentIdentity {
@@ -156,6 +202,11 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
                     timestamp: new Date()
                 });
                 this.isThinking = false;
+
+                // Check for Agent Actions
+                if (res.metadata?.agent_action === 'FINALIZE_DRAFT') {
+                    this.finishDraft();
+                }
             },
             error: () => {
                 this.messages.push({

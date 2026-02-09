@@ -22,6 +22,10 @@ export const routes: Routes = [
             { path: 'workbench/my-work', component: PlaceholderComponent },
             { path: 'workbench/agent-insights', component: PlaceholderComponent },
             { path: 'workbench/cross-function', component: PlaceholderComponent },
+            {
+                path: 'approvals',
+                loadComponent: () => import('./pages/approval-dashboard/approval-dashboard.component').then(m => m.ApprovalDashboardComponent)
+            },
 
             // Work Items
             { path: 'work-items', component: PlaceholderComponent },

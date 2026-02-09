@@ -38,13 +38,14 @@ import { LayoutService } from '../../services/layout.service';
 
     <!-- VIEW 3: Work Item Shell (Replaced with Detail Component) -->
     <div *ngIf="viewMode === 'WORK_ITEM'" class="h-full w-full">
-        <app-npa-detail (onBack)="goToDashboard()"></app-npa-detail>
+        <app-npa-detail (onBack)="goToDashboard()" [autoOpenEditor]="autoOpenEditor"></app-npa-detail>
     </div>
    `
 })
 export class NPAAgentComponent implements OnDestroy {
    private layoutService = inject(LayoutService);
    viewMode: 'DASHBOARD' | 'IDEATION' | 'WORK_ITEM' = 'DASHBOARD';
+   autoOpenEditor = false;
 
    constructor() {
       console.log('NPAAgentComponent Initialized. viewMode:', this.viewMode);
@@ -52,17 +53,20 @@ export class NPAAgentComponent implements OnDestroy {
 
    goToDashboard() {
       this.viewMode = 'DASHBOARD';
+      this.autoOpenEditor = false;
       this.layoutService.setSidebarVisible(true);
    }
 
    goToCreate() {
       this.viewMode = 'IDEATION';
+      this.autoOpenEditor = false;
       this.layoutService.setSidebarVisible(true);
       this.layoutService.setSidebarState(true); // Collapse
    }
 
    goToDraft() {
       this.viewMode = 'WORK_ITEM';
+      this.autoOpenEditor = true;
       this.layoutService.setSidebarVisible(true);
       this.layoutService.setSidebarState(true); // Collapse
    }

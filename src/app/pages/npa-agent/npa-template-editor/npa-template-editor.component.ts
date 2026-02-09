@@ -2,38 +2,8 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule, UploadCloud, Edit2, AlertCircle, Paperclip } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
-
-export type FieldLineage = 'AUTO' | 'ADAPTED' | 'MANUAL';
-
-export interface LineageMetadata {
-   sourceDocId?: string;       // e.g., 'TSG1917'
-   sourceSnippet?: string;     // The exact text from the source
-   adaptationLogic?: string;   // Reasoning for adaptation
-   confidenceScore?: number;   // 0-100
-   agentTip?: string;          // Helpful prompt for Manual fields
-}
-
-export interface NpaField {
-   key: string;
-   label: string;
-   value: string;
-   lineage: FieldLineage;
-   lineageMetadata?: LineageMetadata; // New: The "Why" behind the data
-   type?: 'text' | 'textarea' | 'date' | 'select' | 'currency' | 'file';
-   options?: string[]; // For select types
-   tooltip?: string;   // Explanation for adaptation or source
-   placeholder?: string;
-   required?: boolean;
-}
-
-export interface NpaSection {
-   id: string;
-   title: string;
-   description?: string;
-   fields: NpaField[];
-   comments?: string; // New: Section-level comments
-   documents?: string[]; // New: Section-level attachments
-}
+import { NpaSection, NpaField, FieldLineage } from '../../../lib/npa-interfaces';
+import { MOCK_NPA_SECTIONS } from '../../../lib/mock-npa-data';
 
 @Component({
    selector: 'app-npa-template-editor',
@@ -51,7 +21,7 @@ export interface NpaSection {
           </button>
           <div>
              <h1 class="text-lg font-bold text-gray-900 flex items-center gap-2 tracking-tight">
-                eNPA Proposal Form
+                eNPA Proposal Form (v2.0)
                 <span class="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
                    TSG2025-042
                 </span>
@@ -146,8 +116,17 @@ export interface NpaSection {
                                </div>
                            </div>
 
+                           <!-- Select Input -->
+                           <select *ngIf="field.type === 'select'"
+                                  [(ngModel)]="field.value"
+                                  [ngClass]="getInputStyles(field.lineage, focusedField?.key === field.key)"
+                                  class="w-full text-sm rounded-md px-3 py-2 outline-none transition-all shadow-sm appearance-none bg-white">
+                                <option value="" disabled>{{ field.placeholder || 'Select an option' }}</option>
+                                <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
+                           </select>
+
                            <!-- Text Input -->
-                           <input *ngIf="field.type !== 'textarea' && field.type !== 'file'" 
+                           <input *ngIf="field.type !== 'textarea' && field.type !== 'file' && field.type !== 'select'" 
                                   [(ngModel)]="field.value"
                                   [type]="field.type || 'text'"
                                   [placeholder]="field.placeholder || ''"
@@ -302,154 +281,10 @@ export class NpaTemplateEditorComponent {
    @Output() close = new EventEmitter<void>();
 
    activeSection = 'spec';
-   focusedField: NpaField | null = null; // New state for Inspector
+   focusedField: NpaField | null = null;
 
-   // MOCK DATA
-   sections: NpaSection[] = [
-      {
-         id: 'spec',
-         title: '1. Product & Business Case',
-         description: 'Core details defining the product structure and economics.',
-         fields: [
-            {
-               key: 'name', label: 'Product Name', value: 'FX Put Option GBP/USD', lineage: 'AUTO',
-               lineageMetadata: { sourceDocId: 'TSG1917', sourceSnippet: 'Product Name: FX Put Option EUR/USD', confidenceScore: 98 }
-            },
-            {
-               key: 'type', label: 'Product Type', value: 'FX Option', lineage: 'AUTO',
-               lineageMetadata: { sourceDocId: 'Classification Agent', sourceSnippet: 'Classified as FX Option based on "Put Option" keyword.', confidenceScore: 99 }
-            },
-            { key: 'desk', label: 'Booking Desk', value: 'Singapore FX', lineage: 'AUTO' },
-            {
-               key: 'bu', label: 'Business Unit', value: 'Treasury & Markets', lineage: 'AUTO',
-               lineageMetadata: { sourceDocId: 'TSG1917', sourceSnippet: 'Business Unit: Treasury & Markets', confidenceScore: 100 }
-            },
-            {
-               key: 'notional', label: 'Notional Amount', value: '$75,000,000', lineage: 'AUTO',
-               lineageMetadata: { sourceDocId: 'Term Sheet', sourceSnippet: 'Notional: USD 75M', confidenceScore: 100 }
-            },
-            { key: 'tenor', label: 'Tenor', value: '6 Months', lineage: 'AUTO' },
-            {
-               key: 'counterparty', label: 'Counterparty Name', value: '', lineage: 'MANUAL', placeholder: 'Enter Legal Entity Name', required: true,
-               lineageMetadata: { agentTip: 'I can search Salesforce for recent counterparties in Hong Kong.' }
-            },
-            { key: 'tradeDate', label: 'Trade Date', value: '', lineage: 'MANUAL', type: 'date', required: true },
-         ]
-      },
-      {
-         id: 'ops',
-         title: '2. Operational & Technology',
-         description: 'Systems and processes for booking, valuation, and settlement.',
-         fields: [
-            {
-               key: 'system', label: 'Booking System', value: 'Murex', lineage: 'AUTO',
-               lineageMetadata: { sourceDocId: 'TSG1917', sourceSnippet: 'Booking System: Murex (Version 3.1)', confidenceScore: 95 }
-            },
-            {
-               key: 'valuation', label: 'Valuation Model', value: 'Black-Scholes', lineage: 'AUTO',
-               lineageMetadata: { sourceDocId: 'TSG1917', sourceSnippet: 'Valuation: Black-Scholes Standard Model', confidenceScore: 95 }
-            },
-            { key: 'settlement', label: 'Settlement Method', value: 'Cash (USD) via CLS', lineage: 'AUTO' },
-            { key: 'conf', label: 'Confirmation Process', value: 'SWIFT MT300', lineage: 'AUTO' },
-         ]
-      },
-      {
-         id: 'pricing',
-         title: '3. Pricing Model',
-         description: 'Methodology for fair value and risk sensitivity.',
-         fields: [
-            { key: 'method', label: 'Pricing Methodology', value: 'Mid-market + bid-offer spread', lineage: 'AUTO' },
-            {
-               key: 'roae', label: 'ROAE Sensitivity Analysis', value: 'Sensitivity: 10bps move = $85k impact...', lineage: 'ADAPTED', type: 'textarea',
-               lineageMetadata: {
-                  sourceDocId: 'Finance Policy 2024',
-                  sourceSnippet: 'Deals > $50M Notional require ROAE sensitivity.',
-                  adaptationLogic: 'Triggered by Rule: Notional > $50M. Template inserted for user completion.',
-                  confidenceScore: 90
-               }
-            },
-            { key: 'bespoke', label: 'Bespoke Adjustments', value: '', lineage: 'MANUAL', type: 'textarea', placeholder: 'Describe any non-standard pricing logic...' },
-         ]
-      },
-      {
-         id: 'risk',
-         title: '4. Risk Assessments',
-         description: 'Evaluation of market, credit, listing, and operational risks.',
-         fields: [
-            {
-               key: 'market', label: 'Market Risk', value: 'Moderate-to-High. Notional represents 4.5% of desk book. Daily VaR estimated at $360k.', lineage: 'ADAPTED', type: 'textarea',
-               lineageMetadata: {
-                  sourceDocId: 'TSG1917',
-                  sourceSnippet: 'Daily VaR: $180k (based on $25M Notional).',
-                  adaptationLogic: 'Scaled VaR linearly from $25M → $75M. Risk rating bumped from Moderate to Moderate-High due to >4% Book limit.',
-                  confidenceScore: 85
-               }
-            },
-            {
-               key: 'credit', label: 'Credit Risk', value: 'Counterparty rated A- (S&P). Weekly collateral exchange required per CSA.', lineage: 'ADAPTED', type: 'textarea',
-               lineageMetadata: {
-                  sourceDocId: 'Credit Matrix',
-                  sourceSnippet: 'Rating: BBB+ requires Daily collateral.',
-                  adaptationLogic: 'Adjusted collateral frequency to Weekly based on improved Rating (A-).',
-                  confidenceScore: 92
-               }
-            },
-            {
-               key: 'ops_risk', label: 'Operational Risk', value: 'Moderate. Cross-border booking (SG-HK) requires manual month-end reconciliation.', lineage: 'ADAPTED', type: 'textarea',
-               lineageMetadata: {
-                  sourceDocId: 'Ops Policy: Branch',
-                  sourceSnippet: 'Single entity booking: Low Risk.',
-                  adaptationLogic: 'Inserted Cross-Border Clause due to SG Desk + HK Counterparty.',
-                  confidenceScore: 95
-               }
-            },
-         ]
-      },
-      {
-         id: 'reg',
-         title: '5. Regulatory Requirements',
-         description: 'Compliance with local and international regulations.',
-         fields: [
-            { key: 'mas656', label: 'Applicable Regulations', value: 'MAS 656, CFTC Part 20, EMIR', lineage: 'AUTO' },
-            { key: 'reporting', label: 'Reporting Obligations', value: 'DTCC SDR Reporting required within T+1', lineage: 'AUTO' },
-         ]
-      },
-      {
-         id: 'signoff',
-         title: '6. Sign-Off Matrix',
-         description: 'Required approvers based on product classification.',
-         fields: [
-            {
-               key: 'parties', label: 'Required Sign-Offs', value: 'RMG-Credit, Finance (Product Control), Finance VP, Market Risk, Ops, Technology', lineage: 'ADAPTED', type: 'textarea',
-               lineageMetadata: {
-                  sourceDocId: 'Classification Agent',
-                  sourceSnippet: 'Standard Sign-offs: Credit, Finance, MLR.',
-                  adaptationLogic: 'Added "Finance VP" (Notional > $50M) and "Ops/Tech" (Cross-Border Rule).',
-                  confidenceScore: 100
-               }
-            },
-            { key: 'timeline', label: 'Est. Approval Timeline', value: '4-5 Days', lineage: 'AUTO', tooltip: 'Predicted by ML Agent' },
-         ]
-      },
-      {
-         id: 'legal',
-         title: '7. Legal Considerations',
-         fields: [
-            { key: 'law', label: 'Governing Law', value: 'Singapore Law', lineage: 'AUTO' },
-            { key: 'docs', label: 'Documentation', value: 'ISDA Master Agreement (2002)', lineage: 'AUTO' },
-            { key: 'special', label: 'Special Provisions', value: '', lineage: 'MANUAL', type: 'textarea' },
-         ]
-      },
-      {
-         id: 'attachments',
-         title: '8. Supporting Documents',
-         description: 'Attach any relevant files, term sheets, or email approvals.',
-         fields: [
-            { key: 'termSheet', label: 'Final Term Sheet', value: '', lineage: 'MANUAL', type: 'file', required: true, tooltip: 'Required for approval.' },
-            { key: 'riskMemo', label: 'Risk Memo', value: '', lineage: 'MANUAL', type: 'file' },
-         ]
-      }
-   ];
+   // Load MOCK data
+   sections: NpaSection[] = MOCK_NPA_SECTIONS;
 
    closeEditor() {
       this.close.emit();

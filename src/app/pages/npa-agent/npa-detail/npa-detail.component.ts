@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { NpaTemplateEditorComponent } from '../npa-template-editor/npa-template-editor.component';
@@ -552,10 +552,17 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
     }
   `]
 })
-export class NpaDetailComponent {
+export class NpaDetailComponent implements OnInit {
    @Output() onBack = new EventEmitter<void>();
+   @Input() autoOpenEditor = false;
 
    activeTab: DetailTab = 'PRODUCT_SPECS';
+
+   ngOnInit() {
+      if (this.autoOpenEditor) {
+         this.showTemplateEditor = true;
+      }
+   }
 
    tabs: { id: DetailTab, label: string, icon: string, badge?: string }[] = [
       { id: 'PRODUCT_SPECS', label: 'NPA Proposal', icon: 'clipboard-list' },
