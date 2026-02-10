@@ -70,6 +70,15 @@ interface AgentIdentity {
          </div>
       </div>
 
+      <!-- Generate Work Item Button -->
+      <div *ngIf="showGenerateButton" class="px-4 py-3 border-t border-indigo-100 bg-indigo-50/50">
+         <button (click)="generateWorkItem()"
+                 class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 transform active:scale-95">
+            <lucide-icon name="file-plus-2" class="w-4 h-4"></lucide-icon>
+            Generate Work Item
+         </button>
+      </div>
+
       <!-- Input -->
       <div class="p-4 bg-gray-50 border-t border-gray-200">
          <!-- DRAFT READY BANNER (Contextual) -->
@@ -119,7 +128,7 @@ interface AgentIdentity {
   `]
 })
 export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
-    @Output() onComplete = new EventEmitter<void>();
+    @Output() onComplete = new EventEmitter<any>();
     @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
 
     userInput = '';
@@ -128,6 +137,8 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
     showToast = false;
     messages: ChatMessage[] = [];
     nextAgent: AgentIdentity | null = null;
+    showGenerateButton = false;
+    routingPayload: any = null;
 
     // DEFINED AGENTS
     readonly AGENTS: Record<string, AgentIdentity> = {
@@ -193,6 +204,10 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
         return this.AGENTS['ORCHESTRATOR'];
     }
 
+    generateWorkItem() {
+        this.onComplete.emit(this.routingPayload);
+    }
+
     private callAgentResponse(content: string, agent: AgentIdentity) {
         this.difyService.sendMessage(content).subscribe({
             next: (res) => {
@@ -206,6 +221,12 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
                 // Check for Agent Actions
                 if (res.metadata?.agent_action === 'FINALIZE_DRAFT') {
                     this.finishDraft();
+                } else if (res.metadata?.agent_action === 'ROUTE_WORK_ITEM') {
+                    this.routingPayload = res.metadata.payload;
+                    this.showGenerateButton = true;
+                } else if (res.metadata?.agent_action === 'STOP_PROCESS') {
+                    this.showGenerateButton = false;
+                    this.routingPayload = null;
                 }
             },
             error: () => {

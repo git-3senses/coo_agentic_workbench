@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { NpaTemplateEditorComponent } from '../npa-template-editor/npa-template-editor.component';
 
-export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'CHAT';
+export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
 @Component({
    selector: 'app-npa-detail',
@@ -41,9 +41,9 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
                 FX Put Option GBP/USD
               </h1>
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                Variation (Medium Risk)
+                {{ approvalTrack }}
               </span>
-               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+               <span *ngIf="isCrossBorder" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
                 <lucide-icon name="globe" class="w-3 h-3 mr-1"></lucide-icon>
                 Cross-Border
               </span>
@@ -508,10 +508,106 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
                          <p class="text-xs text-gray-400 uppercase tracking-wide mb-4">Estimated: Dec 20</p>
                       </div>
 
+                      <!-- Stage 4: Post-Launch Monitoring -->
+                      <div class="relative group opacity-40">
+                         <div class="absolute -left-[37px] top-0 w-6 h-6 rounded-full bg-gray-200 border-4 border-white shadow-sm"></div>
+                         <h3 class="text-lg font-bold text-gray-500 mb-1">Stage 5: Post-Launch Monitoring</h3>
+                         <p class="text-xs text-gray-400 uppercase tracking-wide mb-4">Continuous • Starts after Launch</p>
+                         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200/60 space-y-3">
+                            <div class="flex items-center gap-3">
+                               <lucide-icon name="activity" class="w-4 h-4 text-gray-400"></lucide-icon>
+                               <span class="text-sm text-gray-500">Breach Monitoring (Volume, Rating, Exposure)</span>
+                               <span class="text-xs text-gray-400 font-mono ml-auto">PENDING</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                               <lucide-icon name="bar-chart-2" class="w-4 h-4 text-gray-400"></lucide-icon>
+                               <span class="text-sm text-gray-500">Performance Metrics Tracking</span>
+                               <span class="text-xs text-gray-400 font-mono ml-auto">PENDING</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                               <lucide-icon name="clock" class="w-4 h-4 text-gray-400"></lucide-icon>
+                               <span class="text-sm text-gray-500">Periodic Review Triggers (90d / 180d / Annual)</span>
+                               <span class="text-xs text-gray-400 font-mono ml-auto">PENDING</span>
+                            </div>
+                         </div>
+                      </div>
+
                    </div>
                 </div>
 
-                <!-- 5. CHAT (Existing) -->
+                <!-- 5. MONITORING (Post-NPA) -->
+                <div *ngIf="activeTab === 'MONITORING'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
+
+                   <!-- Breach Alerts -->
+                   <div>
+                      <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                         <lucide-icon name="alert-triangle" class="w-4 h-4 text-rose-500"></lucide-icon>
+                         Active Breach Alerts ({{ breaches.length }})
+                      </h3>
+                      <div class="space-y-4">
+                         <div *ngFor="let breach of breaches" class="rounded-xl border p-5 transition-all"
+                              [ngClass]="breach.severity === 'critical' ? 'bg-rose-50/40 border-rose-200' : 'bg-amber-50/40 border-amber-200'">
+                            <div class="flex items-start justify-between mb-3">
+                               <div class="flex items-center gap-3">
+                                  <div class="p-2 rounded-lg bg-white shadow-sm border"
+                                       [ngClass]="breach.severity === 'critical' ? 'border-rose-100 text-rose-600' : 'border-amber-100 text-amber-600'">
+                                     <lucide-icon [name]="breach.severity === 'critical' ? 'shield-alert' : 'alert-triangle'" class="w-5 h-5"></lucide-icon>
+                                  </div>
+                                  <div>
+                                     <h4 class="font-bold text-gray-900">{{ breach.title }}</h4>
+                                     <p class="text-xs text-gray-500 font-mono mt-0.5">{{ breach.id }} • {{ breach.triggeredAt }}</p>
+                                  </div>
+                               </div>
+                               <span class="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded"
+                                     [ngClass]="breach.severity === 'critical' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'">
+                                  {{ breach.severity }}
+                               </span>
+                            </div>
+                            <p class="text-sm text-gray-600 leading-relaxed mb-3">{{ breach.description }}</p>
+                            <div class="flex items-center justify-between text-xs text-gray-500 pt-3 border-t" [ngClass]="breach.severity === 'critical' ? 'border-rose-100' : 'border-amber-100'">
+                               <span>Escalated to: <span class="font-semibold text-gray-700">{{ breach.escalatedTo }}</span></span>
+                               <span>SLA: {{ breach.slaHours }}h resolution window</span>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <!-- Performance Metrics Grid -->
+                   <div>
+                      <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                         <lucide-icon name="bar-chart-2" class="w-4 h-4 text-blue-500"></lucide-icon>
+                         Performance Metrics
+                      </h3>
+                      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                         <div *ngFor="let metric of monitoringMetrics" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
+                            <div class="flex items-center justify-between mb-3">
+                               <div class="p-1.5 rounded-lg" [ngClass]="'bg-' + metric.color + '-50 text-' + metric.color + '-600'">
+                                  <lucide-icon [name]="metric.icon" class="w-4 h-4"></lucide-icon>
+                               </div>
+                            </div>
+                            <div class="text-2xl font-bold text-gray-900 mb-1">{{ metric.value }}</div>
+                            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{{ metric.label }}</div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <!-- Conversational Analytics -->
+                   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                      <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                         <lucide-icon name="message-square" class="w-4 h-4 text-indigo-500"></lucide-icon>
+                         Ask the Monitoring Agent
+                      </h3>
+                      <p class="text-sm text-gray-500 mb-4">Query real-time monitoring data, ask about breaches, or request analytics.</p>
+                      <div class="relative">
+                         <input type="text" placeholder="e.g. What caused the volume breach on Jan 15?" class="w-full pl-4 pr-12 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm bg-gray-50">
+                         <button class="absolute right-2 top-2 p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                            <lucide-icon name="send" class="w-4 h-4"></lucide-icon>
+                         </button>
+                      </div>
+                   </div>
+                </div>
+
+                <!-- 6. CHAT (Existing) -->
                 <div *ngIf="activeTab === 'CHAT'" class="h-[calc(100vh-280px)] flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <!-- ... Existing Chat Content ... -->
                    <div class="flex-1 p-6 space-y-6 overflow-y-auto bg-slate-50/50">
@@ -553,6 +649,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
   `]
 })
 export class NpaDetailComponent implements OnInit {
+   @Input() npaContext: any = null;
    @Output() onBack = new EventEmitter<void>();
    @Input() autoOpenEditor = false;
 
@@ -564,11 +661,20 @@ export class NpaDetailComponent implements OnInit {
       }
    }
 
+   get isCrossBorder(): boolean {
+      return this.npaContext?.isCrossBorder ?? true;
+   }
+
+   get approvalTrack(): string {
+      return this.npaContext?.track === 'NPA_LITE' ? 'NPA Lite (Variation)' : 'Variation (Medium Risk)';
+   }
+
    tabs: { id: DetailTab, label: string, icon: string, badge?: string }[] = [
       { id: 'PRODUCT_SPECS', label: 'NPA Proposal', icon: 'clipboard-list' },
       { id: 'ANALYSIS', label: 'Analysis & Predictions', icon: 'brain-circuit', badge: '78%' },
       { id: 'APPROVALS', label: 'Sign-Off Status', icon: 'users', badge: '6' },
       { id: 'WORKFLOW', label: 'Workflow', icon: 'git-branch' },
+      { id: 'MONITORING', label: 'Monitoring', icon: 'activity', badge: '2' },
       { id: 'CHAT', label: 'Assistant', icon: 'message-square' },
    ];
 
@@ -584,10 +690,35 @@ export class NpaDetailComponent implements OnInit {
       { label: 'Booking Desk', value: 'Singapore FX', confidence: 99 },
    ];
 
+   breaches = [
+      {
+         id: 'BR-001', title: 'Volume Threshold Breach', severity: 'critical',
+         description: 'Daily traded volume exceeded $150M threshold (actual: $187M). Triggered at 14:32 SGT.',
+         escalatedTo: 'Head of FX Trading (David Chen)', slaHours: 4, triggeredAt: '2h 15m ago'
+      },
+      {
+         id: 'BR-002', title: 'Counterparty Rating Downgrade', severity: 'warning',
+         description: 'Acme Corp (HK) downgraded from A- to BBB+ by S&P. Collateral review required.',
+         escalatedTo: 'Credit Risk Team', slaHours: 24, triggeredAt: '6h ago'
+      }
+   ];
+
+   monitoringMetrics = [
+      { label: 'Days Since Launch', value: '42', icon: 'calendar', color: 'blue' },
+      { label: 'Total Volume', value: '$2.4B', icon: 'bar-chart-2', color: 'indigo' },
+      { label: 'Realized P&L', value: '+$3.2M', icon: 'trending-up', color: 'emerald' },
+      { label: 'Active Breaches', value: '2', icon: 'alert-triangle', color: 'rose' },
+      { label: 'Counterparty Exposure', value: '$87M', icon: 'users', color: 'purple' },
+      { label: 'VaR Utilization', value: '68%', icon: 'gauge', color: 'amber' },
+      { label: 'Collateral Posted', value: '$12.5M', icon: 'shield', color: 'cyan' },
+      { label: 'Next Review', value: 'Feb 28', icon: 'clock', color: 'slate' }
+   ];
+
    getBadgeColor(tabId: string): string {
       switch (tabId) {
          case 'ANALYSIS': return 'text-green-600 bg-green-100 border-green-200';
          case 'APPROVALS': return 'text-amber-600 bg-amber-100 border-amber-200';
+         case 'MONITORING': return 'text-rose-600 bg-rose-100 border-rose-200';
          default: return 'text-gray-600 bg-gray-100';
       }
    }

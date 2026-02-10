@@ -183,7 +183,7 @@ interface NpaTemplate {
 
          <!-- MODE 2: AGENT MODE (Conversation) -->
          <div *ngIf="mode === 'AGENT'" class="h-full flex flex-col">
-            <app-orchestrator-chat (onComplete)="handleAgentComplete()"></app-orchestrator-chat>
+            <app-orchestrator-chat (onComplete)="handleAgentComplete($event)"></app-orchestrator-chat>
          </div>
 
       </div>
@@ -200,7 +200,7 @@ interface NpaTemplate {
 })
 export class ChatInterfaceComponent {
    @Output() onBack = new EventEmitter<void>();
-   @Output() onComplete = new EventEmitter<void>();
+   @Output() onComplete = new EventEmitter<any>();
    @ViewChild(OrchestratorChatComponent) chatComponent!: OrchestratorChatComponent;
 
    mode: 'TEMPLATE' | 'AGENT' = 'TEMPLATE';
@@ -318,8 +318,8 @@ export class ChatInterfaceComponent {
       this.onBack.emit();
    }
 
-   handleAgentComplete() {
-      this.onComplete.emit();
+   handleAgentComplete(payload: any) {
+      this.onComplete.emit(payload);
    }
 
    getCategoryName(id: string) {

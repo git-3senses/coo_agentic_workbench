@@ -126,6 +126,16 @@ interface NpaItem {
                class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
                NPA Pool
             </button>
+            <button
+               [class.border-slate-900]="activeTab === 'monitoring'"
+               [class.text-slate-900]="activeTab === 'monitoring'"
+               [class.border-transparent]="activeTab !== 'monitoring'"
+               [class.text-slate-500]="activeTab !== 'monitoring'"
+               (click)="activeTab = 'monitoring'"
+               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors flex items-center gap-2">
+               Monitoring
+               <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-200">5</span>
+            </button>
          </div>
       </div>
 
@@ -369,7 +379,7 @@ interface NpaItem {
                              </tr>
                          </thead>
                          <tbody class="divide-y divide-slate-100">
-                             <tr *ngFor="let row of npaPool.slice(0, 6)" class="hover:bg-slate-50 transition-colors group cursor-pointer">
+                             <tr *ngFor="let row of npaPool.slice(0, 6)" (click)="navigateToDetail(row)" class="hover:bg-slate-50 transition-colors group cursor-pointer">
                                  <td class="px-6 py-4">
                                      <div class="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">{{ row.productName }}</div>
                                      <div class="flex items-center gap-2 mt-1">
@@ -533,7 +543,7 @@ interface NpaItem {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
-                            <tr *ngFor="let row of npaPool" class="hover:bg-slate-50 transition-colors group cursor-pointer">
+                            <tr *ngFor="let row of npaPool" (click)="navigateToDetail(row)" class="hover:bg-slate-50 transition-colors group cursor-pointer">
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     <div class="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">{{ row.productName }}</div>
                                 </td>
@@ -610,6 +620,135 @@ interface NpaItem {
          </div>
          <!-- END NPA POOL TAB CONTENT -->
 
+         <!-- MONITORING TAB CONTENT -->
+         <div *ngIf="activeTab === 'monitoring'" class="space-y-8">
+
+            <!-- Aggregate KPIs -->
+            <div class="grid grid-cols-4 gap-6">
+               <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="flex items-center justify-between mb-3">
+                     <div class="p-2 rounded-lg bg-rose-50 text-rose-600">
+                        <lucide-icon name="alert-triangle" class="w-5 h-5"></lucide-icon>
+                     </div>
+                     <span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">LIVE</span>
+                  </div>
+                  <div class="text-3xl font-bold text-slate-900">5</div>
+                  <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Active Breaches</div>
+               </div>
+               <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="flex items-center justify-between mb-3">
+                     <div class="p-2 rounded-lg bg-amber-50 text-amber-600">
+                        <lucide-icon name="clock" class="w-5 h-5"></lucide-icon>
+                     </div>
+                  </div>
+                  <div class="text-3xl font-bold text-slate-900">4.2h</div>
+                  <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Avg Resolution Time</div>
+               </div>
+               <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="flex items-center justify-between mb-3">
+                     <div class="p-2 rounded-lg bg-purple-50 text-purple-600">
+                        <lucide-icon name="arrow-up-circle" class="w-5 h-5"></lucide-icon>
+                     </div>
+                  </div>
+                  <div class="text-3xl font-bold text-slate-900">2</div>
+                  <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Open Escalations</div>
+               </div>
+               <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="flex items-center justify-between mb-3">
+                     <div class="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+                        <lucide-icon name="check-circle" class="w-5 h-5"></lucide-icon>
+                     </div>
+                  </div>
+                  <div class="text-3xl font-bold text-slate-900">12</div>
+                  <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Launched Products</div>
+               </div>
+            </div>
+
+            <!-- Post-Launch NPA Health Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+               <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                     <div class="p-1.5 bg-slate-100 rounded text-slate-500">
+                        <lucide-icon name="activity" class="w-4 h-4"></lucide-icon>
+                     </div>
+                     <h3 class="text-sm font-bold text-slate-900">Post-Launch NPA Health</h3>
+                  </div>
+               </div>
+               <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                     <tr>
+                        <th class="px-6 py-3">Product</th>
+                        <th class="px-6 py-3">Volume (MTD)</th>
+                        <th class="px-6 py-3">P&L</th>
+                        <th class="px-6 py-3 text-center">Breaches</th>
+                        <th class="px-6 py-3 text-center">Health</th>
+                     </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                     <tr *ngFor="let npa of launchedNpas" class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                           <div class="font-bold text-slate-900 text-sm">{{ npa.name }}</div>
+                           <div class="text-[10px] text-slate-400 mt-0.5">{{ npa.desk }}</div>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-slate-700">{{ npa.volume }}</td>
+                        <td class="px-6 py-4 font-mono" [ngClass]="npa.pnl.startsWith('+') ? 'text-emerald-600' : 'text-rose-600'">{{ npa.pnl }}</td>
+                        <td class="px-6 py-4 text-center">
+                           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                                 [ngClass]="npa.breachCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
+                              {{ npa.breachCount }}
+                           </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border"
+                                 [ngClass]="{
+                                    'bg-emerald-50 text-emerald-700 border-emerald-100': npa.health === 'Healthy',
+                                    'bg-amber-50 text-amber-700 border-amber-100': npa.health === 'Warning',
+                                    'bg-rose-50 text-rose-700 border-rose-100': npa.health === 'Critical'
+                                 }">
+                              <span class="w-1.5 h-1.5 rounded-full" [ngClass]="{
+                                 'bg-emerald-500': npa.health === 'Healthy',
+                                 'bg-amber-500': npa.health === 'Warning',
+                                 'bg-rose-500': npa.health === 'Critical'
+                              }"></span>
+                              {{ npa.health }}
+                           </span>
+                        </td>
+                     </tr>
+                  </tbody>
+               </table>
+            </div>
+
+            <!-- Breach Details -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+               <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <lucide-icon name="shield-alert" class="w-4 h-4 text-rose-500"></lucide-icon>
+                  Recent Breaches Across Portfolio
+               </h3>
+               <div class="space-y-4">
+                  <div *ngFor="let breach of monitoringBreaches" class="flex gap-4 p-4 rounded-lg border transition-all"
+                       [ngClass]="breach.severity === 'critical' ? 'bg-rose-50/40 border-rose-100' : 'bg-amber-50/40 border-amber-100'">
+                     <div class="flex-none pt-0.5">
+                        <div class="w-2 h-2 rounded-full mt-1.5" [ngClass]="breach.severity === 'critical' ? 'bg-rose-500' : 'bg-amber-500'"></div>
+                     </div>
+                     <div class="flex-1">
+                        <div class="flex items-center justify-between mb-1">
+                           <h4 class="font-bold text-slate-900 text-sm">{{ breach.title }}</h4>
+                           <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded"
+                                 [ngClass]="breach.severity === 'critical' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'">{{ breach.severity }}</span>
+                        </div>
+                        <p class="text-xs text-slate-600 mb-1">{{ breach.description }}</p>
+                        <div class="flex items-center gap-4 text-[10px] text-slate-400">
+                           <span>{{ breach.product }}</span>
+                           <span>{{ breach.triggeredAt }}</span>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+         </div>
+         <!-- END MONITORING TAB CONTENT -->
+
       </div>
     </div>
   `,
@@ -626,10 +765,14 @@ export class CooNpaDashboardComponent implements OnInit {
     constructor(private router: Router) { }
 
     navigateToCreate() {
-        this.router.navigate(['/agents/npa']);
+        this.router.navigate(['/agents/npa'], { queryParams: { mode: 'create' } });
     }
 
-    activeTab: 'overview' | 'npa-pool' = 'overview';
+    navigateToDetail(npa: NpaItem) {
+        this.router.navigate(['/agents/npa'], { queryParams: { mode: 'detail', npaId: npa.productName } });
+    }
+
+    activeTab: 'overview' | 'npa-pool' | 'monitoring' = 'overview';
 
     kpis: KpiMetric[] = [];
     pipelineStages: any[] = [];
@@ -638,6 +781,8 @@ export class CooNpaDashboardComponent implements OnInit {
     npaPool: NpaItem[] = [];
     clusters: any[] = [];
     prospects: any[] = [];
+    launchedNpas: any[] = [];
+    monitoringBreaches: any[] = [];
 
     ngOnInit() {
         this.initializeMockData();
@@ -810,6 +955,20 @@ export class CooNpaDashboardComponent implements OnInit {
             { name: 'Algorithmic FX Hedging', theme: 'AI Advisory', prob: 40, estValue: '$15M' },
             { name: 'Supply Chain Finance 2.0', theme: 'SME Lending', prob: 85, estValue: '$8M' },
             { name: 'Quantum Key Custody', theme: 'Cybersecurity', prob: 10, estValue: '$200M' }
+        ];
+
+        this.launchedNpas = [
+            { name: 'Multi-Currency Deposit', desk: 'Consumer Banking · Singapore', volume: '$42.8M', pnl: '+$1.2M', breachCount: 0, health: 'Healthy' },
+            { name: 'FX Accumulator - USD/SGD', desk: 'Treasury & Markets · Singapore', volume: '$128.5M', pnl: '+$3.8M', breachCount: 2, health: 'Warning' },
+            { name: 'Green Bond Framework', desk: 'Corporate Banking · Hong Kong', volume: '$85.2M', pnl: '-$0.4M', breachCount: 3, health: 'Critical' }
+        ];
+
+        this.monitoringBreaches = [
+            { title: 'Volume Threshold Exceeded', severity: 'critical', description: 'FX Accumulator USD/SGD daily volume exceeded 150% of approved limit ($192M vs $128M cap).', product: 'FX Accumulator - USD/SGD', triggeredAt: '2 hours ago' },
+            { title: 'Counterparty Rating Downgrade', severity: 'critical', description: 'Moody\'s downgraded counterparty XYZ Corp from A- to BBB+, triggering mandatory review.', product: 'Green Bond Framework', triggeredAt: '6 hours ago' },
+            { title: 'Collateral Coverage Below Threshold', severity: 'warning', description: 'Collateral coverage ratio dropped to 92%, below the 95% minimum requirement.', product: 'Green Bond Framework', triggeredAt: '1 day ago' },
+            { title: 'Concentration Limit Warning', severity: 'warning', description: 'Single counterparty exposure approaching 80% of approved concentration limit.', product: 'FX Accumulator - USD/SGD', triggeredAt: '2 days ago' },
+            { title: 'P&L Drawdown Alert', severity: 'warning', description: 'Cumulative P&L drawdown of -$0.4M exceeds weekly monitoring threshold of -$0.3M.', product: 'Green Bond Framework', triggeredAt: '3 days ago' }
         ];
     }
 }

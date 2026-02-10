@@ -6,6 +6,7 @@ import { DifyAgentService, AgentCapability, AgentWorkItem, HealthMetrics } from 
 import { CapabilityCardComponent } from './capability-card.component';
 import { WorkItemListComponent } from './work-item-list.component';
 import { AgentHealthPanelComponent } from './agent-health-panel.component';
+import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
 
 @Component({
    selector: 'app-npa-dashboard',
@@ -16,7 +17,8 @@ import { AgentHealthPanelComponent } from './agent-health-panel.component';
       RouterModule,
       CapabilityCardComponent,
       WorkItemListComponent,
-      AgentHealthPanelComponent
+      AgentHealthPanelComponent,
+      NpaPipelineTableComponent
    ],
    template: `
     <div class="min-h-screen bg-slate-50/50 pb-20 font-sans">
@@ -606,7 +608,19 @@ import { AgentHealthPanelComponent } from './agent-health-panel.component';
            <app-work-item-list [items]="(workItems$ | async) || []"></app-work-item-list>
         </section>
 
+        <!-- SECTION 7: NPA PIPELINE TABLE -->
+        <section>
+           <div class="flex items-center gap-3 mb-6">
+              <div class="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
+                 <lucide-icon name="file-text" class="w-5 h-5"></lucide-icon>
+              </div>
+              <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">
+                 NPA Pipeline
+              </h2>
+           </div>
 
+           <app-npa-pipeline-table (onViewDetail)="onViewDetail($event)"></app-npa-pipeline-table>
+        </section>
 
       </div>
     </div>
@@ -620,6 +634,7 @@ import { AgentHealthPanelComponent } from './agent-health-panel.component';
 export class NpaDashboardComponent implements OnInit {
    @Output() navigateToCreate = new EventEmitter<void>();
    @Output() navigateToDraft = new EventEmitter<void>();
+   @Output() navigateToDetail = new EventEmitter<string>();
 
    private difyService = inject(DifyAgentService);
 
@@ -660,6 +675,10 @@ export class NpaDashboardComponent implements OnInit {
       if (id === 'create_npa') {
          this.onCreateNew();
       }
+   }
+
+   onViewDetail(npaId: string) {
+      this.navigateToDetail.emit(npaId);
    }
 
    onViewAll(section: string) {
