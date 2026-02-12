@@ -1,12 +1,23 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, delay, map } from 'rxjs';
+import { Observable, of, delay, map, Subject, BehaviorSubject } from 'rxjs';
+import {
+    AgentAction,
+    AgentActivityUpdate,
+    DifyChatResponse,
+    DifyWorkflowResponse,
+    DifyStreamChunk,
+    AGENT_REGISTRY
+} from '../../lib/agent-interfaces';
 
 export interface DifyAgentResponse {
     answer: string;
+    conversationId?: string;
+    messageId?: string;
     metadata?: {
-        agent_action?: 'ROUTE_WORK_ITEM' | 'ASK_CLARIFICATION' | 'STOP_PROCESS' | 'FINALIZE_DRAFT';
+        agent_action?: AgentAction | 'ROUTE_WORK_ITEM' | 'ASK_CLARIFICATION' | 'STOP_PROCESS' | 'FINALIZE_DRAFT';
         payload?: any;
+        agent_id?: string;
     };
 }
 
@@ -14,94 +25,324 @@ export interface DifyAgentResponse {
     providedIn: 'root'
 })
 export class DifyService {
-    private useMockDify = true; // Toggle for Dev
+    private useMockDify = true; // Toggle: true=mock, false=real Dify
     private conversationId: string | null = null;
-
-    // Mock State for determining flow
     private conversationStep = 0;
+
+    // Observable streams for real-time updates
+    private agentActivity$ = new Subject<AgentActivityUpdate>();
+    private streaming$ = new Subject<string>();
 
     constructor(private http: HttpClient) { }
 
-    sendMessage(query: string, userContext: any = {}): Observable<DifyAgentResponse> {
+    /** Get agent activity stream (which agents are running/done) */
+    getAgentActivity(): Observable<AgentActivityUpdate> {
+        return this.agentActivity$.asObservable();
+    }
+
+    /** Get streaming text chunks */
+    getStreamingText(): Observable<string> {
+        return this.streaming$.asObservable();
+    }
+
+    /**
+     * Send a chat message to a Dify Chatflow agent (Tier 1 or 2)
+     * Used for orchestrator conversations
+     */
+    sendMessage(query: string, userContext: any = {}, agentId: string = 'MASTER_COO'): Observable<DifyAgentResponse> {
         if (this.useMockDify) {
             return this.mockDifyLogic(query);
         }
 
-        // Real API Call (Placeholder)
-        return this.http.post<any>('/api/dify/chat-messages', {
+        return this.http.post<DifyChatResponse>('/api/dify/chat', {
+            agent_id: agentId,
             query,
             inputs: userContext,
             conversation_id: this.conversationId,
-            user: 'user-123'
+            user: 'user-123',
+            response_mode: 'blocking'
         }).pipe(
-            map(res => ({
-                answer: res.answer,
-                metadata: res.metadata
-            }))
+            map(res => {
+                this.conversationId = res.conversation_id;
+                return {
+                    answer: res.answer,
+                    conversationId: res.conversation_id,
+                    messageId: res.message_id,
+                    metadata: res.metadata
+                } as DifyAgentResponse;
+            })
         );
     }
 
-    // --- MOCK LOGIC (Simulating the Thinking Dify Agent) ---
+    /**
+     * Send a chat message with SSE streaming support
+     * Returns immediately, emits chunks via streaming$ observable
+     */
+    sendMessageStreaming(query: string, userContext: any = {}, agentId: string = 'MASTER_COO'): void {
+        if (this.useMockDify) {
+            // Mock streaming by emitting words with delay
+            const words = 'I am analyzing your request and routing to the appropriate specialist agent...'.split(' ');
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i < words.length) {
+                    this.streaming$.next(words[i] + ' ');
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    this.streaming$.next('[DONE]');
+                }
+            }, 100);
+            return;
+        }
+
+        // Real SSE streaming via fetch
+        const body = JSON.stringify({
+            agent_id: agentId,
+            query,
+            inputs: userContext,
+            conversation_id: this.conversationId,
+            user: 'user-123',
+            response_mode: 'streaming'
+        });
+
+        fetch('/api/dify/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body
+        }).then(response => {
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            const read = (): void => {
+                reader?.read().then(({ done, value }) => {
+                    if (done) {
+                        this.streaming$.next('[DONE]');
+                        return;
+                    }
+                    const chunk = decoder.decode(value, { stream: true });
+                    // Parse SSE data lines
+                    const lines = chunk.split('\n').filter(l => l.startsWith('data:'));
+                    for (const line of lines) {
+                        try {
+                            const data: DifyStreamChunk = JSON.parse(line.slice(5).trim());
+                            if (data.answer) {
+                                this.streaming$.next(data.answer);
+                            }
+                            if (data.conversation_id) {
+                                this.conversationId = data.conversation_id;
+                            }
+                        } catch { /* skip malformed chunks */ }
+                    }
+                    read();
+                });
+            };
+            read();
+        });
+    }
+
+    /**
+     * Execute a Dify Workflow agent (Tier 3 or 4)
+     * Used for specialist agent calls (classification, risk, etc.)
+     */
+    runWorkflow(agentId: string, inputs: Record<string, any> = {}): Observable<DifyWorkflowResponse> {
+        if (this.useMockDify) {
+            return this.mockWorkflow(agentId, inputs);
+        }
+
+        // Emit agent activity: running
+        this.agentActivity$.next({ agentId, status: 'running' });
+
+        return this.http.post<DifyWorkflowResponse>('/api/dify/workflow', {
+            agent_id: agentId,
+            inputs,
+            user: 'user-123',
+            response_mode: 'blocking'
+        }).pipe(
+            map(res => {
+                // Emit agent activity: done
+                this.agentActivity$.next({
+                    agentId,
+                    status: res.data.status === 'succeeded' ? 'done' : 'error'
+                });
+                return res;
+            })
+        );
+    }
+
+    /** Reset conversation state */
+    reset(): void {
+        this.conversationStep = 0;
+        this.conversationId = null;
+    }
+
+    // ─── Mock Logic ──────────────────────────────────────────────
+
     private mockDifyLogic(query: string): Observable<DifyAgentResponse> {
         const lower = query.toLowerCase();
-        let response: DifyAgentResponse = { answer: "I didn't understand that." };
 
-        // Step 0: Greeting -> Discovery
+        // Step 0: Greeting
         if (this.conversationStep === 0) {
             this.conversationStep++;
+            this.emitMockActivity(['MASTER_COO', 'NPA_ORCHESTRATOR', 'IDEATION']);
             return of({
-                answer: "Hello! I'm the Product Ideation Agent. \n\nI can help you classify and route your product proposal. Briefly describe the product structure, underlying asset, and payout logic."
+                answer: "Hello! I'm the COO Agent Workbench. I can help you create, analyze, and manage NPAs.\n\nBriefly describe the product structure, underlying asset, and payout logic."
             }).pipe(delay(1000));
         }
 
-        // Step 1: User Describes Product -> Check Classification & Ask Cross-Border
+        // Step 1: Product description → Classification
         if (this.conversationStep === 1) {
             this.conversationStep++;
 
-            // Simulating "Thinking" about Classification
-            if (lower.includes('crypto')) {
+            if (lower.includes('crypto') || lower.includes('bitcoin')) {
+                this.emitMockActivity(['CLASSIFIER', 'RISK']);
                 return of({
-                    answer: "⚠️ **Stop**. My analysis detects this as a **New-to-Group (NTG)** product (Crypto Asset Class). \n\nYou cannot proceed with an NPA yet. You must obtain **PAC (Product Approval Committee)** approval first.",
-                    metadata: { agent_action: 'STOP_PROCESS' }
-                } as DifyAgentResponse).pipe(delay(2000));
+                    answer: "**HARD STOP** — Prohibited item detected.\n\nMy analysis classifies this as a **New-to-Group (NTG)** product involving Crypto assets, which is on the **Prohibited List** (Layer: REGULATORY).\n\nYou cannot proceed with an NPA. Contact the Product Approval Committee for exemption review.",
+                    metadata: {
+                        agent_action: 'STOP_PROCESS' as const,
+                        agent_id: 'RISK',
+                        payload: {
+                            type: 'NTG',
+                            track: 'Prohibited',
+                            hardStop: true,
+                            prohibitedMatch: { matched: true, item: 'Cryptocurrency', layer: 'REGULATORY' }
+                        }
+                    }
+                }).pipe(delay(2000));
             }
 
+            this.emitMockActivity(['CLASSIFIER', 'KB_SEARCH', 'ML_PREDICT']);
             return of({
-                answer: "I've analyzed your description. \n\n*   **Classification**: Variation / Existing\n*   **Similar NPA**: Found 'TSG1917' (Active)\n\nOne critical check before we proceed: **Will this product involve booking across multiple locations (Cross-Border)?**"
+                answer: "I've analyzed your description and activated specialist agents:\n\n**Classification Agent**: Variation / Existing product\n**KB Search**: Found similar NPA 'TSG1917' (94% match)\n**ML Prediction**: 82% approval likelihood, est. 35 days\n\nOne critical check: **Will this product involve booking across multiple locations (Cross-Border)?**",
+                metadata: {
+                    agent_action: 'SHOW_CLASSIFICATION' as const,
+                    agent_id: 'CLASSIFIER',
+                    payload: {
+                        type: 'Variation',
+                        track: 'NPA Lite',
+                        scores: [
+                            { criterion: 'Novelty', score: 3, maxScore: 10, reasoning: 'Similar to existing FX products' },
+                            { criterion: 'Complexity', score: 5, maxScore: 10, reasoning: 'Standard structured product' },
+                            { criterion: 'Risk Impact', score: 4, maxScore: 10, reasoning: 'Within approved risk appetite' },
+                            { criterion: 'Regulatory', score: 2, maxScore: 10, reasoning: 'Covered under existing MAS framework' },
+                            { criterion: 'Technology', score: 3, maxScore: 10, reasoning: 'Minor booking system changes' },
+                            { criterion: 'Market', score: 4, maxScore: 10, reasoning: 'Established market segment' },
+                            { criterion: 'Cross-Border', score: 2, maxScore: 10, reasoning: 'Single jurisdiction expected' }
+                        ],
+                        overallConfidence: 88,
+                        prohibitedMatch: { matched: false }
+                    }
+                }
             }).pipe(delay(2000));
         }
 
-        // Step 2: User Answers Cross-Border -> Final Routing
+        // Step 2: Cross-border answer → Final routing
         if (this.conversationStep === 2) {
-            const isCrossBorder = lower.includes('yes') || lower.includes('hk') || lower.includes('london');
+            this.conversationStep++;
+            const isCrossBorder = lower.includes('yes') || lower.includes('hk') || lower.includes('london') || lower.includes('hong kong');
 
-            let answer = "Thanks. I've finalized the configuration.\n\n";
-            answer += "### Summary\n";
-            answer += "*   **Track**: NPA Lite (Variation)\n";
-            answer += `*   **Cross-Border**: ${isCrossBorder ? '✅ YES' : 'NO'}\n`;
+            this.emitMockActivity(['GOVERNANCE', 'AUTOFILL', 'DOC_LIFECYCLE']);
+
+            let answer = "All specialist agents have completed their analysis:\n\n### Summary\n";
+            answer += `* **Track**: NPA Lite (Variation)\n`;
+            answer += `* **Cross-Border**: ${isCrossBorder ? 'YES' : 'NO'}\n`;
+            answer += `* **AutoFill**: Template 85% pre-populated from TSG1917\n`;
 
             if (isCrossBorder) {
-                answer += "*   **Mandatory Sign-Offs Added**: Finance, Credit, MLR, Tech, Ops\n";
+                answer += "* **Mandatory Sign-Offs**: Finance, Credit, MLR, Tech, Ops\n";
+            } else {
+                answer += "* **Mandatory Sign-Offs**: Finance, Credit, Ops\n";
             }
-            answer += "\nI have prepared the Work Item shell. Access the draft via the notification or the button below.";
+
+            answer += "\nThe NPA draft has been created. Access it from the notification below.";
 
             return of({
-                answer: answer,
+                answer,
                 metadata: {
-                    agent_action: 'FINALIZE_DRAFT',
+                    agent_action: 'FINALIZE_DRAFT' as const,
                     payload: {
                         track: 'NPA_LITE',
-                        isCrossBorder: isCrossBorder,
-                        mandatorySignOffs: isCrossBorder ? ['FINANCE', 'CREDIT', 'MLR', 'TECH', 'OPS'] : []
+                        isCrossBorder,
+                        mandatorySignOffs: isCrossBorder
+                            ? ['FINANCE', 'CREDIT', 'MLR', 'TECH', 'OPS']
+                            : ['FINANCE', 'CREDIT', 'OPS'],
+                        autoFillCoverage: 85,
+                        mlPrediction: { approvalLikelihood: 82, timelineDays: 35, bottleneckDept: 'Legal' }
                     }
                 }
-            } as DifyAgentResponse).pipe(delay(2500));
+            }).pipe(delay(2500));
         }
 
-        return of({ answer: "I've already completed this analysis. Please reset if you want to start over." } as DifyAgentResponse).pipe(delay(500));
+        return of({
+            answer: "I've already completed this analysis. Please reset if you want to start over."
+        }).pipe(delay(500));
     }
 
-    reset() {
-        this.conversationStep = 0;
+    private mockWorkflow(agentId: string, inputs: Record<string, any>): Observable<DifyWorkflowResponse> {
+        this.agentActivity$.next({ agentId, status: 'running' });
+
+        const mockOutputs: Record<string, any> = {
+            CLASSIFIER: {
+                type: 'Variation', track: 'NPA Lite',
+                scores: [{ criterion: 'Novelty', score: 3, maxScore: 10 }],
+                overallConfidence: 88
+            },
+            RISK: {
+                layers: [
+                    { name: 'Internal Policy', status: 'PASS', details: 'Compliant' },
+                    { name: 'Regulatory', status: 'PASS', details: 'MAS 656 compliant' },
+                    { name: 'Sanctions', status: 'PASS', details: 'No matches' },
+                    { name: 'Dynamic', status: 'WARNING', details: 'Elevated market volatility' }
+                ],
+                overallScore: 72, hardStop: false
+            },
+            ML_PREDICT: {
+                approvalLikelihood: 82, timelineDays: 35,
+                bottleneckDept: 'Legal', riskScore: 28
+            },
+            KB_SEARCH: {
+                results: [
+                    { docId: 'TSG1917', title: 'FX Structured Note', snippet: 'Similar FX derivative...', similarity: 0.94, source: 'Historical NPAs' },
+                    { docId: 'TSG1845', title: 'Interest Rate Swap', snippet: 'IR product with...', similarity: 0.87, source: 'Historical NPAs' }
+                ]
+            },
+            AUTOFILL: {
+                fieldsFilled: 36, fieldsAdapted: 5, fieldsManual: 6,
+                totalFields: 47, coveragePct: 85, timeSavedMinutes: 42
+            },
+            GOVERNANCE: {
+                signoffs: [
+                    { department: 'Finance', status: 'pending' },
+                    { department: 'Credit', status: 'pending' },
+                    { department: 'Operations', status: 'pending' }
+                ],
+                slaStatus: 'on_track', loopBackCount: 0, circuitBreaker: false
+            }
+        };
+
+        return of({
+            workflow_run_id: `wf-${Date.now()}`,
+            task_id: `task-${Date.now()}`,
+            data: {
+                outputs: mockOutputs[agentId] || {},
+                status: 'succeeded' as const
+            }
+        }).pipe(
+            delay(1500),
+            map(res => {
+                this.agentActivity$.next({ agentId, status: 'done' });
+                return res;
+            })
+        );
+    }
+
+    private emitMockActivity(agents: string[]): void {
+        agents.forEach((agentId, i) => {
+            setTimeout(() => {
+                this.agentActivity$.next({ agentId, status: 'running' });
+            }, i * 300);
+            setTimeout(() => {
+                this.agentActivity$.next({ agentId, status: 'done' });
+            }, 1000 + i * 500);
+        });
     }
 }

@@ -371,9 +371,10 @@ Both agents will work simultaneously. I'll consolidate their outputs and notify 
 
 **Trigger Keywords/Phrases:**
 - Product-related: "new product", "launch", "FX option", "swap", "derivative", "structured product", "variation", "modification"
-- Process-related: "NPA", "approval", "sign-off", "review", "submit NPA", "NPA status"
+- Process-related: "NPA", "approval", "sign-off", "review", "submit NPA", "NPA status", "appeal", "escalation", "circuit breaker"
 - Risk-related: "risk check", "prohibited list", "compliance validation", "sanctions check"
 - Timeline-related: "approval timeline", "how long for approval", "NPA deadline"
+- Data/Finance: "data owner", "data lineage", "finance sign-off", "tax implication"
 
 **Intent Examples:**
 - "I want to launch a new vanilla FX option for the Singapore desk"

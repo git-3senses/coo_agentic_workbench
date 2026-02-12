@@ -2,6 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Router } from '@angular/router';
+import { AgentGovernanceService } from '../../services/agent-governance.service';
+import { AGENT_REGISTRY, AgentDefinition } from '../../lib/agent-interfaces';
+import { DifyAgentService } from '../../services/dify/dify-agent.service';
 
 interface KpiMetric {
     label: string;
@@ -14,6 +17,7 @@ interface KpiMetric {
 }
 
 interface NpaItem {
+    id?: string;
     productName: string;
     location: string;
     businessUnit: string;
@@ -664,6 +668,33 @@ interface NpaItem {
                </div>
             </div>
 
+            <!-- Agent Health Grid (13 agents across 4 tiers) -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+               <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                     <div class="p-1.5 bg-indigo-100 rounded text-indigo-600">
+                        <lucide-icon name="brain-circuit" class="w-4 h-4"></lucide-icon>
+                     </div>
+                     <h3 class="text-sm font-bold text-slate-900">Agent Fleet Status</h3>
+                     <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold border border-indigo-100">{{ agentsByTier.length }} Tiers / {{ allAgents.length }} Agents</span>
+                  </div>
+               </div>
+               <div class="p-6 space-y-4">
+                  <div *ngFor="let tier of agentsByTier">
+                     <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Tier {{ tier.tier }} — {{ tier.label }}</h4>
+                     <div class="flex flex-wrap gap-2">
+                        <div *ngFor="let agent of tier.agents" class="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white transition-colors">
+                           <div class="w-7 h-7 rounded-full flex items-center justify-center" [ngClass]="agent.color">
+                              <lucide-icon [name]="agent.icon" class="w-3.5 h-3.5"></lucide-icon>
+                           </div>
+                           <span class="text-xs font-medium text-slate-700">{{ agent.name }}</span>
+                           <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
             <!-- Post-Launch NPA Health Table -->
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
@@ -762,14 +793,19 @@ interface NpaItem {
 })
 export class CooNpaDashboardComponent implements OnInit {
 
-    constructor(private router: Router) { }
+    constructor(private router: Router, private governanceService: AgentGovernanceService) { }
 
     navigateToCreate() {
         this.router.navigate(['/agents/npa'], { queryParams: { mode: 'create' } });
     }
 
     navigateToDetail(npa: NpaItem) {
-        this.router.navigate(['/agents/npa'], { queryParams: { mode: 'detail', npaId: npa.productName } });
+        if (npa.id) {
+            this.router.navigate(['/agents/npa'], { queryParams: { mode: 'detail', projectId: npa.id } });
+        } else {
+            // Fallback for mock items without ID
+            this.router.navigate(['/agents/npa'], { queryParams: { mode: 'detail', projectId: npa.productName } });
+        }
     }
 
     activeTab: 'overview' | 'npa-pool' | 'monitoring' = 'overview';
@@ -785,17 +821,64 @@ export class CooNpaDashboardComponent implements OnInit {
     monitoringBreaches: any[] = [];
 
     ngOnInit() {
-        this.initializeMockData();
+        this.loadRealData();
     }
 
-    initializeMockData() {
+    loadRealData() {
+        this.governanceService.getProjects().subscribe({
+            next: (projects) => {
+                // Transform backend data to NpaItem format
+                this.npaPool = projects.map(p => ({
+                    productName: p.title || 'Untitled',
+                    // Store ID separately if possible, or use productName as ID if that was the convention (it's not ideal but fits existing interface)
+                    // Better: The interface NpaItem should have an id field. 
+                    // For now, let's map ID to productName to ensure uniqueness in navigation if possible, or just add ID to interface.
+                    // Let's stick to the interface for now and hijack 'productName' or just map 'id' to 'productName' if compatible?
+                    // actually, let's update navigation to use ID.
+                    id: p.id,
+                    location: p.jurisdictions?.[0] || 'SG',
+                    businessUnit: 'Global Fin. Markets', // Default or fetch
+                    kickoffDate: new Date(p.created_at).toLocaleDateString(),
+                    productManager: p.submitted_by || 'Unknown',
+                    pmTeam: 'Digital Assets', // Default
+                    pacApproval: 'Pending',
+                    proposalPreparer: p.submitted_by || 'Unknown',
+                    template: 'Standard NPA',
+                    classification: p.npa_type === 'New-to-Group' ? 'Complex' : (p.npa_type === 'NPA Lite' ? 'Light' : 'Standard'),
+                    stage: this.mapStage(p.current_stage),
+                    status: 'On Track', // Logic needed
+                    ageDays: Math.floor((Date.now() - new Date(p.created_at).getTime()) / (1000 * 3600 * 24))
+                }));
+
+                this.calculateKPIs();
+                this.initializeStaticMockData(); // Keep static charts for now
+            },
+            error: (err) => console.error('Failed to load projects', err)
+        });
+    }
+
+    mapStage(backendStage: string): any {
+        const map: any = {
+            'INITIATION': 'Discovery',
+            'PENDING_SIGN_OFFS': 'Sign-Off',
+            'APPROVED': 'Launch',
+            'RETURNED_TO_MAKER': 'Review'
+        };
+        return map[backendStage] || 'Discovery';
+    }
+
+    calculateKPIs() {
+        const activeCount = this.npaPool.length;
+        const complexCount = this.npaPool.filter(p => p.classification === 'Complex').length;
         this.kpis = [
-            { label: 'Pipeline Value', value: '$142.5M', subValue: '42 Active', trend: '+12%', trendUp: true, color: 'indigo', icon: 'layers' },
+            { label: 'Pipeline Value', value: '$' + (activeCount * 3.5).toFixed(1) + 'M', subValue: `${activeCount} Active`, trend: '+12%', trendUp: true, color: 'indigo', icon: 'layers' },
             { label: 'Avg Cycle Time', value: '32 Days', subValue: '-4d YoY', trend: '-8%', trendUp: true, color: 'blue', icon: 'clock' },
             { label: 'Approval Rate', value: '94%', subValue: '178/190', trend: '+2%', trendUp: true, color: 'emerald', icon: 'check-circle' },
             { label: 'Critical Risks', value: '3', subValue: 'Action Req', trend: '+1', trendUp: false, color: 'rose', icon: 'shield-alert' }
         ];
+    }
 
+    initializeStaticMockData() {
         this.pipelineStages = [
             { name: 'Discovery', count: 12, avgTime: '5d', risk: 0, status: 'normal' },
             { name: 'DCE Review', count: 8, avgTime: '3d', risk: 1, status: 'warning' },
@@ -819,128 +902,7 @@ export class CooNpaDashboardComponent implements OnInit {
             { name: 'Algo Trading Bot', owner: 'Elena T.', stage: 'Risk Assess', revenue: '$6.5M', progress: 55 }
         ];
 
-        this.npaPool = [
-            {
-                productName: 'Global Green Bond ETF',
-                location: 'Singapore',
-                businessUnit: 'Wealth Management',
-                kickoffDate: '2024-11-15',
-                productManager: 'Sarah Jenkins',
-                pmTeam: 'Investment Products',
-                pacApproval: 'Pending',
-                proposalPreparer: 'John Smith',
-                template: 'ETF Template v2.1',
-                classification: 'Complex',
-                stage: 'Risk Assess',
-                status: 'On Track',
-                ageDays: 42
-            },
-            {
-                productName: 'Crypto Custody Prime',
-                location: 'Hong Kong',
-                businessUnit: 'Digital Assets',
-                kickoffDate: '2024-12-20',
-                productManager: 'Mike Ross',
-                pmTeam: 'Digital Solutions',
-                pacApproval: 'In Review',
-                proposalPreparer: 'Emily Chen',
-                template: 'Custody Template v1.3',
-                classification: 'Complex',
-                stage: 'DCE Review',
-                status: 'At Risk',
-                ageDays: 8
-            },
-            {
-                productName: 'AI Wealth Advisory',
-                location: 'Singapore',
-                businessUnit: 'Wealth Management',
-                kickoffDate: '2024-12-23',
-                productManager: 'Elena Torres',
-                pmTeam: 'Innovation Lab',
-                pacApproval: 'Not Started',
-                proposalPreparer: 'David Lee',
-                template: 'Robo-Advisory v3.0',
-                classification: 'Standard',
-                stage: 'Discovery',
-                status: 'On Track',
-                ageDays: 5
-            },
-            {
-                productName: 'Retail FX Margin',
-                location: 'London',
-                businessUnit: 'Trading',
-                kickoffDate: '2024-10-20',
-                productManager: 'David Chen',
-                pmTeam: 'FX Products',
-                pacApproval: 'Approved',
-                proposalPreparer: 'Lisa Wong',
-                template: 'FX Margin v2.5',
-                classification: 'Standard',
-                stage: 'Governance',
-                status: 'Delayed',
-                ageDays: 65
-            },
-            {
-                productName: 'SME Micro-Lending',
-                location: 'Mumbai',
-                businessUnit: 'Commercial Banking',
-                kickoffDate: '2024-12-15',
-                productManager: 'Alice Wong',
-                pmTeam: 'Lending Products',
-                pacApproval: 'Approved',
-                proposalPreparer: 'Raj Kumar',
-                template: 'Lending Template v4.2',
-                classification: 'Light',
-                stage: 'Sign-Off',
-                status: 'On Track',
-                ageDays: 12
-            },
-            {
-                productName: 'Structured Notes 2025',
-                location: 'New York',
-                businessUnit: 'Investment Banking',
-                kickoffDate: '2024-12-05',
-                productManager: 'Tom Harrison',
-                pmTeam: 'Structured Products',
-                pacApproval: 'Pending',
-                proposalPreparer: 'Anna Martinez',
-                template: 'Notes Template v5.1',
-                classification: 'Standard',
-                stage: 'Risk Assess',
-                status: 'On Track',
-                ageDays: 22
-            },
-            {
-                productName: 'Digital Asset Fund',
-                location: 'Singapore',
-                businessUnit: 'Asset Management',
-                kickoffDate: '2024-12-25',
-                productManager: 'Sarah Jenkins',
-                pmTeam: 'Alternative Investments',
-                pacApproval: 'Not Started',
-                proposalPreparer: 'Michael Tan',
-                template: 'Fund Template v3.3',
-                classification: 'Complex',
-                stage: 'Discovery',
-                status: 'On Track',
-                ageDays: 3
-            },
-            {
-                productName: 'FX Options Platform',
-                location: 'Tokyo',
-                businessUnit: 'Trading',
-                kickoffDate: '2024-11-10',
-                productManager: 'Mike Ross',
-                pmTeam: 'Derivatives',
-                pacApproval: 'Approved',
-                proposalPreparer: 'Yuki Tanaka',
-                template: 'Options Template v2.8',
-                classification: 'Standard',
-                stage: 'Governance',
-                status: 'Delayed',
-                ageDays: 45
-            },
-        ];
+
 
         this.clusters = [
             { name: 'Sustainability (ESG)', growth: '+45%', count: 18, color: 'bg-emerald-500', intensity: '85%' },

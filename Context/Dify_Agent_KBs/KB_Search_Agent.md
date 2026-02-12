@@ -118,7 +118,14 @@ When user asks question or Product Ideation Agent triggers search:
      - TSG1917 (FX Option, BBB+, $25M): 0.94 similarity
      - TSG2044 (FX Forward, A-, $50M): 0.82 similarity
      - TSG1823 (FX Option, BBB-, $30M): 0.88 similarity
-3. **Ranking**: Sort by similarity score
+3a. **Gold Standard Boosting (Business Rule)**:
+   - If query relates to specific domains, force inclusion of "Gold Standard" precedents:
+   - **Options/Derivatives**: Boost `TSG1917` (FX Option EUR/USD)
+   - **China/Repo**: Boost `TSG2042` (NAFMII Repo)
+   - **Swaps/Rates**: Boost `TSG2339` (Swap Connect)
+   - **Bond Channel**: Boost `TSG2543` (Sino-Singapore Bond Channel)
+   - *Logic*: Check if these IDs are in results. If not, fetch and insert at Top 3 position regardless of similarity score.
+3. **Ranking**: Sort by similarity score (after boosting)
 4. **Filtering**: Apply optional filters
    - Only "Approved" NPAs (exclude rejected)
    - Only last 2 years (exclude stale)

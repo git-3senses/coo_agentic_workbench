@@ -1,25 +1,26 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Output, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { RouterModule } from '@angular/router';
+import { AgentGovernanceService } from '../../../services/agent-governance.service';
 
 export interface NPAPipelineItem {
-    id: string;
-    name: string;
-    productType: string;
-    businessUnit: string;
-    currentStage: string;
-    status: 'on-track' | 'at-risk' | 'blocked' | 'completed';
-    daysInStage: number;
-    owner: string;
-    lastUpdated: string;
+  id: string;
+  name: string;
+  productType: string;
+  businessUnit: string;
+  currentStage: string;
+  status: 'on-track' | 'at-risk' | 'blocked' | 'completed';
+  daysInStage: number;
+  owner: string;
+  lastUpdated: string;
 }
 
 @Component({
-    selector: 'app-npa-pipeline-table',
-    standalone: true,
-    imports: [CommonModule, LucideAngularModule, RouterModule],
-    template: `
+  selector: 'app-npa-pipeline-table',
+  standalone: true,
+  imports: [CommonModule, LucideAngularModule, RouterModule],
+  template: `
     <div class="rounded-xl border border-border/50 bg-card text-card-foreground shadow-sm">
       <div class="p-6 pb-3">
         <div class="flex items-center justify-between">
@@ -49,7 +50,7 @@ export interface NPAPipelineItem {
               </tr>
             </thead>
             <tbody class="[&_tr:last-child]:border-0">
-              <tr *ngFor="let item of mockPipelineData" 
+              <tr *ngFor="let item of pipelineData" 
                   class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted group">
                 <td class="p-2 align-middle font-medium">
                   <a (click)="onViewDetail.emit(item.id)" class="text-primary hover:underline cursor-pointer">
@@ -95,100 +96,75 @@ export interface NPAPipelineItem {
     </div>
   `
 })
-export class NpaPipelineTableComponent {
-    @Output() onViewDetail = new EventEmitter<string>();
+export class NpaPipelineTableComponent implements OnInit {
+  @Output() onViewDetail = new EventEmitter<string>();
 
-    mockPipelineData: NPAPipelineItem[] = [
-        {
-            id: 'NPA210921',
-            name: 'Simple Option on Crypto Loan',
-            productType: 'Structured Product',
-            businessUnit: 'Treasury & Markets',
-            currentStage: 'Sign-Off',
-            status: 'at-risk',
-            daysInStage: 5,
-            owner: 'Michael Chen',
-            lastUpdated: '2024-01-15 10:32'
-        },
-        {
-            id: 'NPA210918',
-            name: 'Green Bond Framework',
-            productType: 'Fixed Income',
-            businessUnit: 'Corporate Banking',
-            currentStage: 'Review',
-            status: 'on-track',
-            daysInStage: 2,
-            owner: 'Sarah Wong',
-            lastUpdated: '2024-01-15 09:15'
-        },
-        {
-            id: 'NPA210915',
-            name: 'FX Accumulator - USD/SGD',
-            productType: 'FX Derivatives',
-            businessUnit: 'Treasury & Markets',
-            currentStage: 'Preparing for Launch',
-            status: 'on-track',
-            daysInStage: 1,
-            owner: 'James Liu',
-            lastUpdated: '2024-01-15 11:00'
-        },
-        {
-            id: 'NPA210910',
-            name: 'Multi-Currency Deposit',
-            productType: 'Deposit',
-            businessUnit: 'Consumer Banking',
-            currentStage: 'Launched',
-            status: 'completed',
-            daysInStage: 0,
-            owner: 'Amanda Lee',
-            lastUpdated: '2024-01-14 16:30'
-        },
-        {
-            id: 'NPA210905',
-            name: 'ESG-Linked Trade Finance',
-            productType: 'Trade Finance',
-            businessUnit: 'Institutional Banking',
-            currentStage: 'Sign-Off',
-            status: 'blocked',
-            daysInStage: 8,
-            owner: 'Robert Tan',
-            lastUpdated: '2024-01-13 14:00'
-        }
-    ];
+  pipelineData: NPAPipelineItem[] = [];
 
-    getStatusClasses(status: string): string {
-        const config: Record<string, string> = {
-            'on-track': 'bg-[hsl(var(--status-completed-bg))] text-[hsl(var(--status-completed))]',
-            'at-risk': 'bg-amber-500/10 text-amber-600',
-            'blocked': 'bg-[hsl(var(--status-exception-bg))] text-[hsl(var(--status-exception))]',
-            'completed': 'bg-[hsl(var(--status-completed-bg))] text-[hsl(var(--status-completed))]'
-        };
-        return config[status] || '';
-    }
+  constructor(private governanceService: AgentGovernanceService) { }
 
-    getStatusIcon(status: string): string {
-        const config: Record<string, string> = {
-            'on-track': 'check-circle-2',
-            'at-risk': 'alert-triangle',
-            'blocked': 'alert-triangle',
-            'completed': 'check-circle-2'
-        };
-        return config[status] || 'circle';
-    }
+  ngOnInit() {
+    this.governanceService.getProjects().subscribe({
+      next: (projects) => {
+        this.pipelineData = projects.map(p => ({
+          id: p.id,
+          name: p.title || 'Untitled',
+          productType: p.npa_type || 'New Product',
+          businessUnit: 'Global Fin. Markets', // Default or fetch if available
+          currentStage: this.mapStage(p.current_stage),
+          status: 'on-track', // Default logic for now as status isn't fully in DB yet
+          daysInStage: Math.floor((Date.now() - new Date(p.created_at).getTime()) / (1000 * 3600 * 24)),
+          owner: p.submitted_by || 'Unknown',
+          lastUpdated: new Date(p.updated_at || p.created_at).toLocaleDateString()
+        }));
+      },
+      error: (err) => console.error('Failed to load projects for pipeline table', err)
+    });
+  }
 
-    getStatusLabel(status: string): string {
-        const config: Record<string, string> = {
-            'on-track': 'On Track',
-            'at-risk': 'At Risk',
-            'blocked': 'Blocked',
-            'completed': 'Completed'
-        };
-        return config[status] || status;
-    }
+  private mapStage(backendStage: string): string {
+    const map: any = {
+      'INITIATION': 'Discovery',
+      'PENDING_SIGN_OFFS': 'Sign-Off',
+      'APPROVED': 'Launch',
+      'RETURNED_TO_MAKER': 'Review'
+    };
+    return map[backendStage] || 'Discovery';
+  }
 
-    getDaysClasses(days: number): string {
-        if (days > 7) return 'text-[hsl(var(--status-exception))] font-medium';
-        if (days > 5) return 'text-amber-600 font-medium';
-        return 'text-sm';
-    }
+  getStatusClasses(status: string): string {
+    const config: Record<string, string> = {
+      'on-track': 'bg-[hsl(var(--status-completed-bg))] text-[hsl(var(--status-completed))]',
+      'at-risk': 'bg-amber-500/10 text-amber-600',
+      'blocked': 'bg-[hsl(var(--status-exception-bg))] text-[hsl(var(--status-exception))]',
+      'completed': 'bg-[hsl(var(--status-completed-bg))] text-[hsl(var(--status-completed))]'
+    };
+    return config[status] || '';
+  }
+
+  getStatusIcon(status: string): string {
+    const config: Record<string, string> = {
+      'on-track': 'check-circle-2',
+      'at-risk': 'alert-triangle',
+      'blocked': 'alert-triangle',
+      'completed': 'check-circle-2'
+    };
+    return config[status] || 'circle';
+  }
+
+  getStatusLabel(status: string): string {
+    const config: Record<string, string> = {
+      'on-track': 'On Track',
+      'at-risk': 'At Risk',
+      'blocked': 'Blocked',
+      'completed': 'Completed'
+    };
+    return config[status] || status;
+  }
+
+  getDaysClasses(days: number): string {
+    if (days > 7) return 'text-[hsl(var(--status-exception))] font-medium';
+    if (days > 5) return 'text-amber-600 font-medium';
+    return 'text-sm';
+  }
 }

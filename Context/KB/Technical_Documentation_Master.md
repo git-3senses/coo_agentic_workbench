@@ -204,9 +204,9 @@ MCP servers act as the middleware/API layer, eliminating the need to build custo
 - [x] Source Inspector
 - [x] Mock data infrastructure
 - [ ] NPA Template Editor (47-field form with green/yellow/red indicators)
-- [ ] Checker Review Queue (Level 4 in UI/UX plan)
-- [ ] Approver Sign-Off Queue (Level 5 in UI/UX plan)
-- [ ] Role-based views (Maker vs Checker vs Approver)
+- [x] Checker Review Queue (Level 4 in UI/UX plan)
+- [x] Approver Sign-Off Queue (Level 5 in UI/UX plan)
+- [x] Role-based views (Maker vs Checker vs Approver)
 - [ ] Real-time WebSocket updates
 - [ ] SLA countdown timers
 - [ ] Aging analysis table

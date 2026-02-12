@@ -2,15 +2,20 @@ import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { NpaTemplateEditorComponent } from '../npa-template-editor/npa-template-editor.component';
+import { ActivatedRoute } from '@angular/router';
+import { AgentGovernanceService } from '../../../services/agent-governance.service';
+import { NpaWorkflowVisualizerComponent } from '../../../components/npa/npa-workflow-visualizer/npa-workflow-visualizer.component';
+import { DocumentDependencyMatrixComponent } from '../../../components/npa/document-dependency-matrix/document-dependency-matrix.component';
+import { MOCK_NPA_SECTIONS } from '../../../lib/mock-npa-data';
 
-export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
+export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
 @Component({
    selector: 'app-npa-detail',
    standalone: true,
-   imports: [CommonModule, LucideAngularModule, NpaTemplateEditorComponent],
+   imports: [CommonModule, LucideAngularModule, NpaTemplateEditorComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent],
    template: `
-    <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false"></app-npa-template-editor>
+    <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false" (onSave)="onSave.emit($event)" [inputData]="npaContext"></app-npa-template-editor>
     
     <!-- FULL SCREEN OVERLAY -->
     <div class="fixed inset-0 z-[100] flex flex-col h-screen w-screen bg-slate-50 overscroll-none font-sans">
@@ -27,7 +32,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
             <div class="flex items-center gap-3 text-xs text-gray-500 mb-2">
               <span class="font-medium text-gray-400">NPA Pipeline</span>
               <lucide-icon name="chevron-right" class="w-3 h-3 text-gray-300"></lucide-icon>
-              <span class="font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded">TSG2025-042</span>
+               <span class="font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{{ projectData?.id || projectId }}</span>
                <span class="flex items-center gap-1.5 ml-2">
                  <lucide-icon name="user" class="w-3 h-3"></lucide-icon>
                  <span class="font-medium text-gray-700">Sarah Lim (SG FX Desk)</span>
@@ -38,7 +43,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
             
             <div class="flex items-center gap-3">
               <h1 class="text-lg font-bold text-gray-900 tracking-tight">
-                FX Put Option GBP/USD
+                {{ projectData?.title || 'Loading Project...' }}
               </h1>
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
                 {{ approvalTrack }}
@@ -203,19 +208,30 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
              <!-- Tab Content Area -->
              <div class="flex-1 overflow-y-auto p-8 scroll-smooth">
                 
-                <!-- 1. PRODUCT SPECS (Enriched) -->
+                <!-- 1. NPA PROPOSAL (Executive Summary) -->
                 <div *ngIf="activeTab === 'PRODUCT_SPECS'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
                    
+                   <!-- Validation Badge -->
+                   <div *ngIf="strategicAssessment" class="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
+                        <lucide-icon name="info" class="w-5 h-5 text-blue-600 mt-0.5"></lucide-icon>
+                        <div>
+                            <h3 class="text-sm font-bold text-blue-900">Strategic Alignment Verified</h3>
+                            <p class="text-sm text-blue-800 mt-1">{{ parseFindings(strategicAssessment.findings) }}</p>
+                        </div>
+                        <div class="ml-auto">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Score: {{ strategicAssessment.score }}/100
+                            </span>
+                        </div>
+                   </div>
+
                    <!-- Quick Summary Card -->
                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                       <div class="flex items-center justify-between mb-6">
                          <h2 class="text-lg font-bold text-gray-900">Product Attributes</h2>
                          <div class="flex items-center gap-2">
                             <span class="text-xs font-medium text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-100">
-                               ✅ 78% Auto-Filled
-                            </span>
-                             <span class="text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-                               Verified by DocExtraction
+                               ✅ Auto-Filled
                             </span>
                          </div>
                       </div>
@@ -275,94 +291,169 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
                          </div>
                       </div>
                    </div>
+                   
+                   <!-- Full Proposal Details -->
+                   <div class="space-y-8 mt-8 border-t border-gray-200 pt-8">
+                       <div class="flex items-center justify-between">
+                           <h3 class="text-lg font-bold text-gray-900">Full Proposal Details</h3>
+                       </div>
+
+                       <div *ngFor="let section of sections" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                           <!-- Section Header -->
+                           <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                               <h4 class="text-base font-bold text-gray-900">{{ section.title }}</h4>
+                               <p *ngIf="section.description" class="text-sm text-gray-500 mt-1">{{ section.description }}</p>
+                           </div>
+
+                           <!-- Fields Grid -->
+                           <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                               <ng-container *ngFor="let field of section.fields">
+                                   
+                                   <!-- Header Field -->
+                                   <div *ngIf="field.type === 'header'" class="col-span-1 md:col-span-2 mt-4 mb-2 border-b border-gray-100 pb-2">
+                                       <h5 class="text-sm font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
+                                           <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                           {{ field.label }}
+                                       </h5>
+                                   </div>
+
+                                   <!-- Regular Field -->
+                                   <div *ngIf="field.type !== 'header'" [class.md:col-span-2]="field.type === 'textarea'" class="group">
+                                       <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                                           {{ field.label }}
+                                           <span *ngIf="field.lineage === 'AUTO'" class="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100">AUTO</span>
+                                       </p>
+                                       
+                                       <div [ngSwitch]="field.type">
+                                           <!-- Textarea View -->
+                                           <div *ngSwitchCase="'textarea'" class="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-200 min-h-[5rem] whitespace-pre-wrap leading-relaxed">
+                                               {{ field.value || 'Not provided' }}
+                                           </div>
+                                            <!-- File View -->
+                                            <div *ngSwitchCase="'file'" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white">
+                                                <div class="p-2 bg-blue-50 text-blue-600 rounded">
+                                                    <lucide-icon name="file-text" class="w-4 h-4"></lucide-icon>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-700 italic">
+                                                    {{ field.value ? 'Document Attached' : 'No document attached' }}
+                                                </span>
+                                            </div>
+                                           <!-- Default/Text View -->
+                                           <div *ngSwitchDefault class="text-sm font-medium text-gray-900 py-1 border-b border-gray-100 group-hover:border-gray-300 transition-colors">
+                                               {{ field.value || '-' }}
+                                           </div>
+                                       </div>
+                                   </div>
+
+                               </ng-container>
+                           </div>
+                       </div>
+                   </div>
                 </div>
 
-                <!-- 2. ANALYSIS (Enriched with predictions) -->
+                <!-- 1.5 DOCUMENTS (MATRIX) -->
+                <div *ngIf="activeTab === 'DOCUMENTS'" class="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
+                   <app-document-dependency-matrix [npaContext]="npaContext"></app-document-dependency-matrix>
+                </div>
+
+                <!-- 2. ANALYSIS (Detailed Risk & Ops) -->
                 <div *ngIf="activeTab === 'ANALYSIS'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
                    
-                   <!-- ML Prediction Hero -->
-                   <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <!-- Likelihood -->
-                      <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
-                         <div class="absolute right-0 top-0 p-4 opacity-10">
-                            <lucide-icon name="trending-up" class="w-16 h-16 text-green-600"></lucide-icon>
-                         </div>
-                         <h4 class="text-sm font-medium text-gray-500 mb-2">Approval Likelihood</h4>
-                         <div class="flex items-baseline gap-2">
-                             <span class="text-4xl font-bold text-gray-900">78%</span>
-                             <span class="text-sm font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">High</span>
-                         </div>
-                         <p class="text-xs text-gray-400 mt-2">Confidence Interval: ±5%</p>
-                         <div class="mt-4 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                            <div class="h-full bg-green-500 w-[78%] rounded-full"></div>
-                         </div>
-                      </div>
-
-                      <!-- Timeline -->
-                      <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                         <h4 class="text-sm font-medium text-gray-500 mb-2">Predicted Timeline</h4>
-                         <div class="flex items-baseline gap-2">
-                             <span class="text-4xl font-bold text-gray-900">4.2</span>
-                             <span class="text-sm text-gray-500">Days</span>
-                         </div>
-                          <p class="text-xs text-gray-400 mt-2">vs 12 Day Baseline (67% faster)</p>
-                      </div>
-
-                      <!-- Bottleneck -->
-                      <div class="bg-white p-6 rounded-xl border border-red-100 shadow-sm bg-red-50/30">
-                         <h4 class="text-sm font-medium text-red-600 mb-2 flex items-center gap-2">
-                            <lucide-icon name="alert-circle" class="w-4 h-4"></lucide-icon>
-                            Likely Bottleneck
-                         </h4>
-                         <p class="text-gray-900 font-bold">Finance Dept</p>
-                         <p class="text-sm text-gray-600 mt-1">Est. 1.8 Days</p>
-                         <p class="text-xs text-gray-500 mt-3 pt-3 border-t border-red-100">
-                            Reason: ROAE analysis often requested for >$50M deals.
-                         </p>
-                      </div>
+                   <!-- RISK ANALYSIS SECTION -->
+                   <div>
+                       <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                           <lucide-icon name="shield-alert" class="w-5 h-5 text-slate-500"></lucide-icon>
+                           Risk Analysis
+                       </h3>
+                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div *ngFor="let assessment of riskAssessments" class="rounded-xl border p-4 transition-all" [ngClass]="getAssessmentColor(assessment.status)">
+                               <div class="flex items-center justify-between mb-2">
+                                   <div class="flex items-center gap-2">
+                                       <span class="text-xs font-bold px-2 py-0.5 rounded bg-white/50 border border-black/5">
+                                           {{ assessment.domain }}
+                                       </span>
+                                       <span class="text-[10px] font-bold uppercase tracking-wide opacity-80">
+                                           {{ assessment.status }}
+                                       </span>
+                                   </div>
+                                   <span class="text-xl font-bold opacity-40">{{ assessment.score }}</span>
+                               </div>
+                               <p class="text-sm font-medium leading-relaxed">
+                                   {{ parseFindings(assessment.findings) }}
+                               </p>
+                           </div>
+                       </div>
                    </div>
 
-                   <!-- Recommendations / Flags -->
+                   <!-- OPERATIONAL READINESS SECTION -->
                    <div>
-                       <h3 class="text-sm font-bold text-gray-900 mb-4">Agent Findings (3)</h3>
-                       <div class="space-y-4">
-                          <!-- Critical Red Flag -->
-                          <div class="flex gap-4 p-5 rounded-xl bg-red-50/40 border border-red-100">
-                              <div class="flex-none pt-1">
-                                 <div class="p-2 bg-white rounded-lg border border-red-100 text-red-600 shadow-sm">
-                                    <lucide-icon name="shield-alert" class="w-5 h-5"></lucide-icon>
-                                 </div>
-                              </div>
-                              <div class="flex-1">
-                                 <div class="flex items-center justify-between mb-1">
-                                    <h4 class="font-bold text-gray-900">Missing Risk Memo</h4>
-                                    <span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded uppercase tracking-wide">Blocker</span>
-                                 </div>
-                                 <p class="text-sm text-gray-600 leading-relaxed mb-3">
-                                    Global Risk Policy 5.2 requires a Risk Memo for FX Options > $10M notional. This is a hard requirement for Sign-Off.
-                                 </p>
-                                 <button class="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 group">
-                                    Auto-Draft Waiver Request
-                                    <lucide-icon name="arrow-right" class="w-4 h-4 group-hover:translate-x-0.5 transition-transform"></lucide-icon>
-                                 </button>
-                              </div>
-                          </div>
+                       <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                           <lucide-icon name="settings" class="w-5 h-5 text-slate-500"></lucide-icon>
+                           Operational Readiness
+                       </h3>
+                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div *ngFor="let assessment of opsAssessments" class="rounded-xl border p-4 transition-all" [ngClass]="getAssessmentColor(assessment.status)">
+                               <div class="flex items-center justify-between mb-2">
+                                   <div class="flex items-center gap-2">
+                                       <span class="text-xs font-bold px-2 py-0.5 rounded bg-white/50 border border-black/5">
+                                           {{ assessment.domain }}
+                                       </span>
+                                       <span class="text-[10px] font-bold uppercase tracking-wide opacity-80">
+                                           {{ assessment.status }}
+                                       </span>
+                                   </div>
+                                   <span class="text-xl font-bold opacity-40">{{ assessment.score }}</span>
+                               </div>
+                               <p class="text-sm font-medium leading-relaxed">
+                                   {{ parseFindings(assessment.findings) }}
+                               </p>
+                           </div>
+                       </div>
+                   </div>
 
-                          <!-- Green Flag -->
-                           <div class="flex gap-4 p-5 rounded-xl bg-green-50/40 border border-green-100">
-                              <div class="flex-none pt-1">
-                                 <div class="p-2 bg-white rounded-lg border border-green-100 text-green-600 shadow-sm">
-                                    <lucide-icon name="check-circle" class="w-5 h-5"></lucide-icon>
-                                 </div>
+                   <!-- AI PREDICTION (Legacy) -->
+                   <div class="mt-8 pt-8 border-t border-gray-200">
+                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">AI Predictions</h4>
+                       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                           <!-- Likelihood -->
+                           <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+                              <div class="absolute right-0 top-0 p-4 opacity-10">
+                                 <lucide-icon name="trending-up" class="w-16 h-16 text-green-600"></lucide-icon>
                               </div>
-                              <div class="flex-1">
-                                 <h4 class="font-bold text-gray-900 mb-1">Compliance Checks Passed</h4>
-                                 <p class="text-sm text-gray-600 leading-relaxed">
-                                    Prohibited List Checker (4 Layers), Sanctions Check (OFAC/UN), and Regulatory Check (MAS) all cleared.
-                                 </p>
+                              <h4 class="text-sm font-medium text-gray-500 mb-2">Approval Likelihood</h4>
+                              <div class="flex items-baseline gap-2">
+                                  <span class="text-4xl font-bold text-gray-900">78%</span>
+                                  <span class="text-sm font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">High</span>
                               </div>
-                          </div>
-                      </div>
+                              <p class="text-xs text-gray-400 mt-2">Confidence Interval: ±5%</p>
+                              <div class="mt-4 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                                 <div class="h-full bg-green-500 w-[78%] rounded-full"></div>
+                              </div>
+                           </div>
+    
+                           <!-- Timeline -->
+                           <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                              <h4 class="text-sm font-medium text-gray-500 mb-2">Predicted Timeline</h4>
+                              <div class="flex items-baseline gap-2">
+                                  <span class="text-4xl font-bold text-gray-900">4.2</span>
+                                  <span class="text-sm text-gray-500">Days</span>
+                              </div>
+                               <p class="text-xs text-gray-400 mt-2">vs 12 Day Baseline (67% faster)</p>
+                           </div>
+    
+                           <!-- Bottleneck -->
+                           <div class="bg-white p-6 rounded-xl border border-red-100 shadow-sm bg-red-50/30">
+                              <h4 class="text-sm font-medium text-red-600 mb-2 flex items-center gap-2">
+                                 <lucide-icon name="alert-circle" class="w-4 h-4"></lucide-icon>
+                                 Likely Bottleneck
+                              </h4>
+                              <p class="text-gray-900 font-bold">Finance Dept</p>
+                              <p class="text-sm text-gray-600 mt-1">Est. 1.8 Days</p>
+                              <p class="text-xs text-gray-500 mt-3 pt-3 border-t border-red-100">
+                                 Reason: ROAE analysis often requested for >$50M deals.
+                              </p>
+                           </div>
+                       </div>
                    </div>
                 </div>
 
@@ -452,86 +543,8 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
                 <!-- 4. WORKFLOW (Enriched) -->
                 <div *ngIf="activeTab === 'WORKFLOW'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
                    
-                   <div class="relative pl-8 border-l border-gray-200 space-y-12 my-6">
-                      
-                      <!-- Stage 1: Ingestion (Done) -->
-                      <div class="relative group">
-                         <div class="absolute -left-[37px] top-0 w-6 h-6 rounded-full bg-blue-600 border-4 border-white shadow-md flex items-center justify-center">
-                            <lucide-icon name="check" class="w-3 h-3 text-white"></lucide-icon>
-                         </div>
-                         <h3 class="text-lg font-bold text-gray-900 mb-1">Stage 1: Initiation</h3>
-                         <p class="text-xs text-gray-500 uppercase tracking-wide mb-4">Completed: Dec 16, 09:42 AM (Duration: 38m)</p>
-                         
-                         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200/60 space-y-3">
-                            <div class="flex items-center gap-3">
-                               <lucide-icon name="message-square" class="w-4 h-4 text-blue-500"></lucide-icon>
-                               <span class="text-sm text-gray-700">Product Ideation Interview</span>
-                               <span class="text-xs text-green-600 font-mono ml-auto">COMPLETE</span>
-                            </div>
-                            <div class="flex items-center gap-3">
-                               <lucide-icon name="upload-cloud" class="w-4 h-4 text-blue-500"></lucide-icon>
-                               <span class="text-sm text-gray-700">Document Upload (13 Files)</span>
-                               <span class="text-xs text-green-600 font-mono ml-auto">COMPLETE</span>
-                            </div>
-                             <div class="flex items-center gap-3">
-                               <lucide-icon name="shield-check" class="w-4 h-4 text-blue-500"></lucide-icon>
-                               <span class="text-sm text-gray-700">Prohibited List Check (4 Layers)</span>
-                               <span class="text-xs text-green-600 font-mono ml-auto">PASSED</span>
-                            </div>
-                         </div>
-                      </div>
-
-                      <!-- Stage 2: Review (Current) -->
-                      <div class="relative group">
-                         <div class="absolute -left-[37px] top-0 w-6 h-6 rounded-full bg-white border-[3px] border-blue-600 shadow-md flex items-center justify-center animate-pulse">
-                            <div class="w-2 h-2 bg-blue-600 rounded-full"></div>
-                         </div>
-                         <h3 class="text-lg font-bold text-blue-700 mb-1">Stage 2: Review & Sign-Off</h3>
-                         <p class="text-xs text-blue-600 uppercase tracking-wide mb-4">In Progress • Start: Dec 16, 10:00 AM</p>
-
-                          <div class="bg-white rounded-lg p-5 border border-blue-200 shadow-sm space-y-4">
-                            <div class="flex items-center gap-3">
-                               <lucide-icon name="eye" class="w-4 h-4 text-gray-400"></lucide-icon>
-                               <span class="text-sm text-gray-900 font-medium">NPA Champion Review</span>
-                               <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded ml-auto">PENDING</span>
-                            </div>
-                            <div class="pl-7 text-xs text-gray-500 border-l border-gray-100 ml-2">
-                               Assigned to: <span class="font-semibold text-gray-700">David Chen</span>
-                            </div>
-                         </div>
-                      </div>
-
-                      <!-- Stage 3: Launch (Future) -->
-                      <div class="relative group opacity-50">
-                         <div class="absolute -left-[37px] top-0 w-6 h-6 rounded-full bg-gray-200 border-4 border-white shadow-sm"></div>
-                         <h3 class="text-lg font-bold text-gray-500 mb-1">Stage 4: Launch</h3>
-                         <p class="text-xs text-gray-400 uppercase tracking-wide mb-4">Estimated: Dec 20</p>
-                      </div>
-
-                      <!-- Stage 4: Post-Launch Monitoring -->
-                      <div class="relative group opacity-40">
-                         <div class="absolute -left-[37px] top-0 w-6 h-6 rounded-full bg-gray-200 border-4 border-white shadow-sm"></div>
-                         <h3 class="text-lg font-bold text-gray-500 mb-1">Stage 5: Post-Launch Monitoring</h3>
-                         <p class="text-xs text-gray-400 uppercase tracking-wide mb-4">Continuous • Starts after Launch</p>
-                         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200/60 space-y-3">
-                            <div class="flex items-center gap-3">
-                               <lucide-icon name="activity" class="w-4 h-4 text-gray-400"></lucide-icon>
-                               <span class="text-sm text-gray-500">Breach Monitoring (Volume, Rating, Exposure)</span>
-                               <span class="text-xs text-gray-400 font-mono ml-auto">PENDING</span>
-                            </div>
-                            <div class="flex items-center gap-3">
-                               <lucide-icon name="bar-chart-2" class="w-4 h-4 text-gray-400"></lucide-icon>
-                               <span class="text-sm text-gray-500">Performance Metrics Tracking</span>
-                               <span class="text-xs text-gray-400 font-mono ml-auto">PENDING</span>
-                            </div>
-                            <div class="flex items-center gap-3">
-                               <lucide-icon name="clock" class="w-4 h-4 text-gray-400"></lucide-icon>
-                               <span class="text-sm text-gray-500">Periodic Review Triggers (90d / 180d / Annual)</span>
-                               <span class="text-xs text-gray-400 font-mono ml-auto">PENDING</span>
-                            </div>
-                         </div>
-                      </div>
-
+                   <div class="my-6">
+                      <app-npa-workflow-visualizer></app-npa-workflow-visualizer>
                    </div>
                 </div>
 
@@ -651,26 +664,125 @@ export type DetailTab = 'PRODUCT_SPECS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' 
 export class NpaDetailComponent implements OnInit {
    @Input() npaContext: any = null;
    @Output() onBack = new EventEmitter<void>();
+   @Output() onSave = new EventEmitter<any>(); // Emit draft data
    @Input() autoOpenEditor = false;
 
    activeTab: DetailTab = 'PRODUCT_SPECS';
+
+   // Add properties for real data
+   projectId: string | null = null;
+   projectData: any = null;
+   currentStage: string = 'Discovery';
+
+   constructor(
+      private route: ActivatedRoute,
+      private governanceService: AgentGovernanceService
+   ) { }
 
    ngOnInit() {
       if (this.autoOpenEditor) {
          this.showTemplateEditor = true;
       }
+
+      this.route.queryParams.subscribe(params => {
+         if (params['projectId']) {
+            this.projectId = params['projectId'];
+            this.loadProjectDetails(this.projectId!);
+         } else if (params['npaId']) {
+            // Fallback for old link style
+            this.projectId = params['npaId'];
+            this.loadProjectDetails(this.projectId!);
+         }
+      });
+   }
+
+   // New properties for Golden Source data
+   sections = MOCK_NPA_SECTIONS;
+   intakeAssessments: any[] = [];
+   strategicAssessment: any = null;
+
+   loadProjectDetails(id: string) {
+      this.governanceService.getProjectDetails(id).subscribe({
+         next: (data) => {
+            this.projectData = data;
+            // Update view properties
+            this.currentStage = data.current_stage;
+            this.mapBackendDataToView(data);
+         },
+         error: (err) => console.error('Failed to load project details', err)
+      });
+   }
+
+   mapBackendDataToView(data: any) {
+      // Map Intake Assessments (Golden Source)
+      if (data.intake_assessments) {
+         this.intakeAssessments = data.intake_assessments;
+         this.strategicAssessment = this.intakeAssessments.find(a => a.domain === 'STRATEGIC');
+      }
+
+      // Map Form Data to Product Attributes
+      if (data.formData && data.formData.length > 0) {
+         this.productAttributes = data.formData.map((f: any) => ({
+            label: this.formatLabel(f.field_key),
+            value: f.field_value,
+            confidence: f.confidence_score
+         }));
+      }
+
+      // Map Signoffs to Approval Matrix (simplified mapping for now)
+      if (data.signoffs) {
+         console.log('Signoffs loaded:', data.signoffs);
+      }
+
+      // Map Classification Scorecard
+      if (data.scorecard) {
+         console.log('Scorecard loaded:', data.scorecard);
+      }
+   }
+
+   get riskAssessments() {
+      return this.intakeAssessments.filter(a => ['RISK', 'LEGAL', 'FINANCE'].includes(a.domain));
+   }
+
+   get opsAssessments() {
+      return this.intakeAssessments.filter(a => ['OPS', 'TECH', 'DATA'].includes(a.domain));
+   }
+
+   getAssessmentColor(status: string): string {
+      switch (status) {
+         case 'PASS': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+         case 'WARN': return 'bg-amber-50 text-amber-700 border-amber-100';
+         case 'FAIL': return 'bg-rose-50 text-rose-700 border-rose-100';
+         default: return 'bg-gray-50 text-gray-700 border-gray-100';
+      }
+   }
+
+   parseFindings(findings: string | object): string {
+      if (!findings) return 'No detailed findings recorded.';
+      try {
+         const obj = typeof findings === 'string' ? JSON.parse(findings) : findings;
+         return obj.observation || JSON.stringify(obj);
+      } catch (e) {
+         return String(findings);
+      }
+   }
+
+   formatLabel(key: string): string {
+      return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
    }
 
    get isCrossBorder(): boolean {
-      return this.npaContext?.isCrossBorder ?? true;
+      return this.projectData?.is_cross_border ?? this.npaContext?.isCrossBorder ?? false;
    }
 
    get approvalTrack(): string {
-      return this.npaContext?.track === 'NPA_LITE' ? 'NPA Lite (Variation)' : 'Variation (Medium Risk)';
+      const type = this.projectData?.npa_type || this.npaContext?.track;
+      return type === 'NPA Lite' ? 'NPA Lite (Variation)' : (type === 'New-to-Group' ? 'New-to-Group (High Risk)' : 'Variation (Medium Risk)');
    }
 
    tabs: { id: DetailTab, label: string, icon: string, badge?: string }[] = [
       { id: 'PRODUCT_SPECS', label: 'NPA Proposal', icon: 'clipboard-list' },
+      { id: 'DOCUMENTS', label: 'Documents', icon: 'folder-check', badge: '2 Missing' },
       { id: 'ANALYSIS', label: 'Analysis & Predictions', icon: 'brain-circuit', badge: '78%' },
       { id: 'APPROVALS', label: 'Sign-Off Status', icon: 'users', badge: '6' },
       { id: 'WORKFLOW', label: 'Workflow', icon: 'git-branch' },
@@ -678,30 +790,9 @@ export class NpaDetailComponent implements OnInit {
       { id: 'CHAT', label: 'Assistant', icon: 'message-square' },
    ];
 
-   productAttributes = [
-      { label: 'Product Type', value: 'FX Put Option', confidence: 95 },
-      { label: 'Underlying', value: 'GBP / USD', confidence: 99 },
-      { label: 'Notional', value: '$75,000,000', confidence: 99 },
-      { label: 'Tenor', value: '6 Months', confidence: 99 },
-      { label: 'Strike Price', value: '1.2750', confidence: 92 },
-      { label: 'Settlement', value: 'Cash (USD)', confidence: 96 },
-      { label: 'Counterparty', value: 'Acme Corp (HK)', confidence: 85 },
-      { label: 'Credit Rating', value: 'A- (S&P)', confidence: 98 },
-      { label: 'Booking Desk', value: 'Singapore FX', confidence: 99 },
-   ];
+   productAttributes: any[] = [];
 
-   breaches = [
-      {
-         id: 'BR-001', title: 'Volume Threshold Breach', severity: 'critical',
-         description: 'Daily traded volume exceeded $150M threshold (actual: $187M). Triggered at 14:32 SGT.',
-         escalatedTo: 'Head of FX Trading (David Chen)', slaHours: 4, triggeredAt: '2h 15m ago'
-      },
-      {
-         id: 'BR-002', title: 'Counterparty Rating Downgrade', severity: 'warning',
-         description: 'Acme Corp (HK) downgraded from A- to BBB+ by S&P. Collateral review required.',
-         escalatedTo: 'Credit Risk Team', slaHours: 24, triggeredAt: '6h ago'
-      }
-   ];
+   breaches: any[] = [];
 
    monitoringMetrics = [
       { label: 'Days Since Launch', value: '42', icon: 'calendar', color: 'blue' },

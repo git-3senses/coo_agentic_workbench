@@ -106,6 +106,12 @@ When an NPA completes Checker review, the agent determines the optimal approval 
 - **NPA Lite** → Reduced set (Credit, Finance, MLR typically)
 - **Bundling** → Bundling Arbitration Team only
 
+**Factor 6: Special Cross-Border Schemes (Business Rule)**
+- **Sino-Singapore Bond Channel**:
+  - **Model 1 (Northbound)**: + China Local Legal, + China Tax
+  - **Model 2 (Southbound)**: + Group Legal, + Finance VP
+- **Wealth Connect**: + Conduct Risk, + Consumer Banking Ops
+
 #### Approval Routing Logic Table
 
 | Condition | Required Department |

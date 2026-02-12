@@ -10,21 +10,42 @@ export const routes: Routes = [
         children: [
             { path: '', component: CommandCenterComponent },
 
-            // NPA Agent (Specific Route)
             {
                 path: 'agents/npa',
                 loadComponent: () => import('./pages/npa-agent/npa-agent.component').then(m => m.NPAAgentComponent)
             },
+            {
+                path: 'agents/npa/readiness',
+                loadComponent: () => import('./pages/npa-agent/npa-readiness-assessment/npa-readiness-assessment.component').then(m => m.NpaReadinessAssessmentComponent)
+            },
+            {
+                path: 'agents/npa/classification',
+                loadComponent: () => import('./pages/npa-agent/classification-scorecard/classification-scorecard.component').then(m => m.ClassificationScorecardComponent)
+            },
 
 
 
-            // Workbench
-            { path: 'workbench/my-work', component: PlaceholderComponent },
-            { path: 'workbench/agent-insights', component: PlaceholderComponent },
-            { path: 'workbench/cross-function', component: PlaceholderComponent },
+            // Workbench / Workspace
+            { path: 'workbench/my-work', redirectTo: 'workspace/inbox', pathMatch: 'full' },
+            {
+                path: 'workspace/inbox',
+                loadComponent: () => import('./pages/approval-dashboard/approval-dashboard.component').then(m => m.ApprovalDashboardComponent),
+                data: { view: 'INBOX' }
+            },
+            {
+                path: 'workspace/drafts',
+                loadComponent: () => import('./pages/approval-dashboard/approval-dashboard.component').then(m => m.ApprovalDashboardComponent),
+                data: { view: 'DRAFTS' }
+            },
+            {
+                path: 'workspace/watchlist',
+                loadComponent: () => import('./pages/approval-dashboard/approval-dashboard.component').then(m => m.ApprovalDashboardComponent),
+                data: { view: 'WATCHLIST' }
+            },
             {
                 path: 'approvals',
-                loadComponent: () => import('./pages/approval-dashboard/approval-dashboard.component').then(m => m.ApprovalDashboardComponent)
+                redirectTo: 'workspace/inbox',
+                pathMatch: 'full'
             },
 
             // Work Items

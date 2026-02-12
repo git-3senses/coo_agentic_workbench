@@ -1,22 +1,27 @@
-import { Component, EventEmitter, Output, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, EventEmitter, Output, OnInit, ViewChild, ElementRef, AfterViewChecked, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { DifyService, DifyAgentResponse } from '../../../services/dify/dify.service';
 import { MarkdownModule } from 'ngx-markdown';
+import { AGENT_REGISTRY, AgentDefinition, AgentAction, AgentActivityUpdate } from '../../../lib/agent-interfaces';
+import { Subscription } from 'rxjs';
 
 interface ChatMessage {
     role: 'user' | 'agent';
     content: string;
     timestamp: Date;
-    agentIdentity?: AgentIdentity; // The agent who sent this message
+    agentIdentity?: AgentIdentity;
+    cardType?: 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION';
+    cardData?: any;
+    agentAction?: AgentAction;
 }
 
 interface AgentIdentity {
     id: string;
     name: string;
     role: string;
-    color: string; // Tailwind class for bg
+    color: string;
     icon: string;
 }
 
@@ -35,7 +40,7 @@ interface AgentIdentity {
               <h4 class="font-bold text-gray-900 text-sm">Proposal Ready</h4>
               <p class="text-xs text-gray-500">Draft generated successfully.</p>
           </div>
-          <button (click)="onComplete.emit()" class="ml-4 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700 shadow-sm">
+          <button (click)="onComplete.emit(routingPayload)" class="ml-4 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700 shadow-sm">
               View
           </button>
       </div>
@@ -46,16 +51,90 @@ interface AgentIdentity {
             
             <!-- Avatar -->
             <div class="flex-none w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm transition-all relative"
-                 [ngClass]="msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200 text-indigo-600'">
+                 [ngClass]="msg.role === 'user' ? 'bg-indigo-600 text-white chat-avatar-user' : 'bg-white border border-gray-200 text-indigo-600 chat-avatar-agent'">
                <span *ngIf="msg.role === 'user'">V</span>
                <lucide-icon *ngIf="msg.role !== 'user'" name="bot" class="w-4 h-4"></lucide-icon>
             </div>
 
-            <!-- Bubble -->
-            <div class="max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm transition-all"
-                 [ngClass]="msg.role === 'user' ? 'bg-indigo-50 border border-indigo-100 text-gray-900 rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm'">
-               <markdown [data]="msg.content"></markdown>
-               <span class="text-[9px] opacity-40 mt-1 block font-mono">{{ msg.timestamp | date:'shortTime' }}</span>
+            <!-- Bubble Container -->
+            <div class="flex flex-col gap-2 max-w-[85%]">
+                
+                <!-- Text Bubble -->
+                <div class="rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm transition-all"
+                     [ngClass]="msg.role === 'user' ? 'bg-indigo-50 border border-indigo-100 text-gray-900 rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm'">
+                   <markdown [data]="msg.content"></markdown>
+                   <span class="text-[9px] opacity-40 mt-1 block font-mono">{{ msg.timestamp | date:'shortTime' }}</span>
+                </div>
+
+                <!-- CARD: CLASSIFICATION (from Dify metadata) -->
+                <div *ngIf="msg.cardType === 'CLASSIFICATION' && msg.cardData" class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm animate-fade-in w-full">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
+                                <lucide-icon name="git-branch" class="w-5 h-5"></lucide-icon>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-indigo-900">{{ msg.cardData.type || 'Classification' }}</h4>
+                                <p class="text-[10px] text-indigo-600 font-mono uppercase">{{ msg.cardData.track }}</p>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold" [ngClass]="msg.cardData.overallConfidence > 80 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">
+                            {{ msg.cardData.overallConfidence }}% Confidence
+                        </span>
+                    </div>
+
+                    <!-- Score Bars (7-criteria) -->
+                    <div *ngIf="msg.cardData.scores" class="space-y-2 mb-3">
+                        <div *ngFor="let score of msg.cardData.scores" class="flex items-center gap-2 text-xs">
+                            <span class="w-24 text-slate-600 font-medium truncate">{{ score.criterion }}</span>
+                            <div class="flex-1 h-1.5 bg-indigo-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-indigo-500 rounded-full transition-all duration-700" [style.width.%]="(score.score / score.maxScore) * 100"></div>
+                            </div>
+                            <span class="font-mono text-indigo-700 w-8 text-right">{{ score.score }}/{{ score.maxScore }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD: HARD STOP (Prohibited Product) -->
+                <div *ngIf="msg.cardType === 'HARD_STOP' && msg.cardData" class="bg-red-50 border-2 border-red-300 rounded-xl p-4 shadow-sm animate-fade-in w-full">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="p-2 bg-red-100 text-red-700 rounded-lg">
+                            <lucide-icon name="shield-alert" class="w-5 h-5"></lucide-icon>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-red-900">PROHIBITED — Hard Stop</h4>
+                            <p class="text-[10px] text-red-600 font-mono uppercase">{{ msg.cardData.prohibitedMatch?.layer || 'REGULATORY' }}</p>
+                        </div>
+                    </div>
+                    <div class="text-xs text-red-800 p-2 bg-white/50 rounded border border-red-200">
+                        Matched prohibited item: <strong>{{ msg.cardData.prohibitedMatch?.item || 'Unknown' }}</strong>. NPA creation blocked.
+                    </div>
+                </div>
+
+                <!-- CARD: ML PREDICTION -->
+                <div *ngIf="msg.cardType === 'PREDICTION' && msg.cardData" class="bg-amber-50 border border-amber-100 rounded-xl p-4 shadow-sm animate-fade-in w-full">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="p-2 bg-amber-100 text-amber-700 rounded-lg">
+                            <lucide-icon name="trending-up" class="w-5 h-5"></lucide-icon>
+                        </div>
+                        <h4 class="text-sm font-bold text-amber-900">ML Prediction</h4>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                            <div class="text-2xl font-bold text-amber-900">{{ msg.cardData.approvalLikelihood || 0 }}%</div>
+                            <div class="text-[10px] text-amber-600 uppercase font-bold">Approval</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-amber-900">{{ msg.cardData.timelineDays || 0 }}d</div>
+                            <div class="text-[10px] text-amber-600 uppercase font-bold">Timeline</div>
+                        </div>
+                        <div>
+                            <div class="text-sm font-bold text-amber-900">{{ msg.cardData.bottleneckDept || '-' }}</div>
+                            <div class="text-[10px] text-amber-600 uppercase font-bold">Bottleneck</div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
          </div>
 
@@ -79,6 +158,18 @@ interface AgentIdentity {
          </button>
       </div>
 
+      <!-- Agent Activity Strip -->
+      <div *ngIf="getActiveAgentsList().length > 0" class="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center gap-2 overflow-x-auto">
+         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-none">Agents:</span>
+         <div *ngFor="let a of getActiveAgentsList()" class="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium border flex-none"
+              [ngClass]="a.status === 'running' ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse' : a.status === 'done' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
+            <lucide-icon [name]="a.icon" class="w-3 h-3"></lucide-icon>
+            {{ a.name }}
+            <lucide-icon *ngIf="a.status === 'running'" name="loader-2" class="w-3 h-3 animate-spin"></lucide-icon>
+            <lucide-icon *ngIf="a.status === 'done'" name="check" class="w-3 h-3"></lucide-icon>
+         </div>
+      </div>
+
       <!-- Input -->
       <div class="p-4 bg-gray-50 border-t border-gray-200">
          <!-- DRAFT READY BANNER (Contextual) -->
@@ -89,7 +180,7 @@ interface AgentIdentity {
                  </div>
                  <span class="text-sm font-bold text-green-900">Draft Proposal Ready</span>
              </div>
-             <button (click)="onComplete.emit()" class="px-4 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg shadow-sm hover:bg-green-700 flex items-center gap-2 transition-colors">
+             <button (click)="onComplete.emit(routingPayload)" class="px-4 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg shadow-sm hover:bg-green-700 flex items-center gap-2 transition-colors">
                  Review Now <lucide-icon name="arrow-right" class="w-3.5 h-3.5"></lucide-icon>
              </button>
          </div>
@@ -127,9 +218,12 @@ interface AgentIdentity {
     .animate-fade-in { animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
   `]
 })
-export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
+export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     @Output() onComplete = new EventEmitter<any>();
     @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
+
+    private difyService = inject(DifyService);
+    private activitySub?: Subscription;
 
     userInput = '';
     isThinking = false;
@@ -140,33 +234,56 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
     showGenerateButton = false;
     routingPayload: any = null;
 
-    // DEFINED AGENTS
-    readonly AGENTS: Record<string, AgentIdentity> = {
-        ORCHESTRATOR: { id: 'ORCHESTRATOR', name: 'NPA Orchestrator', role: 'Main Coordinator', color: 'bg-slate-800', icon: 'brain-circuit' },
-        STRATEGY: { id: 'STRATEGY', name: 'Strategy Agent', role: 'Product & Market Analysis', color: 'bg-amber-500', icon: 'lightbulb' },
-        RISK: { id: 'RISK', name: 'Risk Agent', role: 'Risk & Compliance Check', color: 'bg-red-500', icon: 'shield-alert' },
-        LEGAL: { id: 'LEGAL', name: 'Legal Agent', role: 'Regulatory & Contract Review', color: 'bg-blue-600', icon: 'scale' },
-        OPS: { id: 'OPS', name: 'Ops Agent', role: 'Operational Workflow', color: 'bg-emerald-600', icon: 'settings' }
-    };
+    // 13-AGENT REGISTRY (data-driven from AGENT_REGISTRY)
+    readonly AGENTS: Record<string, AgentIdentity> = {};
+    activeAgents: Map<string, 'idle' | 'running' | 'done' | 'error'> = new Map();
 
-    currentAgent: AgentIdentity = this.AGENTS['ORCHESTRATOR'];
+    currentAgent: AgentIdentity;
 
-    constructor(private difyService: DifyService) { }
+    constructor() {
+        // Build agent identity map from AGENT_REGISTRY
+        for (const agent of AGENT_REGISTRY) {
+            this.AGENTS[agent.id] = {
+                id: agent.id,
+                name: agent.name,
+                role: agent.description,
+                color: agent.color,
+                icon: agent.icon
+            };
+            this.activeAgents.set(agent.id, 'idle');
+        }
+        this.currentAgent = this.AGENTS['MASTER_COO'];
+    }
 
     ngOnInit() {
         this.startConversation();
+
+        // Subscribe to real-time agent activity updates
+        this.activitySub = this.difyService.getAgentActivity().subscribe(update => {
+            this.activeAgents.set(update.agentId, update.status);
+        });
     }
 
     ngAfterViewChecked() {
         this.scrollToBottom();
     }
 
+    ngOnDestroy() {
+        this.activitySub?.unsubscribe();
+    }
+
     startConversation() {
         this.difyService.reset();
-        this.messages.push({
-            role: 'agent',
-            content: 'Hello! I am your **NPA Agent**. I can assist you with all your product approval tasks. When you are ready to generate a draft, simply say **"Confirm"**.',
-            timestamp: new Date()
+        // Push initial greeting via DifyService
+        this.isThinking = true;
+        this.difyService.sendMessage('', {}, 'MASTER_COO').subscribe(res => {
+            this.messages.push({
+                role: 'agent',
+                content: res.answer,
+                timestamp: new Date(),
+                agentIdentity: this.AGENTS['MASTER_COO']
+            });
+            this.isThinking = false;
         });
     }
 
@@ -180,70 +297,103 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked {
     }
 
     private processUserMessage(content: string) {
-        // 1. User Message
         this.messages.push({ role: 'user', content, timestamp: new Date() });
         this.userInput = '';
         this.isThinking = true;
 
-        // 2. ORCHESTRATION LOGIC (Realtime from Dify Agent)
-        this.callAgentResponse(content, this.currentAgent);
-    }
-
-    private finishDraft() {
-        this.isDraftReady = true;
-        this.showToast = true;
-
-        // Hide Toast after 5s
-        setTimeout(() => {
-            this.showToast = false;
-        }, 5000);
-    }
-
-    private determineTargetAgent(content: string): AgentIdentity {
-        // logic preserved for future backend routing if needed, but not used for UI
-        return this.AGENTS['ORCHESTRATOR'];
-    }
-
-    generateWorkItem() {
-        this.onComplete.emit(this.routingPayload);
-    }
-
-    private callAgentResponse(content: string, agent: AgentIdentity) {
-        this.difyService.sendMessage(content).subscribe({
+        // Send to rewritten DifyService (mock or real Dify API)
+        this.difyService.sendMessage(content, {}, 'MASTER_COO').subscribe({
             next: (res) => {
-                this.messages.push({
-                    role: 'agent',
-                    content: res.answer,
-                    timestamp: new Date()
-                });
-                this.isThinking = false;
-
-                // Check for Agent Actions
-                if (res.metadata?.agent_action === 'FINALIZE_DRAFT') {
-                    this.finishDraft();
-                } else if (res.metadata?.agent_action === 'ROUTE_WORK_ITEM') {
-                    this.routingPayload = res.metadata.payload;
-                    this.showGenerateButton = true;
-                } else if (res.metadata?.agent_action === 'STOP_PROCESS') {
-                    this.showGenerateButton = false;
-                    this.routingPayload = null;
-                }
+                this.handleDifyResponse(res);
             },
             error: () => {
                 this.messages.push({
                     role: 'agent',
-                    content: "I'm encountering a connection issue. Please try again.",
-                    timestamp: new Date()
+                    content: 'Sorry, I encountered an error processing your request.',
+                    timestamp: new Date(),
+                    agentIdentity: this.AGENTS['MASTER_COO']
                 });
                 this.isThinking = false;
             }
         });
     }
 
+    private handleDifyResponse(res: DifyAgentResponse) {
+        const agentId = res.metadata?.agent_id || 'MASTER_COO';
+        const identity = this.AGENTS[agentId] || this.AGENTS['MASTER_COO'];
+        const action = res.metadata?.agent_action;
+
+        // Determine card type from agent_action metadata
+        let cardType: ChatMessage['cardType'] = undefined;
+        let cardData: any = undefined;
+
+        if (action === 'SHOW_CLASSIFICATION' && res.metadata?.payload) {
+            cardType = 'CLASSIFICATION';
+            cardData = res.metadata.payload;
+        } else if (action === 'HARD_STOP' || action === 'STOP_PROCESS') {
+            cardType = 'HARD_STOP';
+            cardData = res.metadata?.payload;
+        } else if (action === 'SHOW_PREDICTION' && res.metadata?.payload) {
+            cardType = 'PREDICTION';
+            cardData = res.metadata.payload;
+        } else if (action === 'FINALIZE_DRAFT') {
+            this.finishDraft(res.metadata?.payload);
+        }
+
+        this.messages.push({
+            role: 'agent',
+            content: res.answer,
+            timestamp: new Date(),
+            agentIdentity: identity,
+            cardType,
+            cardData,
+            agentAction: action as AgentAction
+        });
+        this.isThinking = false;
+    }
+
+    private finishDraft(payload?: any) {
+        this.isDraftReady = true;
+        this.showToast = true;
+
+        this.routingPayload = payload || {
+            title: 'NPA Draft',
+            npaType: 'Variation',
+            riskLevel: 'MEDIUM',
+            isCrossBorder: false,
+            description: 'Auto-generated NPA draft from agent analysis.',
+            notional: 0,
+            jurisdictions: ['Singapore'],
+            requiredSignOffs: payload?.mandatorySignOffs || ['Finance', 'Credit', 'Ops'],
+            submittedBy: 'Current User',
+            submittedDate: new Date()
+        };
+
+        this.showGenerateButton = true;
+        setTimeout(() => { this.showToast = false; }, 5000);
+    }
+
+    generateWorkItem() {
+        this.onComplete.emit(this.routingPayload);
+    }
+
     resetChat() {
         this.messages = [];
-        this.currentAgent = this.AGENTS['ORCHESTRATOR'];
+        this.currentAgent = this.AGENTS['MASTER_COO'];
+        this.isDraftReady = false;
+        this.showGenerateButton = false;
+        this.activeAgents.forEach((_, key) => this.activeAgents.set(key, 'idle'));
         this.startConversation();
+    }
+
+    /** Get agents that are currently active (running/done) for display */
+    getActiveAgentsList(): { id: string; name: string; icon: string; status: string }[] {
+        return Array.from(this.activeAgents.entries())
+            .filter(([_, status]) => status !== 'idle')
+            .map(([id, status]) => {
+                const agent = this.AGENTS[id];
+                return { id, name: agent?.name || id, icon: agent?.icon || 'bot', status };
+            });
     }
 
     private scrollToBottom(): void {

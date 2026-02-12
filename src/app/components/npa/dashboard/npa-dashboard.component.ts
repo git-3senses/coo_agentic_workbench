@@ -6,7 +6,10 @@ import { DifyAgentService, AgentCapability, AgentWorkItem, HealthMetrics } from 
 import { CapabilityCardComponent } from './capability-card.component';
 import { WorkItemListComponent } from './work-item-list.component';
 import { AgentHealthPanelComponent } from './agent-health-panel.component';
+
 import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
+import { UserService } from '../../../services/user.service';
+import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
 
 @Component({
    selector: 'app-npa-dashboard',
@@ -50,7 +53,7 @@ import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
                      <span class="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100 uppercase tracking-wide">v2.1 Online</span>
                   </h1>
                   <p class="text-lg text-slate-500 max-w-2xl leading-relaxed mt-1">
-                     Your AI assistant for New Product Approvals. I can create NPAs, predict outcomes, validate docs, and orchestrate approvals associated with Dify Agents.
+                     Your AI-powered NPA workbench with 13 specialist agents across 4 tiers. Create NPAs, predict outcomes, validate docs, and orchestrate approvals via Dify.
                   </p>
                </div>
                
@@ -74,9 +77,9 @@ import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
             </div>
           </div>
 
-          <!-- Primary CTA -->
+           <!-- Primary CTA (Only for MAKER) -->
           <div class="flex flex-col gap-3 w-full md:w-auto">
-             <button (click)="onCreateNew()" class="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-lg shadow-xl shadow-slate-200 transition-all transform hover:-translate-y-0.5 active:translate-y-0 focus:ring-4 focus:ring-slate-100">
+             <button *ngIf="userRole() === 'MAKER'" (click)="onCreateNew()" class="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-lg shadow-xl shadow-slate-200 transition-all transform hover:-translate-y-0.5 active:translate-y-0 focus:ring-4 focus:ring-slate-100">
                 <lucide-icon name="message-square" class="w-6 h-6"></lucide-icon>
                 Chat with Agent
                 <span class="absolute right-0 top-0 -mt-1 -mr-1 flex h-3 w-3">
@@ -84,6 +87,12 @@ import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
                   <span class="relative inline-flex rounded-full h-3 w-3 bg-sky-500"></span>
                 </span>
              </button>
+             
+             <!-- Alternative CTA for CHECKER/APPROVER -->
+             <div *ngIf="userRole() !== 'MAKER'" class="px-6 py-4 bg-slate-100/50 rounded-xl border border-slate-200 text-center">
+                <p class="text-sm font-semibold text-slate-500">You are in {{ userRole() }} mode.</p>
+                <p class="text-xs text-slate-400">Creation is disabled.</p>
+             </div>
              <div class="grid grid-cols-2 gap-2">
                 <button (click)="onContinueDraft()" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
                    <lucide-icon name="file-edit" class="w-3.5 h-3.5"></lucide-icon> Continue Draft
@@ -125,108 +134,88 @@ import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
            </div>
         </section>
 
-        <!-- SECTION 2.5: NPA TASK AGENTS (The Workers) of OLD -->
+        <!-- SECTION 2.5: TIER 3 SPECIALIST WORKERS (Data-Driven from AGENT_REGISTRY) -->
         <section>
            <div class="flex items-center gap-3 mb-6">
               <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
                  <lucide-icon name="bot" class="w-5 h-5"></lucide-icon>
               </div>
               <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">
-                 NPA Task Agents (Domain Workers)
+                 Tier 3 — Specialist Workers
               </h2>
+              <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold border border-indigo-100">{{ tier3Agents.length }} Agents</span>
            </div>
-           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <!-- Agent 1: Product Ideation -->
-              <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
-                    <lucide-icon name="lightbulb" class="w-5 h-5"></lucide-icon>
+           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div *ngFor="let agent of tier3Agents" class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-slate-300 transition-all cursor-default group">
+                 <div class="w-10 h-10 rounded-full flex items-center justify-center border" [ngClass]="agent.color">
+                    <lucide-icon [name]="agent.icon" class="w-5 h-5"></lucide-icon>
                  </div>
-                 <div>
-                    <h4 class="font-bold text-sm text-slate-700">Product Ideation</h4>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-green-600">Idle</p>
-                 </div>
-              </div>
-              
-              <!-- Agent 2: Classification Router -->
-              <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
-                    <lucide-icon name="git-branch" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <div>
-                    <h4 class="font-bold text-sm text-slate-700">Class. Router</h4>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-green-600">Active</p>
-                 </div>
-              </div>
-
-               <!-- Agent 3: Template Auto-Fill -->
-              <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                    <lucide-icon name="file-edit" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <div>
-                    <h4 class="font-bold text-sm text-slate-700">Template Auto-Fill</h4>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-green-600">Idle</p>
-                 </div>
-              </div>
-
-               <!-- Agent 4: ML-Based Prediction -->
-               <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
-                    <lucide-icon name="trending-up" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <div>
-                    <h4 class="font-bold text-sm text-slate-700">ML Prediction</h4>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-green-600">Idle</p>
-                 </div>
-              </div>
-
-               <!-- Agent 5: KB Search -->
-               <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-fuchsia-50 text-fuchsia-600 flex items-center justify-center border border-fuchsia-100">
-                    <lucide-icon name="search" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <div>
-                    <h4 class="font-bold text-sm text-slate-700">KB Search</h4>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-green-600">Idle</p>
-                 </div>
-              </div>
-              
-               <!-- Agent 6: Conversational Diligence -->
-               <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center border border-cyan-100">
-                    <lucide-icon name="message-square" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <div>
-                    <h4 class="font-bold text-sm text-slate-700">Conv. Diligence</h4>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-green-600">Idle</p>
-                 </div>
-              </div>
-
-               <!-- Agent 7: Approval Orchestration -->
-               <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center border border-slate-100">
-                    <lucide-icon name="workflow" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <div>
-                    <h4 class="font-bold text-sm text-slate-700">Appr. Orchestrator</h4>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-green-600 animate-pulse">Orchestrating</p>
-                 </div>
-              </div>
-
-               <!-- Agent 8: Prohibited List Checker -->
-               <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-                 <div class="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center border border-red-100">
-                    <lucide-icon name="shield-alert" class="w-5 h-5"></lucide-icon>
-                 </div>
-                 <div>
-                    <h4 class="font-bold text-sm text-slate-700">Prohibited List</h4>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wide font-semibold text-green-600">Idle</p>
+                 <div class="min-w-0">
+                    <h4 class="font-bold text-sm text-slate-700 truncate">{{ agent.name }}</h4>
+                    <p class="text-[10px] uppercase tracking-wide font-semibold text-green-600">Ready</p>
                  </div>
               </div>
            </div>
         </section>
 
-        <!-- SECTION 3: BUILDING BLOCKS (Shared Utilities) -->
+        <!-- SECTION 2.6: TIER 1-2 ORCHESTRATORS + TIER 4 UTILITIES -->
+        <section>
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              <!-- Tier 1 + 2: Orchestrators -->
+              <div>
+                 <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 bg-violet-100 text-violet-700 rounded-lg">
+                       <lucide-icon name="brain-circuit" class="w-5 h-5"></lucide-icon>
+                    </div>
+                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">
+                       Tier 1-2 — Orchestrators
+                    </h2>
+                 </div>
+                 <div class="space-y-3">
+                    <div *ngFor="let agent of orchestratorAgents" class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+                       <div class="w-12 h-12 rounded-xl flex items-center justify-center border" [ngClass]="agent.color">
+                          <lucide-icon [name]="agent.icon" class="w-6 h-6"></lucide-icon>
+                       </div>
+                       <div class="flex-1 min-w-0">
+                          <h4 class="font-bold text-sm text-slate-900">{{ agent.name }}</h4>
+                          <p class="text-xs text-slate-500 truncate">{{ agent.description }}</p>
+                       </div>
+                       <div class="flex items-center gap-2">
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 text-violet-600 border border-violet-100">Tier {{ agent.tier }}</span>
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-100">Chatflow</span>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+
+              <!-- Tier 4: Shared Utilities -->
+              <div>
+                 <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 bg-slate-200 text-slate-700 rounded-lg">
+                       <lucide-icon name="layers" class="w-5 h-5"></lucide-icon>
+                    </div>
+                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">
+                       Tier 4 — Shared Utilities
+                    </h2>
+                 </div>
+                 <div class="space-y-3">
+                    <div *ngFor="let agent of tier4Agents" class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+                       <div class="w-12 h-12 rounded-xl flex items-center justify-center border" [ngClass]="agent.color">
+                          <lucide-icon [name]="agent.icon" class="w-6 h-6"></lucide-icon>
+                       </div>
+                       <div class="flex-1 min-w-0">
+                          <h4 class="font-bold text-sm text-slate-900">{{ agent.name }}</h4>
+                          <p class="text-xs text-slate-500 truncate">{{ agent.description }}</p>
+                       </div>
+                       <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-100">Ready</span>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </section>
+
+        <!-- SECTION 3: INFRASTRUCTURE (MCP + DB + Services) -->
         <section>
             <div class="flex items-center justify-between mb-6">
                <div class="flex items-center gap-3">
@@ -234,13 +223,12 @@ import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
                      <lucide-icon name="layers" class="w-5 h-5"></lucide-icon>
                   </div>
                   <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">
-                     Shared Utility Agents
+                     Infrastructure & Tooling
                   </h2>
                </div>
             </div>
-            
+
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-               <!-- Utility Card 1: RAG -->
                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
                   <div class="flex items-center justify-between mb-2">
                      <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-indigo-600">
@@ -248,75 +236,53 @@ import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
                      </span>
                      <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
                   </div>
-                  <h4 class="font-bold text-xs text-slate-700">RAG Engine</h4>
+                  <h4 class="font-bold text-xs text-slate-700">Dify LLM Platform</h4>
                   <div class="mt-2 space-y-1">
                      <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Queries</span> <span class="font-mono text-slate-900">234</span>
+                        <span>Agents</span> <span class="font-mono text-slate-900">13</span>
                      </div>
                      <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Hit Rate</span> <span class="font-mono text-slate-900">94%</span>
+                        <span>Status</span> <span class="font-mono text-slate-900">Online</span>
                      </div>
                   </div>
                </div>
 
-               <!-- Utility Card 2: Doc Processing -->
                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
                   <div class="flex items-center justify-between mb-2">
                      <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-blue-600">
-                        <lucide-icon name="scan-search" class="w-3.5 h-3.5"></lucide-icon>
+                        <lucide-icon name="server" class="w-3.5 h-3.5"></lucide-icon>
                      </span>
                      <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
                   </div>
-                  <h4 class="font-bold text-xs text-slate-700">Doc Processing</h4>
+                  <h4 class="font-bold text-xs text-slate-700">MCP Tools</h4>
                   <div class="mt-2 space-y-1">
                      <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Parsed</span> <span class="font-mono text-slate-900">89</span>
+                        <span>Tools</span> <span class="font-mono text-slate-900">50+</span>
                      </div>
                      <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Speed</span> <span class="font-mono text-slate-900">8s</span>
+                        <span>Port</span> <span class="font-mono text-slate-900">3002</span>
                      </div>
                   </div>
                </div>
 
-               <!-- Utility Card 3: State Manager -->
                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
                   <div class="flex items-center justify-between mb-2">
-                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-slate-600">
-                        <lucide-icon name="workflow" class="w-3.5 h-3.5"></lucide-icon>
+                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-emerald-600">
+                        <lucide-icon name="database" class="w-3.5 h-3.5"></lucide-icon>
                      </span>
                      <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
                   </div>
-                  <h4 class="font-bold text-xs text-slate-700">State Manager</h4>
+                  <h4 class="font-bold text-xs text-slate-700">MariaDB</h4>
                   <div class="mt-2 space-y-1">
                      <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Active</span> <span class="font-mono text-slate-900">23</span>
+                        <span>Tables</span> <span class="font-mono text-slate-900">42</span>
                      </div>
                      <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Loops</span> <span class="font-mono text-slate-900">2</span>
-                     </div>
-                  </div>
-               </div>
-               
-               <!-- Utility Card 4: Services -->
-               <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
-                  <div class="flex items-center justify-between mb-2">
-                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-amber-600">
-                        <lucide-icon name="link-2" class="w-3.5 h-3.5"></lucide-icon>
-                     </span>
-                     <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
-                  </div>
-                  <h4 class="font-bold text-xs text-slate-700">Integration</h4>
-                  <div class="mt-2 space-y-1">
-                     <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Calls</span> <span class="font-mono text-slate-900">456</span>
-                     </div>
-                     <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Latency</span> <span class="font-mono text-slate-900">320ms</span>
+                        <span>Records</span> <span class="font-mono text-slate-900">14.5k</span>
                      </div>
                   </div>
                </div>
 
-               <!-- Utility Card 5: Audit -->
                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
                   <div class="flex items-center justify-between mb-2">
                      <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-red-600">
@@ -335,78 +301,20 @@ import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
                   </div>
                </div>
 
-                <!-- Utility Card 6: Notification -->
                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
                   <div class="flex items-center justify-between mb-2">
-                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-pink-600">
-                        <lucide-icon name="bell" class="w-3.5 h-3.5"></lucide-icon>
+                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-amber-600">
+                        <lucide-icon name="link-2" class="w-3.5 h-3.5"></lucide-icon>
                      </span>
                      <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
                   </div>
-                  <h4 class="font-bold text-xs text-slate-700">Notification</h4>
+                  <h4 class="font-bold text-xs text-slate-700">Express Proxy</h4>
                   <div class="mt-2 space-y-1">
                      <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Sent</span> <span class="font-mono text-slate-900">892</span>
+                        <span>Routes</span> <span class="font-mono text-slate-900">15</span>
                      </div>
                      <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Open Rate</span> <span class="font-mono text-slate-900">68%</span>
-                     </div>
-                  </div>
-               </div>
-
-                <!-- Utility Card 7: Analytics -->
-               <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
-                  <div class="flex items-center justify-between mb-2">
-                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-sky-600">
-                        <lucide-icon name="bar-chart-2" class="w-3.5 h-3.5"></lucide-icon>
-                     </span>
-                     <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
-                  </div>
-                  <h4 class="font-bold text-xs text-slate-700">Analytics</h4>
-                  <div class="mt-2 space-y-1">
-                     <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Metrics</span> <span class="font-mono text-slate-900">45</span>
-                     </div>
-                     <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Real-time</span> <span class="font-mono text-slate-900">Yes</span>
-                     </div>
-                  </div>
-               </div>
-
-                <!-- Utility Card 8: Loop-Back -->
-               <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
-                  <div class="flex items-center justify-between mb-2">
-                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-lime-600">
-                        <lucide-icon name="refresh-cw" class="w-3.5 h-3.5"></lucide-icon>
-                     </span>
-                     <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
-                  </div>
-                  <h4 class="font-bold text-xs text-slate-700">Loop-Back</h4>
-                  <div class="mt-2 space-y-1">
-                     <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Retries</span> <span class="font-mono text-slate-900">12</span>
-                     </div>
-                     <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Resolved</span> <span class="font-mono text-slate-900">100%</span>
-                     </div>
-                  </div>
-               </div>
-
-               <!-- Utility Card 9: Data Retrieval -->
-               <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:border-slate-300 transition-colors group">
-                  <div class="flex items-center justify-between mb-2">
-                     <span class="p-1 rounded bg-white border border-slate-200 shadow-sm text-violet-600">
-                        <lucide-icon name="server" class="w-3.5 h-3.5"></lucide-icon>
-                     </span>
-                     <div class="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
-                  </div>
-                  <h4 class="font-bold text-xs text-slate-700">Data Retrieval</h4>
-                  <div class="mt-2 space-y-1">
-                     <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Sources</span> <span class="font-mono text-slate-900">8</span>
-                     </div>
-                     <div class="flex justify-between text-[10px] text-slate-500">
-                        <span>Cache</span> <span class="font-mono text-slate-900">HIT</span>
+                        <span>Port</span> <span class="font-mono text-slate-900">3000</span>
                      </div>
                   </div>
                </div>
@@ -637,6 +545,9 @@ export class NpaDashboardComponent implements OnInit {
    @Output() navigateToDetail = new EventEmitter<string>();
 
    private difyService = inject(DifyAgentService);
+   private userService = inject(UserService);
+
+   userRole = () => this.userService.currentUser().role;
 
    capabilities$ = this.difyService.getCapabilities();
    workItems$ = this.difyService.getActiveWorkItems();
@@ -645,8 +556,13 @@ export class NpaDashboardComponent implements OnInit {
    expandedCardId: string | null = null;
 
    emptyMetrics: HealthMetrics = {
-      status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalDecisions: 0
+      status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0
    };
+
+   // Data-driven agent lists from AGENT_REGISTRY
+   tier3Agents: AgentDefinition[] = AGENT_REGISTRY.filter(a => a.tier === 3);
+   tier4Agents: AgentDefinition[] = AGENT_REGISTRY.filter(a => a.tier === 4);
+   orchestratorAgents: AgentDefinition[] = AGENT_REGISTRY.filter(a => a.tier === 1 || a.tier === 2);
 
    constructor() { }
 

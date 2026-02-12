@@ -14,7 +14,7 @@ Your goal is to manage the New Product Approval workflow by routing user request
 | "I want to create a new product", "Draft a proposal" | **Ideation Agent** | Requires interview & structure. |
 | "Is Crypto allowed?", "Check country sanctions" | **Risk Agent** | Requires policy/prohibited check. |
 | "Is this NTG or Variation?", "Which approval track?" | **Classification Agent** | Requires triage matrix logic. |
-| "Who needs to approve?", "Status of my NPA" | **Governance Agent** | Requires workflow/SLA knowledge. |
+| "Who needs to approve?", "Status?", "Who is Data Owner?" | **Governance Agent** | Requires workflow/SLA/Data Governance knowledge. |
 | "Fill in the risk section", "Auto-complete this" | **Template Autofill Agent** | Requires form-filling logic. |
 | "How do I calculate VaR?", "What is Rule 656?" | **Conversational Diligence** | Requires expert advisory/help. |
 | "Find similar deals", "Search for precedents" | **Search Agent** | Requires RAG/History lookup. |

@@ -1,59 +1,168 @@
-# AgentCommandHubAngular
+# NPA Multi-Agent Workbench
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.4.
+AI-powered New Product Approval (NPA) platform for banking operations. 13 AI agents orchestrate the end-to-end product approval lifecycle — from ideation through classification, risk assessment, governance sign-off, and post-launch monitoring.
 
-## Development server
+## Architecture
 
-To start a local development server, run:
-
-```bash
-ng serve
+```
+Angular Frontend (UI)  ──REST/WS──▶  Express API (Port 3000)  ──▶  Dify (Agent Engine)
+                                                                        │
+                                                                        ▼
+                                                                   Claude API (LLM)
+                                                                        │
+                                                                        ▼
+                                                              MCP Tools Server (Port 3002)
+                                                                   71 tools │ Python
+                                                                        │
+                                                                        ▼
+                                                                MariaDB (42 tables)
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+| Component | Tech | Port | Description |
+|-----------|------|------|-------------|
+| **Frontend** | Angular 21 + Tailwind | 4200 | COO dashboard, NPA forms, agent chat, approvals |
+| **Express API** | Node.js + Express | 3000 | REST API for Angular + WebSocket for real-time chat |
+| **MCP Tools Server** | Python 3.12 + FastAPI | 3002 | 71 database tools for AI agents (the data layer) |
+| **Dify** | Docker | 80 | Agent orchestration engine — hosts the 13 AI agents |
+| **Database** | MariaDB | 3306 | 42 tables — NPA lifecycle, reference data, audit trail |
 
-## Code scaffolding
+## Quick Start
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### Prerequisites
+- Node.js 18+, Python 3.12+, Docker
+- MariaDB with `npa_workbench` database
 
+### 1. Database
 ```bash
-ng generate component component-name
+cd database
+mysql -u root -p -e "CREATE DATABASE npa_workbench"
+mysql -u root -p npa_workbench < npa_workbench_full_export.sql
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
+### 2. Express API
 ```bash
-ng generate --help
+cd server
+npm install
+node index.js                    # Runs on port 3000
 ```
 
-## Building
-
-To build the project run:
-
+### 3. MCP Tools Server
 ```bash
-ng build
+cd server/mcp-python
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env             # Edit with your DB credentials
+.venv/bin/python3 rest_server.py # Runs on port 3002
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
+### 4. Angular Frontend
 ```bash
-ng test
+npm install
+ng serve                         # Runs on port 4200
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
+### 5. Dify
 ```bash
-ng e2e
+cd ~/dify/docker && docker compose up -d
+# Import OpenAPI spec: http://localhost:3002/openapi.json
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Project Structure
 
-## Additional Resources
+```
+.
+├── src/                        # Angular frontend source
+├── server/
+│   ├── index.js                # Express API (port 3000)
+│   ├── routes/                 # Express REST routes
+│   └── mcp-python/             # MCP Tools Server (port 3002)
+│       ├── rest_server.py      # FastAPI server
+│       ├── db.py               # aiomysql connection pool
+│       ├── registry.py         # Tool registry
+│       ├── tools/              # 18 modules, 71 tools
+│       ├── Dockerfile          # Production container
+│       ├── Jenkinsfile         # CI/CD for OpenShift
+│       └── openshift/          # K8s manifests
+├── database/
+│   ├── schema-only.sql         # 42 table DDL
+│   ├── seed-data-only.sql      # Reference + sample data
+│   └── npa_workbench_full_export.sql  # Full export (schema + data)
+├── docs/                       # All documentation
+│   ├── architecture/           # System design, agent hierarchy, UI integration
+│   ├── mcp-server/             # MCP tools technical reference (71 tools)
+│   ├── dify-agents/            # Dify agent setup and chatflow guides
+│   ├── knowledge-base/         # KB content (policies, rules, templates)
+│   └── database/               # Database schema documentation
+└── Context/                    # Research & planning context (internal)
+```
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## Documentation
+
+| Document | Location | Audience |
+|----------|----------|----------|
+| **MCP Tools Documentation** | `docs/mcp-server/MCP_TOOLS_DOCUMENTATION.md` | DevOps, Backend Engineers |
+| **Agent Architecture** | `docs/architecture/AGENT_ARCHITECTURE.md` | Architects, Tech Leads |
+| **Dify Agent Setup** | `docs/dify-agents/DIFY_AGENT_SETUP_GUIDE.md` | AI Engineers, Dify Admins |
+| **Chatflow Node Guide** | `docs/dify-agents/DIFY_CHATFLOW_NODE_GUIDE.md` | Dify Agent Builders |
+| **Database Schema** | `docs/database/database_schema.md` | DBAs, Backend Engineers |
+| **UI Integration** | `docs/architecture/UI_CHANGES_FOR_AGENT_INTEGRATION.md` | Frontend Engineers |
+| **KB Strategy** | `docs/knowledge-base/` | AI Engineers, Domain Experts |
+
+## The 13 AI Agents
+
+| Tier | Agent | Purpose |
+|------|-------|---------|
+| **1 — Strategic** | Master COO Orchestrator | Routes all user messages, manages sessions |
+| **2 — Domain** | NPA Domain Orchestrator | NPA lifecycle routing, stage management |
+| **3 — Specialist** | Ideation Agent | Product conceptualization, prohibited screening |
+| | Classification Agent | NPA type scoring, track determination |
+| | AutoFill Agent | 47-field template auto-fill with RAG |
+| | ML Prediction Agent | Approval likelihood, timeline prediction |
+| | Risk Agent | 4-layer risk validation cascade |
+| | Governance Agent | Sign-offs, SLA, loop-backs, circuit breaker |
+| | Diligence Agent | Deep Q&A with regulatory citations |
+| | Doc Lifecycle Agent | Document upload, validation, completeness |
+| | Monitoring Agent | Post-launch metrics, breach alerts |
+| **4 — Utility** | KB Search Agent | Shared knowledge base retrieval (RAG) |
+| | Notification Agent | Cross-domain alert delivery |
+| | Audit Trail Agent | Immutable compliance logging |
+| | Jurisdiction Adapter | Multi-jurisdiction rule adaptation |
+
+## MCP Tools Server — 71 Tools
+
+| Category | Tools | Primary Agent |
+|----------|-------|---------------|
+| Session | 2 | Master COO, NPA Orchestrator |
+| Ideation | 5 | Ideation Agent |
+| Classification | 5 | Classification Agent |
+| AutoFill | 5 | AutoFill Agent |
+| Risk | 4 | Risk Agent |
+| Governance | 5 | Governance Agent |
+| Audit | 4 | Audit Trail Agent |
+| NPA Data | 4 | NPA Orchestrator, ML Predict |
+| Workflow | 5 | NPA Orchestrator |
+| Monitoring | 6 | Monitoring Agent |
+| Documents | 4 | Doc Lifecycle Agent |
+| Governance Ext. | 6 | Governance Agent |
+| Risk Ext. | 4 | Risk Agent |
+| KB Search | 3 | KB Search Agent |
+| Prospects | 2 | Ideation Agent |
+| Dashboard | 1 | Master COO |
+| Notifications | 3 | Notification Agent |
+| Jurisdiction | 3 | Jurisdiction Adapter |
+
+## Deployment (OpenShift)
+
+The MCP Tools Server deploys to OpenShift via Jenkins CI/CD:
+
+```bash
+# Jenkins pipeline: Build → Push → Deploy → Health Check
+# Files: Dockerfile, Jenkinsfile, openshift/*.yaml
+```
+
+See `server/mcp-python/openshift/` for manifests and `server/mcp-python/Jenkinsfile` for the pipeline.
+
+**Configuration required:**
+- `openshift/secret.yaml` — External MariaDB credentials
+- `openshift/configmap.yaml` — Public URL, port
+- `Jenkinsfile` — Registry, OpenShift project name

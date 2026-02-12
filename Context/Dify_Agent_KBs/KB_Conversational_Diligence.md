@@ -34,6 +34,7 @@ Transform complex NPA policy questions into clear, accurate, contextual answers 
 3. **Precedent Questions**: "Has a similar NPA been approved for Singapore FX Desk?"
 4. **Timeline Questions**: "How long does Legal review typically take?"
 5. **Calculation Questions**: "If notional is $45M and tenor is 3 years, do I need CEO approval?"
+6. **Regulatory Reporting**: "Does this product trigger MAS 610 or 656 reporting?"
 
 **Example Interaction**:
 ```

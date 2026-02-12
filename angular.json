@@ -60,7 +60,8 @@
               "buildTarget": "agent-command-hub-angular:build:production"
             },
             "development": {
-              "buildTarget": "agent-command-hub-angular:build:development"
+              "buildTarget": "agent-command-hub-angular:build:development",
+              "proxyConfig": "proxy.conf.json"
             }
           },
           "defaultConfiguration": "development"

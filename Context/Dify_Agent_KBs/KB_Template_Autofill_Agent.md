@@ -188,6 +188,7 @@ Fields needing customization based on new product specifics:
 | F35 | VI | Enhanced Sign-Off Matrix | Override Rules | Add 5 mandatory parties if cross-border, adjust timeline estimate |
 | F36 | II | Technology Requirements | Conditional Expansion | Add inter-company reconciliation requirements if cross-border |
 | F37 | VII | Cross-Border Legal Provisions | Conditional Expansion | Insert multi-paragraph cross-border legal section if flag == True |
+| F48 | V | Data Management (D4D) | Template Insertion | Insert D4D requirements (Data Owner, Source, Quality) based on product type |
 
 **Adaptation Details** (see Section 3 for 5 techniques)
 

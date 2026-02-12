@@ -172,12 +172,18 @@ medium_risk_flags = [
   "settlement_option_addition",
   "tenor_extension_within_limits",  # <20% extension
   "notional_increase_within_limits",  # <50% increase
-  "minor_parameter_change"
+  "minor_parameter_change",
+  "reference_existing_active_npa" # Explicit reactivation of active precedent
 ]
 
 if any(flag for flag in medium_risk_flags) AND NOT any(high_risk_flags):
   approval_track = "NPA Lite"
 ```
+
+**NPA Lite Specific Criteria (from Comprehensive Docs)**:
+1. **Reactivation**: Reactivating a dormant product (<3 years) without changes.
+2. **NPA Lite (Variation)**: Minor changes to existing active products (as defined in medium_risk_flags).
+3. **NPA Lite (Existing)**: Launching an existing approved product in a new location (e.g., SG product now in HK) with NO other changes.
 
 **Low-Risk Variations → NPA Lite Addendum**:
 ```
@@ -755,6 +761,16 @@ if approval_track == "Evergreen":
     "cross_validation": 0.95,
     "historical_pattern": 0.90,
     "final_confidence": 0.92
+  },
+
+  "db_record": {
+    "total_score": 18, 
+    "calculated_tier": "FULL",
+    "breakdown": {
+      "rag_similarity": 0.94,
+      "rule_match_strength": 0.88,
+      "user_clarity": 0.92
+    }
   }
 }
 ```

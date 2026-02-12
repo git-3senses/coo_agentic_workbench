@@ -55,7 +55,7 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
                 <lucide-icon name="bot" class="w-5 h-5"></lucide-icon>
              </div>
              <div>
-                <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.activeAgents }}<span class="text-sm font-sans text-slate-500 font-normal ml-1">/ 9</span></p>
+                <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.activeAgents }}<span class="text-sm font-sans text-slate-500 font-normal ml-1">/ {{ metrics.totalAgents || 13 }}</span></p>
                 <p class="text-xs text-slate-500 font-medium uppercase">Active Agents</p>
              </div>
          </div>
@@ -77,7 +77,7 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
 })
 export class AgentHealthPanelComponent {
    @Input() metrics: HealthMetrics = {
-      status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalDecisions: 0
+      status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0
    };
 
    formatNumber(num: number): string {

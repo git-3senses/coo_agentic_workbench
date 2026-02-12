@@ -524,6 +524,30 @@ if desk == "Hong Kong Rates Desk":
   }
 ```
 
+**Rule 5: Cross-Border Tax & Finance**
+```python
+if cross_border == True:
+  bottleneck = {
+    "department": "Group Tax",
+    "issue": "Transfer Pricing / WHT",
+    "likelihood": 0.55,
+    "recommendation": "Engage Group Tax early for Transfer Pricing memo",
+    "time_saved": 4.0
+  }
+```
+
+**Rule 6: Accounting Classification Mismatch**
+```python
+if classification == "Trading Book" and accounting_treatment == "Amortised Cost":
+  bottleneck = {
+    "department": "Finance",
+    "issue": "Accounting Mismatch (FVPL vs Amortised)",
+    "likelihood": 0.95,
+    "recommendation": "Correct accounting treatment to FVPL or justify SPPI test",
+    "time_saved": 5.0
+  }
+```
+
 ---
 
 ### Step 5: Confidence Scoring

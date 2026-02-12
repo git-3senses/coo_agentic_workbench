@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { LayoutService } from '../../../services/layout.service';
+import { UserService, UserRole } from '../../../services/user.service';
 
 @Component({
   selector: 'app-top-bar',
@@ -11,7 +12,6 @@ import { LayoutService } from '../../../services/layout.service';
     <header class="h-16 w-full bg-[#172733] text-white flex items-center px-0 transition-all duration-300">
       
       <!-- Left: Branding & Toggle Container -->
-      <!-- Matches Sidebar Width (w-64 when expanded) or shrinks/adjusts when collapsed -->
       <div class="h-full flex items-center border-r border-[#2a3b4d] transition-all duration-300 px-4"
            [ngClass]="{'w-64 justify-between': !isCollapsed(), 'w-[70px] justify-center': isCollapsed()}">
            
@@ -21,64 +21,200 @@ import { LayoutService } from '../../../services/layout.service';
              <img *ngIf="isCollapsed()" src="assets/logos/Collapsed_Logo.svg" alt="Mistral AI" class="h-8 w-8 object-contain">
         </div>
 
-         <!-- Menu Toggle (Visible ONLY when Expanded) -> Pushed to right by justify-between -->
+         <!-- Menu Toggle -->
          <button *ngIf="!isCollapsed()" (click)="toggleSidebar()" class="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white fade-in flex-none" title="Collapse Sidebar">
              <lucide-icon name="panel-left" class="w-5 h-5"></lucide-icon>
          </button>
       </div>
 
-      <!-- Right Side: Navigation Helper / Search / SSO -->
-      <!-- Flex-1 to take remaining space -->
+      <!-- Right Side -->
       <div class="flex-1 flex items-center justify-between px-4">
           
-          <!-- Middle: Workspaces (Centered relatively or just left-aligned in remaining space details) -->
-          <!-- Re-aligning to match typical behavior, or keeping centered in remaining space? 
-               Mistral image shows it top leftish in the content area? 
-               Let's keep centered for now as per previous, or maybe move left?
-               User didn't complain about workspace placement. -->
-          <div class="hidden md:flex items-center gap-4 text-sm text-gray-400">
+          <!-- Role Switcher -->
+          <div class="hidden md:flex items-center gap-4 text-sm relative">
+             
+             <!-- Role Trigger -->
+             <div (click)="toggleRoleMenu()" class="flex items-center gap-2 text-gray-400 hover:text-white cursor-pointer transition-colors px-3 py-1.5 rounded hover:bg-white/5 border border-transparent hover:border-gray-700 select-none">
+                <div class="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold"
+                     [ngClass]="getRoleBadgeClass(currentUser().role)">
+                     {{ getRoleInitial(currentUser().role) }}
+                </div>
+                <div class="flex flex-col text-left">
+                    <span class="text-xs font-bold text-gray-200 leading-none">{{ currentUser().name }}</span>
+                    <span class="text-[10px] text-gray-500 leading-none uppercase tracking-wider mt-0.5">{{ formatRoleName(currentUser().role) }}</span>
+                </div>
+                <lucide-icon name="chevron-down" class="w-3 h-3 ml-2 transition-transform duration-200" [class.rotate-180]="isRoleMenuOpen"></lucide-icon>
+             </div>
 
-             <div class="flex items-center gap-2 hover:text-white cursor-pointer transition-colors px-2 py-1 rounded hover:bg-white/5">
-                <div class="w-5 h-5 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-white">D</div>
-                <span>Default Workspace</span>
-                 <lucide-icon name="chevron-down" class="w-3 h-3 ml-1"></lucide-icon>
+             <!-- Role Dropdown Menu -->
+             <div *ngIf="isRoleMenuOpen" class="absolute top-full left-0 mt-2 w-64 bg-[#1e293b] border border-[#334155] rounded-lg shadow-xl z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100">
+                <div class="px-3 py-2 border-b border-[#334155] bg-[#0f172a]/50">
+                    <span class="text-[10px] uppercase font-bold text-gray-500">Proposing Unit</span>
+                </div>
+                
+                <button (click)="switchRole('MAKER')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Maker</div>
+                        <div class="text-[10px] text-gray-500">Create & Correct</div>
+                    </div>
+                    <lucide-icon *ngIf="currentUser().role === 'MAKER'" name="check" class="w-3 h-3 text-blue-500"></lucide-icon>
+                </button>
+
+                <button (click)="switchRole('CHECKER')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-purple-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Checker</div>
+                        <div class="text-[10px] text-gray-500">4-Eyes Review</div>
+                    </div>
+                    <lucide-icon *ngIf="currentUser().role === 'CHECKER'" name="check" class="w-3 h-3 text-purple-500"></lucide-icon>
+                </button>
+
+                <div class="px-3 py-2 border-b border-t border-[#334155] bg-[#0f172a]/50 mt-1">
+                    <span class="text-[10px] uppercase font-bold text-gray-500">Functional Approvers</span>
+                </div>
+
+                <button (click)="switchRole('APPROVER_RISK')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Credit Risk</div>
+                        <div class="text-[10px] text-gray-500">Credit Limits & Exposures</div>
+                    </div>
+                </button>
+
+                <button (click)="switchRole('APPROVER_MARKET')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-pink-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Market Risk</div>
+                        <div class="text-[10px] text-gray-500">VaR & Stress Tests</div>
+                    </div>
+                </button>
+
+                <button (click)="switchRole('APPROVER_FINANCE')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Finance Controller</div>
+                        <div class="text-[10px] text-gray-500">ROAE & Capital</div>
+                    </div>
+                </button>
+
+                <button (click)="switchRole('APPROVER_TAX')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-teal-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Group Tax</div>
+                        <div class="text-[10px] text-gray-500">Cross-Border Tax</div>
+                    </div>
+                </button>
+
+                <button (click)="switchRole('APPROVER_LEGAL')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-indigo-400"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Legal & Compliance</div>
+                        <div class="text-[10px] text-gray-500">Regulatory & Contracts</div>
+                    </div>
+                </button>
+
+                <button (click)="switchRole('APPROVER_OPS')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Ops Lead</div>
+                        <div class="text-[10px] text-gray-500">Settlement & Process</div>
+                    </div>
+                </button>
+
+                <button (click)="switchRole('APPROVER_TECH')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-cyan-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">Tech Lead</div>
+                        <div class="text-[10px] text-gray-500">System Readiness</div>
+                    </div>
+                </button>
+
+                <div class="px-3 py-2 border-b border-t border-[#334155] bg-[#0f172a]/50 mt-1">
+                    <span class="text-[10px] uppercase font-bold text-gray-500">Final Approval</span>
+                </div>
+
+                <button (click)="switchRole('COO')" class="flex items-center gap-3 px-4 py-2 hover:bg-[#334155] transition-colors text-left group">
+                    <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-bold text-gray-200">COO</div>
+                        <div class="text-[10px] text-gray-500">Final Gatekeeper</div>
+                    </div>
+                    <lucide-icon *ngIf="currentUser().role === 'COO'" name="check" class="w-3 h-3 text-yellow-500"></lucide-icon>
+                </button>
              </div>
           </div>
-
-          <!-- Right: Search & Profile -->
-          <div class="flex items-center gap-3 ml-auto">
-            <div class="relative hidden sm:block">
-                <lucide-icon name="search" class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500"></lucide-icon>
-                <input 
-                    type="text" 
-                    placeholder="Search" 
-                    class="h-8 w-48 bg-[#0b141c] border border-[#2a3b4d] rounded text-xs pl-8 pr-8 text-gray-200 placeholder:text-gray-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium"
-                >
-                <div class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-[10px] text-gray-600 font-mono">
-                    <span>⌘</span><span>K</span>
-                </div>
-            </div>
-            
-
+          
+          <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-500/20 border border-indigo-400">
+                  {{ currentUser().name.charAt(0) }}
+              </div>
           </div>
+
       </div>
     </header>
   `,
-  styles: [`
-    .fade-in {
-        animation: fadeIn 0.3s ease-in-out;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-  `]
+  styles: []
 })
 export class TopBarComponent {
   private layoutService = inject(LayoutService);
+  private userService = inject(UserService);
+
   isCollapsed = this.layoutService.isSidebarCollapsed;
+  currentUser = this.userService.currentUser;
+  isRoleMenuOpen = false;
 
   toggleSidebar() {
     this.layoutService.toggleSidebar();
+  }
+
+  toggleRoleMenu() {
+    this.isRoleMenuOpen = !this.isRoleMenuOpen;
+  }
+
+  switchRole(role: UserRole) {
+    this.userService.switchRole(role);
+    this.isRoleMenuOpen = false;
+  }
+
+  getRoleBadgeClass(role: string) {
+    if (role === 'MAKER') return 'bg-blue-600 text-white';
+    if (role === 'CHECKER') return 'bg-purple-600 text-white';
+    if (role === 'COO') return 'bg-yellow-600 text-white';
+    if (role === 'ADMIN') return 'bg-gray-600 text-white';
+
+    if (role === 'APPROVER_RISK') return 'bg-red-600 text-white';
+    if (role === 'APPROVER_MARKET') return 'bg-pink-600 text-white';
+    if (role === 'APPROVER_FINANCE') return 'bg-emerald-600 text-white';
+    if (role === 'APPROVER_TAX') return 'bg-teal-600 text-white';
+    if (role === 'APPROVER_LEGAL') return 'bg-indigo-400 text-white';
+    if (role === 'APPROVER_OPS') return 'bg-orange-600 text-white';
+    if (role === 'APPROVER_TECH') return 'bg-cyan-600 text-white';
+
+    return 'bg-gray-600 text-white';
+  }
+
+  getRoleInitial(role: string) {
+    if (role === 'MAKER') return 'M';
+    if (role === 'CHECKER') return 'C';
+    if (role === 'COO') return 'O';
+    if (role === 'ADMIN') return 'A';
+
+    if (role === 'APPROVER_RISK') return 'CR';
+    if (role === 'APPROVER_MARKET') return 'MR';
+    if (role === 'APPROVER_FINANCE') return 'F';
+    if (role === 'APPROVER_TAX') return 'TX';
+    if (role === 'APPROVER_LEGAL') return 'L';
+    if (role === 'APPROVER_OPS') return 'Op';
+    if (role === 'APPROVER_TECH') return 'T';
+
+    return '?';
+  }
+
+  formatRoleName(role: string) {
+    if (role.startsWith('APPROVER_')) {
+      return role.replace('APPROVER_', '') + ' HEAD';
+    }
+    return role + ' VIEW';
   }
 }

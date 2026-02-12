@@ -23,21 +23,36 @@ import { LayoutService } from '../../../services/layout.service';
                </button>
           </div>
 
-          <!-- Top Links -->
-          <div class="space-y-0.5">
-             <a routerLink="/" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors text-black" [class.justify-center]="isCollapsed()" routerLinkActive="bg-black/5 font-semibold">
-                <lucide-icon name="home" class="w-4 h-4 flex-none"></lucide-icon>
-                <span *ngIf="!isCollapsed()" class="truncate">Home</span>
-             </a>
-             <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
-                <lucide-icon name="layout-dashboard" class="w-4 h-4 flex-none"></lucide-icon>
-                <span *ngIf="!isCollapsed()" class="truncate">Workspace</span>
-             </a>
-             <a routerLink="/approvals" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
-                <lucide-icon name="check-square" class="w-4 h-4 flex-none"></lucide-icon>
-                <span *ngIf="!isCollapsed()" class="truncate">Approvals</span>
-                <span *ngIf="!isCollapsed()" class="ml-auto bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">3</span>
-             </a>
+
+          <!-- Section: My Workspace -->
+          <div>
+            <h3 *ngIf="!isCollapsed()" class="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider truncate">My Workspace</h3>
+            <div class="space-y-0.5">
+                <!-- Dashboard / Overview -->
+                <a routerLink="/" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors text-black" [class.justify-center]="isCollapsed()" routerLinkActive="bg-black/5 font-semibold">
+                   <lucide-icon name="layout-dashboard" class="w-4 h-4 flex-none"></lucide-icon>
+                   <span *ngIf="!isCollapsed()" class="truncate">Overview</span>
+                </a>
+
+                <!-- Inbox (Action Required) -->
+                <a routerLink="/workspace/inbox" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                   <lucide-icon name="inbox" class="w-4 h-4 flex-none text-indigo-600"></lucide-icon>
+                   <span *ngIf="!isCollapsed()" class="truncate">My Inbox</span>
+                   <span *ngIf="!isCollapsed()" class="ml-auto bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">3</span>
+                </a>
+
+                <!-- Drafts -->
+                <a routerLink="/workspace/drafts" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                   <lucide-icon name="file-edit" class="w-4 h-4 flex-none text-gray-500"></lucide-icon>
+                   <span *ngIf="!isCollapsed()" class="truncate">Drafts</span>
+                </a>
+
+                <!-- Watchlist -->
+                <a routerLink="/workspace/watchlist" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                   <lucide-icon name="eye" class="w-4 h-4 flex-none text-gray-500"></lucide-icon>
+                   <span *ngIf="!isCollapsed()" class="truncate">Watchlist</span>
+                </a>
+            </div>
           </div>
 
           <!-- Section: COO Functions -->

@@ -539,6 +539,28 @@ Data Source: FDIC Public Database, Bloomberg Regulatory Feed
 
 ---
 
+### Layer 5: Finance & Tax Specific Validation (Business Rule Requirement)
+
+**What This Checks**: Accounting treatment and Cross-Border Tax implications (per Section IV.A.2 of NPA Rules).
+
+**Critical Checks**:
+1. **Classification Mismatch**: Warning if "Trading Book" product invokes "Banking Book" accounting (or vice versa).
+2. **Tax Triggers**:
+    *   **Withholding Tax**: Alert if counterparty jurisdiction (e.g., China, Indonesia) typically applies WHT on this product type.
+    *   **Transfer Pricing**: Alert if booking entity differs from risk-taking entity (Cross-Border).
+3. **Accounting Standards**:
+    *   Prompt validation for **FVPL** (Fair Value Through Profit/Loss), **FVOCI** (Fair Value through OCI), or **Amortised Cost**.
+
+**Example**:
+```
+Input: "Hold-to-Maturity Bond in Trading Book"
+Check: HTM is typically Banking Book (Amortised Cost). Trading Book requires Fair Value.
+Flag: POTENTIAL MISCLASSIFICATION (Finance Risk)
+Action: Require Finance Sign-Off confirmation.
+```
+
+---
+
 ## The Four-Layer Check in Action: Complete Example
 
 ### User Input

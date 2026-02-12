@@ -217,6 +217,23 @@ Booking locations:
 
 ---
 
+#### Step 1B: Data & Tax Readiness Check (New Requirement)
+
+**Goal**: Confirm Data Ownership and Tax feasibility early.
+
+**Trigger**:
+- If `cross_border_flag == True` OR `product_type == "New-to-Group"`
+
+**Agent Action**:
+- Ask: "Who is the **Data Owner** for this product's transaction data?"
+- Ask: "Has **Group Tax** been engaged for [Jurisdiction] implications?"
+
+**Entity Extraction**:
+- data_owner: {Department/Person}
+- tax_status: {Engaged, Pending, N/A}
+
+---
+
 ### Step 2A: Pre-Screen Checks (Risk Agent Call)
 
 **Agent Call**: Prohibited List Checker Agent
@@ -864,6 +881,15 @@ Fallback: Present blank template to user
     "product_type": 0.95,
     "underlying": 0.99,
     "customer_segment": 0.92
+  },
+  "db_record_intake": {
+    "domain_scores": {
+        "STRATEGIC": 100,
+        "RISK": 85,
+        "LEGAL": 100
+    },
+    "overall_status": "PASS",
+    "findings": ["Gap in Legal detected..."]
   }
 }
 ```

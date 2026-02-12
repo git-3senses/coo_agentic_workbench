@@ -1,28 +1,21 @@
-
-import { Component } from '@angular/core';
+import { Component, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
 import { FormsModule } from '@angular/forms';
+import { UserService } from '../../services/user.service';
+import { NpaProject, SignOffParty, SignOffDecision } from '../../lib/npa-interfaces';
+import { MOCK_PROJECTS } from '../../lib/mock-npa-data';
+import { LucideAngularModule } from 'lucide-angular';
+import { ActivatedRoute } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs/operators';
 
-interface ApprovalItem {
-   id: string;
-   title: string;
-   description: string;
-   submittedBy: string;
-   submittedDate: Date;
-   status: 'PENDING' | 'APPROVED' | 'REJECTED';
-   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
-   type: 'NPA' | 'DCE' | 'Limit Breach';
-}
+type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
 
 @Component({
    selector: 'app-approval-dashboard',
    standalone: true,
-   imports: [CommonModule, FormsModule, SharedIconsModule],
-   // Actually, let's use the module with pick in imports to be safe and explicit.
-   // imports: [CommonModule, LucideAngularModule.pick({ CheckSquare, FileBox, Users, AlertTriangle, User, Shield, Check, X, CheckCircle, XCircle }), FormsModule],
-   // The above line caused issues? No, the file corruption caused issues.
-   // I will use the explicit pick.
+   imports: [CommonModule, FormsModule, SharedIconsModule, LucideAngularModule],
    template: `
     <div class="h-full flex flex-col bg-gray-50 font-sans text-gray-900">
       
@@ -30,24 +23,30 @@ interface ApprovalItem {
       <div class="flex-none bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shadow-sm z-10">
         <div>
            <h1 class="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
-              <lucide-icon name="check-square" class="w-6 h-6 text-indigo-600"></lucide-icon>
-              Pending Approvals
+              <lucide-icon [name]="headerIcon" class="w-6 h-6 text-indigo-600"></lucide-icon>
+              {{ dashboardTitle }}
            </h1>
-           <p class="text-sm text-gray-500 mt-1">Manage and sign-off on pending items requiring your attention.</p>
+           <p class="text-sm text-gray-500 mt-1">{{ dashboardSubtitle }}</p>
         </div>
         <div class="flex items-center gap-3">
            <div class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100">
-              {{ pendingCount }} Pending
+              {{ filteredItems().length }} Item(s)
            </div>
         </div>
       </div>
 
       <!-- MAIN CONTENT -->
       <div class="flex-1 overflow-auto p-8">
-        <div class="max-w-5xl mx-auto space-y-6">
+        <div class="max-w-6xl mx-auto space-y-6">
 
             <!-- LIST -->
-            <div *ngFor="let item of items" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group">
+            <div *ngFor="let item of filteredItems()" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group relative">
+                
+                <!-- Rework Badge -->
+                <div *ngIf="item.stage === 'RETURNED_TO_MAKER' && currentView() === 'INBOX'" class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                   Action Required
+                </div>
+
                 <div class="p-6 flex items-start gap-6">
                    
                    <!-- ICON / TYPE -->
@@ -75,7 +74,7 @@ interface ApprovalItem {
                       </h3>
                       <p class="text-sm text-gray-600 mb-4 line-clamp-2">{{ item.description }}</p>
                       
-                      <div class="flex items-center gap-4 text-xs">
+                      <div class="flex items-center gap-4 text-xs mb-4">
                           <div class="flex items-center gap-1.5 text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                               <lucide-icon name="user" class="w-3.5 h-3.5"></lucide-icon>
                               <span>{{ item.submittedBy }}</span>
@@ -89,95 +88,420 @@ interface ApprovalItem {
                               <lucide-icon name="shield" class="w-3.5 h-3.5"></lucide-icon>
                               <span>{{ item.riskLevel }} Risk</span>
                           </div>
+                           <!-- Stage Badge for generic views -->
+                          <div class="flex items-center gap-1.5 px-2 py-1 rounded border bg-gray-100 text-gray-700 font-medium">
+                              <lucide-icon name="activity" class="w-3.5 h-3.5"></lucide-icon>
+                              <span>{{ item.stage }}</span>
+                          </div>
+                      </div>
+
+                      <!-- APPROVAL MATRIX VISUALIZATION (Detail View) -->
+                      <div *ngIf="shouldShowMatrix(item)" class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                          <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Sign-Off Status</h4>
+                          <div class="flex flex-wrap gap-2">
+                             <div *ngFor="let party of item.requiredSignOffs" class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border"
+                                  [ngClass]="getBadgeClass(item.signOffMatrix[party]?.status || 'PENDING')">
+                                 <div class="w-1.5 h-1.5 rounded-full" [ngClass]="getDotClass(item.signOffMatrix[party]?.status || 'PENDING')"></div>
+                                 <span class="capitalize">{{ formatParty(party) }}</span>
+                                 <span *ngIf="item.signOffMatrix[party]?.status === 'APPROVED_CONDITIONAL'" class="text-[10px] ml-1 opacity-75">(Conditions)</span>
+                             </div>
+                          </div>
+                           <div *ngFor="let party of item.requiredSignOffs">
+                              <div *ngIf="item.signOffMatrix[party]?.status === 'REWORK_REQUIRED'" class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 flex items-start gap-2">
+                                  <lucide-icon name="alert-triangle" class="w-3 h-3 text-red-500 mt-0.5"></lucide-icon>
+                                  <span><strong>{{ formatParty(party) }}:</strong> {{ item.signOffMatrix[party]?.comments }}</span>
+                              </div>
+                           </div>
                       </div>
                    </div>
 
                    <!-- ACTIONS -->
-                   <div class="flex-none flex flex-col gap-2 pt-1" *ngIf="item.status === 'PENDING'">
-                       <button (click)="approve(item)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm w-32 transition-all flex items-center justify-center gap-2">
-                           <lucide-icon name="check" class="w-4 h-4"></lucide-icon> Approve
-                       </button>
-                       <button (click)="reject(item)" class="px-4 py-2 bg-white hover:bg-gray-50 text-red-600 border border-red-200 hover:border-red-300 text-sm font-semibold rounded-lg shadow-sm w-32 transition-all flex items-center justify-center gap-2">
-                           <lucide-icon name="x" class="w-4 h-4"></lucide-icon> Reject
-                       </button>
-                       <button class="px-4 py-2 text-gray-500 hover:text-gray-700 text-sm font-medium w-32 flex items-center justify-center gap-2">
-                           View Details
-                       </button>
-                   </div>
+                   <div class="flex-none flex flex-col gap-2 pt-1 w-40">
+                       
+                       <!-- INBOX ACTIONS (Only relevant if in Inbox) -->
+                       <ng-container *ngIf="currentView() === 'INBOX'">
+                           
+                           <!-- MAKER -->
+                           <ng-container *ngIf="userRole() === 'MAKER'">
+                               <button *ngIf="item.stage === 'RETURNED_TO_MAKER' || item.stage === 'DRAFT'" (click)="submit(item)" 
+                                       class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                                   <lucide-icon name="send" class="w-3.5 h-3.5"></lucide-icon>
+                                   <span>{{ item.stage === 'DRAFT' ? 'Submit' : 'Resubmit' }}</span>
+                               </button>
+                           </ng-container>
 
-                   <!-- STATUS BADGE (IF NOT PENDING) -->
-                   <div class="flex-none flex flex-col items-end justify-center h-full" *ngIf="item.status !== 'PENDING'">
-                       <div class="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
-                            [ngClass]="item.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
-                           <lucide-icon [name]="item.status === 'APPROVED' ? 'check-circle' : 'x-circle'" class="w-5 h-5"></lucide-icon>
-                           {{ item.status }}
+                           <!-- CHECKER -->
+                           <ng-container *ngIf="userRole() === 'CHECKER'">
+                               <button (click)="approve(item)" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                                   <lucide-icon name="check" class="w-3.5 h-3.5"></lucide-icon> Approve
+                               </button>
+                               <button (click)="reject(item)" class="w-full px-4 py-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                                   <lucide-icon name="x" class="w-3.5 h-3.5"></lucide-icon> Return
+                               </button>
+                           </ng-container>
+
+                           <!-- FUNCTIONAL APPROVER -->
+                           <ng-container *ngIf="isFunctionalApprover()">
+                               <!-- Only show actions if MY specific department is pending -->
+                               <div *ngIf="isMySignOffPending(item); else doneTemplate">
+                                   <button (click)="approve(item)" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all mb-2 flex items-center justify-center gap-2">
+                                       <lucide-icon name="check-circle" class="w-3.5 h-3.5"></lucide-icon> Sign Off
+                                   </button>
+                                   <button (click)="requestRework(item)" class="w-full px-4 py-2 bg-white text-orange-600 border border-orange-200 hover:bg-orange-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                                       <lucide-icon name="rotate-ccw" class="w-3.5 h-3.5"></lucide-icon> Rework
+                                   </button>
+                               </div>
+                               <ng-template #doneTemplate>
+                                   <div class="text-center py-2 px-3 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100 flex items-center justify-center gap-2">
+                                       <lucide-icon name="check" class="w-3 h-3"></lucide-icon> Signed Off
+                                   </div>
+                               </ng-template>
+                           </ng-container>
+
+                            <!-- COO -->
+                           <ng-container *ngIf="userRole() === 'COO'">
+                               <button (click)="finalApprove(item)" class="w-full px-4 py-2 bg-green-800 hover:bg-green-900 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                                   <lucide-icon name="check-Check" class="w-3.5 h-3.5"></lucide-icon> Final Approve
+                               </button>
+                               <button (click)="reject(item)" class="w-full px-4 py-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                                   <lucide-icon name="x-circle" class="w-3.5 h-3.5"></lucide-icon> Reject
+                               </button>
+                           </ng-container>
+                       </ng-container>
+
+                       <!-- DRAFT ACTIONS -->
+                       <ng-container *ngIf="currentView() === 'DRAFTS'">
+                           <button class="w-full px-4 py-2 bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                               <lucide-icon name="pencil" class="w-3.5 h-3.5"></lucide-icon> Edit Draft
+                           </button>
+                       </ng-container>
+
+                       <!-- WATCHLIST ACTIONS -->
+                       <ng-container *ngIf="currentView() === 'WATCHLIST'">
+                            <!-- Status Badge is enough, maybe View Details again -->
+                           <button class="w-full px-4 py-2 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                               <lucide-icon name="eye" class="w-3.5 h-3.5"></lucide-icon> View Status
+                           </button>
+                       </ng-container>
+
+                         <!-- STATUS BADGE (IF DONE) -->
+                       <div class="flex-none flex flex-col items-center justify-center mt-2" *ngIf="item.stage === 'APPROVED'">
+                           <div class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 bg-green-100 text-green-700">
+                               <lucide-icon name="check-circle" class="w-4 h-4"></lucide-icon>
+                               LAUNCHED
+                           </div>
                        </div>
+
+                       <!-- VIEW DETAILS -->
+                       <button class="w-full px-4 py-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition-all flex items-center justify-center gap-2 mt-auto">
+                           <lucide-icon name="eye" class="w-3.5 h-3.5"></lucide-icon> Details
+                       </button>
+
                    </div>
 
                 </div>
             </div>
 
             <!-- EMPTY STATE -->
-            <div *ngIf="items.length === 0" class="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                 <lucide-icon name="check-circle" class="w-12 h-12 text-gray-300 mx-auto mb-4"></lucide-icon>
-                 <h3 class="text-lg font-medium text-gray-900">All Caught Up!</h3>
-                 <p class="text-gray-500">You have no pending approvals at this time.</p>
+            <div *ngIf="filteredItems().length === 0" class="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                     <lucide-icon [name]="emptyIcon" class="w-8 h-8 text-gray-400"></lucide-icon>
+                 </div>
+                 <h3 class="text-lg font-medium text-gray-900">{{ emptyTitle }}</h3>
+                 <p class="text-gray-500 max-w-sm mx-auto mt-2">{{ emptyMessage }}</p>
+                 <button *ngIf="userRole() === 'MAKER' && currentView() === 'DRAFTS'" class="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+                     Create New Proposal
+                 </button>
             </div>
 
         </div>
       </div>
     </div>
-    `,
+   `,
    styles: []
 })
 export class ApprovalDashboardComponent {
+   private userService = inject(UserService);
+   private route = inject(ActivatedRoute);
 
-   items: ApprovalItem[] = [
-      {
-         id: 'NPA-2025-042',
-         title: 'FX Put Option GBP/USD - Product Variation',
-         description: 'Requesting approval for a new FX structure for Acme Corp. Classified as Variation (Medium Risk). Cross-border booking required in London entity.',
-         submittedBy: 'Sarah Lim',
-         submittedDate: new Date('2026-02-09T09:42:00'),
-         status: 'PENDING',
-         riskLevel: 'MEDIUM',
-         type: 'NPA'
-      },
-      {
-         id: 'DCE-2025-081',
-         title: 'Client Onboarding - Omega Hedge Fund',
-         description: 'High-risk client onboarding request awaiting MLR clearance due to complex ownership structure.',
-         submittedBy: 'James Chen',
-         submittedDate: new Date('2026-02-08T14:15:00'),
-         status: 'PENDING',
-         riskLevel: 'HIGH',
-         type: 'DCE'
-      },
-      {
-         id: 'LB-2025-012',
-         title: 'VaR Limit Exception - Equities Desk',
-         description: 'Temporary limit breach exception request for overnight position due to market volatility.',
-         submittedBy: 'Alex Rivera',
-         submittedDate: new Date('2026-02-09T08:30:00'),
-         status: 'PENDING',
-         riskLevel: 'LOW',
-         type: 'Limit Breach'
-      }
-   ];
+   userRole = () => this.userService.currentUser().role;
 
-   get pendingCount() {
-      return this.items.filter(i => i.status === 'PENDING').length;
+   // Current View Signal based on Route Data
+   currentView = toSignal(
+      this.route.data.pipe(map(d => (d['view'] as WorkspaceView) || 'INBOX')),
+      { initialValue: 'INBOX' }
+   );
+
+   // Load Mock Data
+   items: NpaProject[] = MOCK_PROJECTS;
+
+   // Filtered Items Signal
+   filteredItems = signal<NpaProject[]>([]);
+
+   constructor() {
+      // Effect to update filtered items when view or role changes
+      effect(() => {
+         this.updateFilteredItems();
+      }, { allowSignalWrites: true });
    }
 
-   approve(item: ApprovalItem) {
-      if (confirm(`Approve ${item.title}?`)) {
-         item.status = 'APPROVED';
+   updateFilteredItems() {
+      const role = this.userRole();
+      const view = this.currentView();
+      // console.log(`Updating Items - Role: ${role}, View: ${view}`);
+
+      let result: NpaProject[] = [];
+
+      if (view === 'INBOX') {
+         result = this.getInboxItems(role);
+      } else if (view === 'DRAFTS') {
+         result = this.getDraftItems(role);
+      } else if (view === 'WATCHLIST') {
+         result = this.getWatchlistItems(role);
+      }
+
+      this.filteredItems.set(result);
+   }
+
+   // --- DATA FETCHING LOGIC ---
+
+   getInboxItems(role: string): NpaProject[] {
+      if (role === 'ADMIN') return this.items;
+
+      if (role === 'MAKER') {
+         return this.items.filter(i =>
+            (i.submittedBy === 'Sarah Jenkins' || i.submittedBy === 'Mike Chen') &&
+            i.stage === 'RETURNED_TO_MAKER'
+         );
+      }
+
+      if (role === 'CHECKER') {
+         return this.items.filter(i => i.stage === 'PENDING_CHECKER');
+      }
+
+      if (role.startsWith('APPROVER_')) {
+         const myParty = this.getPartyFromRole(role);
+         if (!myParty) return [];
+         return this.items.filter(i =>
+            i.stage === 'PENDING_SIGN_OFFS' &&
+            i.requiredSignOffs.includes(myParty) &&
+            (i.signOffMatrix[myParty]?.status === 'PENDING' || i.signOffMatrix[myParty]?.status === 'REWORK_REQUIRED')
+         );
+      }
+
+      if (role === 'COO') {
+         return this.items.filter(i => i.stage === 'PENDING_FINAL_APPROVAL');
+      }
+
+      return [];
+   }
+
+   getDraftItems(role: string): NpaProject[] {
+      if (role !== 'MAKER') return []; // Only Makers have drafts
+      return this.items.filter(i =>
+         (i.submittedBy === 'Sarah Jenkins' || i.submittedBy === 'Mike Chen') &&
+         i.stage === 'DRAFT'
+      );
+   }
+
+   getWatchlistItems(role: string): NpaProject[] {
+      if (role === 'MAKER') {
+         return this.items.filter(i =>
+            (i.submittedBy === 'Sarah Jenkins' || i.submittedBy === 'Mike Chen') &&
+            i.stage !== 'DRAFT' && i.stage !== 'RETURNED_TO_MAKER'
+         );
+      }
+
+      if (role.startsWith('APPROVER_')) {
+         const myParty = this.getPartyFromRole(role);
+         if (!myParty) return [];
+         return this.items.filter(i =>
+            i.requiredSignOffs.includes(myParty) &&
+            (i.signOffMatrix[myParty]?.status === 'APPROVED' || i.signOffMatrix[myParty]?.status === 'APPROVED_CONDITIONAL')
+         );
+      }
+
+      return [];
+   }
+
+   // --- UI HELPERS ---
+
+   get dashboardTitle() {
+      switch (this.currentView()) {
+         case 'INBOX': return 'My Inbox';
+         case 'DRAFTS': return 'My Drafts';
+         case 'WATCHLIST': return 'Watchlist';
+         default: return 'Workspace';
       }
    }
 
-   reject(item: ApprovalItem) {
-      if (confirm(`Reject ${item.title}?`)) {
-         item.status = 'REJECTED';
+   get dashboardSubtitle() {
+      switch (this.currentView()) {
+         case 'INBOX': return 'Items requiring your immediate attention or action.';
+         case 'DRAFTS': return 'Proposals currently in progress.';
+         case 'WATCHLIST': return 'Track the status of your submitted or approved items.';
+         default: return '';
+      }
+   }
+
+   get headerIcon() {
+      switch (this.currentView()) {
+         case 'INBOX': return 'inbox';
+         case 'DRAFTS': return 'file-edit';
+         case 'WATCHLIST': return 'eye';
+         default: return 'layout-dashboard';
+      }
+   }
+
+   get emptyTitle() {
+      if (this.currentView() === 'INBOX') return 'You see zero inbox.';
+      if (this.currentView() === 'DRAFTS') return 'No drafts initiated.';
+      return 'Nothing to watch.';
+   }
+
+   get emptyMessage() {
+      if (this.currentView() === 'INBOX') return 'No pending actions for you! Time for a coffee?';
+      if (this.currentView() === 'DRAFTS') return 'Start a new NPA in the Agent Dashboard.';
+      return 'You haven\'t tracked any items yet.';
+   }
+
+   get emptyIcon() {
+      if (this.currentView() === 'INBOX') return 'check-circle';
+      if (this.currentView() === 'DRAFTS') return 'file-plus';
+      return 'search';
+   }
+
+   shouldShowMatrix(item: NpaProject): boolean {
+      // Always show matrix for context unless it's a raw draft
+      if (item.stage === 'DRAFT') return false;
+      return true;
+   }
+
+   // --- ACTIONS (Reuse logic) ---
+
+   submit(item: NpaProject) {
+      if (item.stage === 'RETURNED_TO_MAKER') {
+         Object.keys(item.signOffMatrix).forEach(key => {
+            const k = key as SignOffParty;
+            if (item.signOffMatrix[k]?.status === 'REWORK_REQUIRED') {
+               item.signOffMatrix[k]!.status = 'PENDING';
+            }
+         });
+         item.stage = 'PENDING_SIGN_OFFS';
+      } else {
+         item.stage = 'PENDING_CHECKER';
+      }
+      this.updateFilteredItems(); // Force refresh
+   }
+
+   approve(item: NpaProject) {
+      const role = this.userRole();
+
+      if (role === 'CHECKER') {
+         item.stage = 'PENDING_SIGN_OFFS';
+         item.requiredSignOffs.forEach(p => {
+            if (!item.signOffMatrix[p]) {
+               item.signOffMatrix[p] = { party: p, status: 'PENDING', loopBackCount: 0 };
+            }
+         });
+      }
+      else if (this.isFunctionalApprover()) {
+         const party = this.getPartyFromRole(role);
+         if (party && item.signOffMatrix[party]) {
+            item.signOffMatrix[party]!.status = 'APPROVED';
+            item.signOffMatrix[party]!.approvedDate = new Date();
+            item.signOffMatrix[party]!.approverName = 'You';
+            this.checkIfAllSignedOff(item);
+         }
+      }
+      this.updateFilteredItems();
+   }
+
+   requestRework(item: NpaProject) {
+      const role = this.userRole();
+      if (this.isFunctionalApprover()) {
+         const party = this.getPartyFromRole(role);
+         const comment = prompt('Enter Rework Comments (e.g. "Fix ROAE"):', 'Please clarify section 3.');
+         if (party && item.signOffMatrix[party] && comment) {
+            item.signOffMatrix[party]!.status = 'REWORK_REQUIRED';
+            item.signOffMatrix[party]!.comments = comment;
+            item.signOffMatrix[party]!.loopBackCount++;
+            item.stage = 'RETURNED_TO_MAKER';
+         }
+      }
+      this.updateFilteredItems();
+   }
+
+   reject(item: NpaProject) {
+      if (confirm('Are you sure you want to completely REJECT this NPA?')) {
+         item.stage = 'REJECTED';
+         this.updateFilteredItems();
+      }
+   }
+
+   finalApprove(item: NpaProject) {
+      if (confirm('Grant Final Approval? Product will be LAUNCHED.')) {
+         item.stage = 'APPROVED';
+         item.finalApprover = 'COO';
+         item.finalApprovalDate = new Date();
+         this.updateFilteredItems();
+      }
+   }
+
+   // --- HELPERS (Reuse) ---
+
+   isFunctionalApprover() {
+      return this.userRole().startsWith('APPROVER_');
+   }
+
+   getPartyFromRole(role: string): SignOffParty | null {
+      if (role === 'APPROVER_RISK') return 'RMG-Credit';
+      if (role === 'APPROVER_MARKET') return 'RMG-Market';
+      if (role === 'APPROVER_FINANCE') return 'Group Finance';
+      if (role === 'APPROVER_TAX') return 'Group Tax';
+      if (role === 'APPROVER_LEGAL') return 'Legal & Compliance';
+      if (role === 'APPROVER_OPS') return 'T&O-Ops';
+      if (role === 'APPROVER_TECH') return 'T&O-Tech';
+      return null;
+   }
+
+   formatParty(party: string) {
+      return party.replace('RMG-', '').replace('Group ', '').replace('T&O-', '');
+   }
+
+   isMySignOffPending(item: NpaProject): boolean {
+      const role = this.userRole();
+      const party = this.getPartyFromRole(role);
+      return !!(party && (item.signOffMatrix[party]?.status === 'PENDING' || item.signOffMatrix[party]?.status === 'REWORK_REQUIRED'));
+   }
+
+   checkIfAllSignedOff(item: NpaProject) {
+      const allDone = item.requiredSignOffs.every(p => {
+         const status = item.signOffMatrix[p]?.status;
+         return status === 'APPROVED' || status === 'APPROVED_CONDITIONAL';
+      });
+      if (allDone) {
+         item.stage = 'PENDING_FINAL_APPROVAL';
+      }
+   }
+
+   getBadgeClass(status: SignOffDecision) {
+      switch (status) {
+         case 'APPROVED': return 'bg-green-50 text-green-700 border-green-200';
+         case 'APPROVED_CONDITIONAL': return 'bg-teal-50 text-teal-700 border-teal-200';
+         case 'REWORK_REQUIRED': return 'bg-red-50 text-red-700 border-red-200';
+         case 'REJECTED': return 'bg-gray-50 text-gray-700 border-gray-200';
+         default: return 'bg-gray-50 text-gray-500 border-gray-200'; // Pending
+      }
+   }
+
+   getDotClass(status: SignOffDecision) {
+      switch (status) {
+         case 'APPROVED': return 'bg-green-500';
+         case 'APPROVED_CONDITIONAL': return 'bg-teal-500';
+         case 'REWORK_REQUIRED': return 'bg-red-500';
+         case 'REJECTED': return 'bg-gray-500';
+         default: return 'bg-gray-300';
       }
    }
 }

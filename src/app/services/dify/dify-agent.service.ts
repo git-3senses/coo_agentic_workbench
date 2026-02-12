@@ -1,19 +1,20 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, of, map, delay } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of, map, delay, catchError } from 'rxjs';
 import { DifyService } from './dify.service';
+import { AGENT_REGISTRY, AgentDefinition, AgentActivityUpdate } from '../../lib/agent-interfaces';
 
 export interface AgentCapability {
     id: string;
     name: string;
     description: string;
-    icon: string; // Lucide icon name
-    stats: {
-        label: string;
-        value: string;
-    };
+    icon: string;
+    stats: { label: string; value: string };
     actionLabel: string;
-    color: 'blue' | 'purple' | 'amber' | 'green' | 'red' | 'indigo';
-    status: 'active' | 'beta' | 'maintenance';
+    color: 'blue' | 'purple' | 'amber' | 'green' | 'red' | 'indigo' | 'slate' | 'cyan' | 'teal' | 'emerald' | 'fuchsia' | 'pink' | 'violet' | 'orange';
+    status: 'active' | 'beta' | 'unconfigured';
+    tier: 1 | 2 | 3 | 4;
+    difyType: 'chat' | 'workflow';
 }
 
 export interface AgentWorkItem {
@@ -22,127 +23,156 @@ export interface AgentWorkItem {
     operation: string;
     status: 'running' | 'completed' | 'waiting';
     duration: string;
-    color: 'blue' | 'purple' | 'amber' | 'green' | 'red' | 'fuchsia';
+    color: 'blue' | 'purple' | 'amber' | 'green' | 'red' | 'fuchsia' | 'slate' | 'cyan' | 'teal';
 }
 
 export interface HealthMetrics {
     status: 'healthy' | 'degraded' | 'down';
     latency: number;
-    uptime: number; // Percentage
+    uptime: number;
     activeAgents: number;
+    totalAgents: number;
     totalDecisions: number;
 }
+
+export interface AgentStatusInfo {
+    id: string;
+    name: string;
+    tier: number;
+    type: string;
+    icon: string;
+    color: string;
+    status: 'ready' | 'unconfigured' | 'running' | 'error';
+}
+
+// Map agent IDs to display-friendly color names
+const COLOR_MAP: Record<string, string> = {
+    'MASTER_COO': 'violet',
+    'NPA_ORCHESTRATOR': 'orange',
+    'IDEATION': 'indigo',
+    'CLASSIFIER': 'purple',
+    'AUTOFILL': 'blue',
+    'ML_PREDICT': 'amber',
+    'RISK': 'red',
+    'GOVERNANCE': 'slate',
+    'DILIGENCE': 'cyan',
+    'DOC_LIFECYCLE': 'teal',
+    'MONITORING': 'emerald',
+    'KB_SEARCH': 'fuchsia',
+    'NOTIFICATION': 'pink'
+};
+
+// Mock stats per agent
+const AGENT_STATS: Record<string, { label: string; value: string; actionLabel: string }> = {
+    'MASTER_COO': { label: 'Sessions', value: '2,456', actionLabel: 'Chat' },
+    'NPA_ORCHESTRATOR': { label: 'Orchestrations', value: '1,892', actionLabel: 'Status' },
+    'IDEATION': { label: 'Creates', value: '1,248', actionLabel: 'Start' },
+    'CLASSIFIER': { label: 'Confidence', value: '88%', actionLabel: 'Classify' },
+    'AUTOFILL': { label: 'Coverage', value: '78%', actionLabel: 'Fill' },
+    'ML_PREDICT': { label: 'Accuracy', value: '92%', actionLabel: 'Predict' },
+    'RISK': { label: 'Catch Rate', value: '96%', actionLabel: 'Scan' },
+    'GOVERNANCE': { label: 'SLA Met', value: '94%', actionLabel: 'Route' },
+    'DILIGENCE': { label: 'Docs', value: '200+', actionLabel: 'Ask' },
+    'DOC_LIFECYCLE': { label: 'Validated', value: '3,412', actionLabel: 'Check' },
+    'MONITORING': { label: 'Products', value: '156', actionLabel: 'Monitor' },
+    'KB_SEARCH': { label: 'Hit Rate', value: '94%', actionLabel: 'Search' },
+    'NOTIFICATION': { label: 'Sent', value: '8,923', actionLabel: 'View' }
+};
 
 @Injectable({
     providedIn: 'root'
 })
 export class DifyAgentService {
     private difyBase = inject(DifyService);
+    private http = inject(HttpClient);
 
+    /**
+     * Get all 13 agent capabilities from the registry
+     */
     getCapabilities(): Observable<AgentCapability[]> {
-        // Mock Data - In real implementation, this could come from a Dify configuration or config file
-        return of([
-            {
-                id: 'create_npa',
-                name: 'Create New NPA',
-                description: 'Guides you through 10 questions to build a complete NPA with 78% auto-fill.',
-                icon: 'file-edit',
-                stats: { label: 'Creates', value: '1,248' },
-                actionLabel: 'Start',
-                color: 'blue',
-                status: 'active'
-            },
-            {
-                id: 'find_similar',
-                name: 'Find Similar NPAs',
-                description: 'Search 1,784 historical records by semantic similarity using vector embeddings.',
-                icon: 'sparkles',
-                stats: { label: 'Match Rate', value: '94%' },
-                actionLabel: 'Search',
-                color: 'purple',
-                status: 'active'
-            },
-            {
-                id: 'predict_outcome',
-                name: 'Predict Outcome',
-                description: 'ML precision forecasts on approval likelihood, timeline, and potential bottlenecks.',
-                icon: 'trending-up',
-                stats: { label: 'Accuracy', value: '92%' },
-                actionLabel: 'Predict',
-                color: 'amber',
-                status: 'active'
-            },
-            {
-                id: 'policy_qa',
-                name: 'Policy Q&A',
-                description: 'Ask anything about MAS regulations and internal DBS policies. Citations included.',
-                icon: 'book-open',
-                stats: { label: 'Docs', value: '200+' },
-                actionLabel: 'Ask',
-                color: 'green',
-                status: 'active'
-            },
-            // === GAPS FILLED BELOW ===
-            {
-                id: 'auto_fill',
-                name: 'Template Auto-Fill',
-                description: 'Upload term sheets or RFPs to automatically populate the 47-field NPA template.',
-                icon: 'zap',
-                stats: { label: 'Coverage', value: '78%' },
-                actionLabel: 'Upload',
-                color: 'indigo',
-                status: 'active'
-            },
-            {
-                id: 'classify_route',
-                name: 'Classify & Route',
-                description: 'Determine if product is NTG, Variation, or Existing and assign approval track.',
-                icon: 'git-branch',
-                stats: { label: 'Confidence', value: '88%' },
-                actionLabel: 'Classify',
-                color: 'red',
-                status: 'active'
-            },
-            {
-                id: 'validate_docs',
-                name: 'Validate Documents',
-                description: 'Check completeness and compliance of uploaded documents before submission.',
-                icon: 'shield-check',
-                stats: { label: 'Catch Rate', value: '89%' },
-                actionLabel: 'Validate',
-                color: 'blue',
-                status: 'beta'
-            },
-            {
-                id: 'historical_analysis',
-                name: 'Historical Analysis',
-                description: 'Understand past decisions and approval reasoning for 1,784+ NPAs.',
-                icon: 'history',
-                stats: { label: 'Records', value: '1.7k' },
-                actionLabel: 'Analyze',
-                color: 'purple',
-                status: 'active'
-            }
-        ] as AgentCapability[]).pipe(delay(500)); // Simulate network
+        return of(
+            AGENT_REGISTRY.map(agent => {
+                const stats = AGENT_STATS[agent.id] || { label: 'Tasks', value: '0', actionLabel: 'Run' };
+                return {
+                    id: agent.id,
+                    name: agent.name,
+                    description: agent.description,
+                    icon: agent.icon,
+                    stats: { label: stats.label, value: stats.value },
+                    actionLabel: stats.actionLabel,
+                    color: (COLOR_MAP[agent.id] || 'blue') as any,
+                    status: 'active' as const,
+                    tier: agent.tier,
+                    difyType: agent.difyType
+                };
+            })
+        ).pipe(delay(300));
     }
 
+    /**
+     * Get agent statuses — tries real API first, falls back to registry
+     */
+    getAgentStatuses(): Observable<AgentStatusInfo[]> {
+        return this.http.get<{ agents: AgentStatusInfo[] }>('/api/dify/agents/status').pipe(
+            map(res => res.agents),
+            catchError(() => {
+                // Fallback: return from local registry
+                return of(AGENT_REGISTRY.map(a => ({
+                    id: a.id,
+                    name: a.name,
+                    tier: a.tier,
+                    type: a.difyType,
+                    icon: a.icon,
+                    color: a.color,
+                    status: 'ready' as const
+                })));
+            })
+        );
+    }
+
+    /**
+     * Get active work items
+     */
     getActiveWorkItems(): Observable<AgentWorkItem[]> {
         return of([
-            { id: 'JOB-992', agentName: 'TemplateAutoFill', operation: 'Parsing "Term_Sheet_FX.pdf"', status: 'running', duration: '1.2s', color: 'blue' },
-            { id: 'JOB-991', agentName: 'Classification', operation: 'Classifying TSG2025-041', status: 'completed', duration: '450ms', color: 'purple' },
-            { id: 'JOB-990', agentName: 'Orchestration', operation: 'Handing off to Human (Ops)', status: 'waiting', duration: '12m', color: 'amber' },
-            { id: 'JOB-989', agentName: 'KB Search', operation: 'Indexing "MAS_Guidelines.pdf"', status: 'completed', duration: '890ms', color: 'fuchsia' },
-            { id: 'JOB-988', agentName: 'Prohibited List', operation: 'Scanning "Sanctions.csv"', status: 'running', duration: '2.1s', color: 'red' }
-        ] as AgentWorkItem[]).pipe(delay(300));
+            { id: 'JOB-992', agentName: 'Template AutoFill', operation: 'Parsing "Term_Sheet_FX.pdf"', status: 'running' as const, duration: '1.2s', color: 'blue' as const },
+            { id: 'JOB-991', agentName: 'Classification', operation: 'Classifying TSG2025-041', status: 'completed' as const, duration: '450ms', color: 'purple' as const },
+            { id: 'JOB-990', agentName: 'Governance', operation: 'Creating sign-off requests', status: 'waiting' as const, duration: '12m', color: 'slate' as const },
+            { id: 'JOB-989', agentName: 'KB Search', operation: 'Searching "MAS_Guidelines.pdf"', status: 'completed' as const, duration: '890ms', color: 'fuchsia' as const },
+            { id: 'JOB-988', agentName: 'Risk Agent', operation: '4-layer risk cascade', status: 'running' as const, duration: '2.1s', color: 'red' as const }
+        ]).pipe(delay(300));
     }
 
+    /**
+     * Get aggregate agent health metrics
+     */
     getAgentHealth(): Observable<HealthMetrics> {
         return of({
-            status: 'healthy',
+            status: 'healthy' as const,
             latency: 42,
             uptime: 99.9,
-            activeAgents: 8,
+            activeAgents: 13,
+            totalAgents: 13,
             totalDecisions: 14529
-        } as HealthMetrics).pipe(delay(200));
+        }).pipe(delay(200));
+    }
+
+    /**
+     * Get real-time agent activity stream
+     */
+    getAgentActivityStream(): Observable<AgentActivityUpdate> {
+        return this.difyBase.getAgentActivity();
+    }
+
+    /**
+     * Get agents grouped by tier
+     */
+    getAgentsByTier(): { tier: number; label: string; agents: AgentDefinition[] }[] {
+        return [
+            { tier: 1, label: 'Strategic Command', agents: AGENT_REGISTRY.filter(a => a.tier === 1) },
+            { tier: 2, label: 'Domain Orchestration', agents: AGENT_REGISTRY.filter(a => a.tier === 2) },
+            { tier: 3, label: 'Specialist Workers', agents: AGENT_REGISTRY.filter(a => a.tier === 3) },
+            { tier: 4, label: 'Shared Utilities', agents: AGENT_REGISTRY.filter(a => a.tier === 4) },
+        ];
     }
 }

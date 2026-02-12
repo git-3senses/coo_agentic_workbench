@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { UserService } from '../../services/user.service';
 
 @Component({
     selector: 'app-command-center',
@@ -44,8 +45,10 @@ import { LucideAngularModule } from 'lucide-angular';
           <!-- Cards Grid -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left">
             
-            <!-- Functional Agents Card -->
-            <div class="bg-white/60 backdrop-blur-xl rounded-xl flex flex-col shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 overflow-hidden border border-white/50 group">
+            <!-- Functional Agents Card (MAKER Focus) -->
+            <div class="bg-white/60 backdrop-blur-xl rounded-xl flex flex-col shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 overflow-hidden border border-white/50 group"
+                 [class.opacity-50]="userRole() !== 'MAKER' && userRole() !== 'ADMIN'"
+                 [class.pointer-events-none]="userRole() !== 'MAKER' && userRole() !== 'ADMIN'">
                 <div class="p-8 pb-4 flex-1">
                     <div class="w-14 h-14 rounded-2xl bg-red-50/80 border border-red-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
                         <lucide-icon name="bot" class="w-7 h-7 text-[#FF3E3E]"></lucide-icon>
@@ -74,7 +77,7 @@ import { LucideAngularModule } from 'lucide-angular';
                 </div>
             </div>
 
-            <!-- Work Items Card -->
+            <!-- Work Items Card (Everyone) -->
             <div class="bg-white/60 backdrop-blur-xl rounded-xl flex flex-col shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 overflow-hidden border border-white/50 group">
                 <div class="p-8 pb-4 flex-1">
                     <div class="w-14 h-14 rounded-2xl bg-gray-50/80 border border-gray-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
@@ -87,9 +90,9 @@ import { LucideAngularModule } from 'lucide-angular';
                 </div>
 
                 <div class="mt-6">
-                    <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-not-allowed opacity-40">
+                    <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-pointer hover:bg-gray-50/50 transition-colors group/item" [routerLink]="['/workspace/inbox']">
                          <span class="text-sm font-semibold text-gray-700">My Dashboard</span>
-                         <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">Soon</span>
+                         <lucide-icon name="arrow-right" class="w-4 h-4 text-gray-500 opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all duration-300"></lucide-icon>
                     </div>
                     <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-not-allowed opacity-40">
                          <span class="text-sm font-semibold text-gray-700">Exception Queue</span>
@@ -133,4 +136,7 @@ import { LucideAngularModule } from 'lucide-angular';
   `,
     styles: []
 })
-export class CommandCenterComponent { }
+export class CommandCenterComponent {
+    private userService = inject(UserService);
+    userRole = () => this.userService.currentUser().role;
+}
