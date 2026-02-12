@@ -5,6 +5,7 @@ Mirrors server/mcp/src/db.ts exactly.
 from __future__ import annotations
 
 import os
+import ssl
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -17,6 +18,13 @@ async def get_pool() -> aiomysql.Pool:
     """Return the shared connection pool, creating it on first call."""
     global _pool
     if _pool is None:
+        # For cloud deployments (Railway), use SSL with permissive cert checks
+        ssl_ctx = None
+        if os.getenv("ENV") == "production":
+            ssl_ctx = ssl.create_default_context()
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+
         _pool = await aiomysql.create_pool(
             host=os.getenv("DB_HOST", "localhost"),
             port=int(os.getenv("DB_PORT", "3306")),
@@ -26,6 +34,7 @@ async def get_pool() -> aiomysql.Pool:
             minsize=1,
             maxsize=10,
             autocommit=True,
+            ssl=ssl_ctx,
         )
     return _pool
 
@@ -73,6 +82,13 @@ async def health_check() -> bool:
         return True
     except Exception:
         return False
+
+
+def reset_pool() -> None:
+    """Discard the current pool so the next call to get_pool() creates a fresh one.
+    Call this after running health_check() in a temporary event loop."""
+    global _pool
+    _pool = None
 
 
 async def close_pool() -> None:

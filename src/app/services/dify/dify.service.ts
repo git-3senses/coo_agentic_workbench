@@ -15,7 +15,7 @@ export interface DifyAgentResponse {
     conversationId?: string;
     messageId?: string;
     metadata?: {
-        agent_action?: AgentAction | 'ROUTE_WORK_ITEM' | 'ASK_CLARIFICATION' | 'STOP_PROCESS' | 'FINALIZE_DRAFT';
+        agent_action?: AgentAction;
         payload?: any;
         agent_id?: string;
     };
@@ -177,19 +177,97 @@ export class DifyService {
 
     // ─── Mock Logic ──────────────────────────────────────────────
 
+    /**
+     * Master COO mock flow:
+     *   Step 0: Domain detection (ROUTE_DOMAIN) + NPA greeting
+     *   Step 1: Product description → Classification
+     *   Step 2: Cross-border → Finalize
+     *   Step 3+: Conversation done
+     *
+     * The Master COO first identifies the domain (NPA, Desk Support, etc.)
+     * then hands off to the domain orchestrator. For Phase 0, only NPA is active.
+     */
     private mockDifyLogic(query: string): Observable<DifyAgentResponse> {
         const lower = query.toLowerCase();
 
-        // Step 0: Greeting
+        // ─── Step 0: Master COO detects domain intent ───────────
         if (this.conversationStep === 0) {
             this.conversationStep++;
-            this.emitMockActivity(['MASTER_COO', 'NPA_ORCHESTRATOR', 'IDEATION']);
+            const detectedDomain = this.detectDomain(lower);
+
+            if (detectedDomain === 'NPA') {
+                this.emitMockActivity(['MASTER_COO', 'NPA_ORCHESTRATOR']);
+                return of({
+                    answer: "I've identified this as a **New Product Approval** request. Routing you to the **NPA Domain Orchestrator**.\n\nPlease describe the product structure, underlying asset, and payout logic so I can begin the analysis.",
+                    metadata: {
+                        agent_action: 'ROUTE_DOMAIN' as const,
+                        agent_id: 'MASTER_COO',
+                        payload: {
+                            domainId: 'NPA',
+                            name: 'NPA Domain Orchestrator',
+                            description: 'Create, classify, and manage New Product Approvals',
+                            icon: 'target',
+                            color: 'bg-orange-50 text-orange-600',
+                            route: '/agents/npa'
+                        }
+                    }
+                }).pipe(delay(1200));
+            }
+
+            if (detectedDomain === 'RISK') {
+                this.emitMockActivity(['MASTER_COO', 'RISK']);
+                return of({
+                    answer: "I've identified this as a **Risk & Compliance** query. The Risk domain is currently in development.\n\nFor now, I can help you with NPA-related risk assessments through the NPA Agent. Would you like me to route you there?",
+                    metadata: {
+                        agent_action: 'ROUTE_DOMAIN' as const,
+                        agent_id: 'MASTER_COO',
+                        payload: {
+                            domainId: 'RISK',
+                            name: 'Risk Control Agent',
+                            description: '4-layer risk cascade: Internal, Regulatory, Sanctions, Dynamic',
+                            icon: 'shield-alert',
+                            color: 'bg-red-50 text-red-600',
+                            route: '/functions/orm'
+                        }
+                    }
+                }).pipe(delay(1200));
+            }
+
+            if (detectedDomain === 'KB') {
+                this.emitMockActivity(['MASTER_COO', 'KB_SEARCH']);
+                return of({
+                    answer: "I've routed your request to the **Knowledge Base Search Agent**. Let me search our SOPs, policies, and regulatory guidance for you.\n\nSearching...\n\n**Results (3 matches):**\n1. **MAS Notice 656** — Guidelines on Risk Management (92% match)\n2. **NPA SOP v4.2** — Standard Operating Procedure for Product Approvals (87% match)\n3. **T&M Policy Framework** — Trading & Markets Governance Policies (81% match)\n\nWould you like me to drill into any of these documents?",
+                    metadata: {
+                        agent_action: 'ROUTE_DOMAIN' as const,
+                        agent_id: 'KB_SEARCH',
+                        payload: {
+                            domainId: 'KB',
+                            name: 'KB Search Agent',
+                            description: 'Semantic search over SOPs, policies, and regulatory guidance',
+                            icon: 'search',
+                            color: 'bg-fuchsia-50 text-fuchsia-600',
+                            route: '/knowledge/base'
+                        }
+                    }
+                }).pipe(delay(1500));
+            }
+
+            // Default: still route but explain capabilities
+            this.emitMockActivity(['MASTER_COO']);
             return of({
-                answer: "Hello! I'm the COO Agent Workbench. I can help you create, analyze, and manage NPAs.\n\nBriefly describe the product structure, underlying asset, and payout logic."
+                answer: "I'm the **Master COO Orchestrator**. I manage 7 COO domains:\n\n" +
+                    "* **New Product Approval (NPA)** — Active\n" +
+                    "* **Desk Support** — Coming Soon\n" +
+                    "* **DCE Client Services** — Coming Soon\n" +
+                    "* **Operational Risk** — Coming Soon\n" +
+                    "* **Strategic PM** — Coming Soon\n" +
+                    "* **Business Leads** — Coming Soon\n" +
+                    "* **Business Analysis** — Coming Soon\n\n" +
+                    "Currently, the **NPA domain** is fully active. Try asking me to create a new product, run a risk check, or search the knowledge base."
             }).pipe(delay(1000));
         }
 
-        // Step 1: Product description → Classification
+        // ─── Step 1: Within NPA domain — Product description → Classification ───
         if (this.conversationStep === 1) {
             this.conversationStep++;
 
@@ -235,7 +313,7 @@ export class DifyService {
             }).pipe(delay(2000));
         }
 
-        // Step 2: Cross-border answer → Final routing
+        // ─── Step 2: Cross-border answer → Finalize ───
         if (this.conversationStep === 2) {
             this.conversationStep++;
             const isCrossBorder = lower.includes('yes') || lower.includes('hk') || lower.includes('london') || lower.includes('hong kong');
@@ -273,8 +351,28 @@ export class DifyService {
         }
 
         return of({
-            answer: "I've already completed this analysis. Please reset if you want to start over."
+            answer: "I've completed this analysis. You can reset the conversation to start a new query, or use the button above to open the full NPA workspace."
         }).pipe(delay(500));
+    }
+
+    /** Detect which COO domain the user is asking about */
+    private detectDomain(lower: string): 'NPA' | 'RISK' | 'KB' | 'OPS' | 'DESK' | 'GENERAL' {
+        const npaKeywords = ['npa', 'new product', 'product approval', 'create a product', 'structured note',
+            'structured product', 'derivative', 'etf', 'fx accumulator', 'fx option', 'bond', 'swap',
+            'approval', 'classify', 'classification', 'ideation', 'concept paper', 'prohibited'];
+        const riskKeywords = ['risk assessment', 'risk check', 'compliance check', 'regulatory', 'sanctions',
+            'prohibited list', 'risk cascade', 'operational risk', 'credit risk', 'market risk'];
+        const kbKeywords = ['search', 'knowledge', 'sop', 'policy', 'guideline', 'mas notice', 'regulation',
+            'documentation', 'procedure', 'framework'];
+        const opsKeywords = ['settlement', 'booking', 'murex', 'operations', 'workflow', 'process flow'];
+        const deskKeywords = ['desk support', 'trade error', 'booking error', 'system access', 'entitlement'];
+
+        if (npaKeywords.some(k => lower.includes(k))) return 'NPA';
+        if (riskKeywords.some(k => lower.includes(k))) return 'RISK';
+        if (kbKeywords.some(k => lower.includes(k))) return 'KB';
+        if (opsKeywords.some(k => lower.includes(k))) return 'OPS';
+        if (deskKeywords.some(k => lower.includes(k))) return 'DESK';
+        return 'GENERAL';
     }
 
     private mockWorkflow(agentId: string, inputs: Record<string, any>): Observable<DifyWorkflowResponse> {

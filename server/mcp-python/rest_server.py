@@ -1,8 +1,8 @@
 """
-REST API Server for Dify — Port 3002
-Exposes all NPA tools as HTTP endpoints + auto-generated OpenAPI spec.
-Dify imports /openapi.json as a "Custom Tool" provider.
-Mirrors server/mcp/src/rest-server.ts exactly.
+REST API + MCP SSE Server — Port 3002
+Exposes all NPA tools as:
+  1. HTTP endpoints + auto-generated OpenAPI spec (for Dify Custom Tool import)
+  2. MCP SSE transport at /sse (for Dify native MCP integration)
 """
 import os
 import sys
@@ -19,6 +19,9 @@ from registry import registry  # noqa: E402
 
 # Import all tool modules so they self-register
 import tools  # noqa: E402, F401
+
+# Import the MCP server instance (already has all 71 tools registered)
+from main import mcp_server  # noqa: E402
 
 REST_PORT = int(os.getenv("REST_PORT", "3002"))
 
@@ -37,6 +40,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Mount MCP SSE transport on the same server ─────────────────
+# This makes /sse and /messages available on port 3002 alongside REST endpoints
+app.mount("/mcp", mcp_server.sse_app())
 
 
 # ─── Custom OpenAPI spec matching TypeScript output ───────────────
@@ -143,11 +150,14 @@ async def health():
 
 
 def start_rest_server():
-    """Start the FastAPI REST server."""
+    """Start the unified FastAPI server (REST + MCP SSE)."""
     import uvicorn
-    print(f"[REST API] Server running on http://localhost:{REST_PORT}")
-    print(f"[REST API] OpenAPI spec: http://localhost:{REST_PORT}/openapi.json")
+    public = os.getenv("PUBLIC_URL", f"http://localhost:{REST_PORT}")
+    print(f"[SERVER]   Listening on http://0.0.0.0:{REST_PORT}")
+    print(f"[REST API] OpenAPI spec: {public}/openapi.json")
     print(f"[REST API] {registry.count()} tools exposed as POST /tools/{{name}}")
+    print(f"[MCP SSE]  SSE endpoint: {public}/mcp/sse")
+    print(f"[MCP SSE]  {registry.count()} tools via MCP protocol")
     uvicorn.run(app, host="0.0.0.0", port=REST_PORT, log_level="info")
 
 

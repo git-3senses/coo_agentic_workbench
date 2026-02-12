@@ -63,6 +63,7 @@ export type AgentAction =
     | 'SHOW_DOC_STATUS'
     | 'ASK_CLARIFICATION'
     | 'ROUTE_WORK_ITEM'
+    | 'ROUTE_DOMAIN'
     | 'STOP_PROCESS'
     | 'FINALIZE_DRAFT';
 

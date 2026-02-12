@@ -7,13 +7,23 @@ import { AgentGovernanceService } from '../../../services/agent-governance.servi
 import { NpaWorkflowVisualizerComponent } from '../../../components/npa/npa-workflow-visualizer/npa-workflow-visualizer.component';
 import { DocumentDependencyMatrixComponent } from '../../../components/npa/document-dependency-matrix/document-dependency-matrix.component';
 import { MOCK_NPA_SECTIONS } from '../../../lib/mock-npa-data';
+import { RiskAssessmentResultComponent } from '../../../components/npa/agent-results/risk-assessment-result.component';
+import { MlPredictionResultComponent } from '../../../components/npa/agent-results/ml-prediction-result.component';
+import { MonitoringAlertsComponent } from '../../../components/npa/agent-results/monitoring-alerts.component';
+import { DocCompletenessComponent } from '../../../components/npa/agent-results/doc-completeness.component';
+import { DifyService } from '../../../services/dify/dify.service';
+import { RiskAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult } from '../../../lib/agent-interfaces';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
 @Component({
    selector: 'app-npa-detail',
    standalone: true,
-   imports: [CommonModule, LucideAngularModule, NpaTemplateEditorComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent],
+   imports: [
+      CommonModule, LucideAngularModule, NpaTemplateEditorComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent,
+      RiskAssessmentResultComponent, MlPredictionResultComponent,
+      MonitoringAlertsComponent, DocCompletenessComponent
+   ],
    template: `
     <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false" (onSave)="onSave.emit($event)" [inputData]="npaContext"></app-npa-template-editor>
     
@@ -351,9 +361,22 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
                 </div>
 
-                <!-- 1.5 DOCUMENTS (MATRIX) -->
-                <div *ngIf="activeTab === 'DOCUMENTS'" class="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
+                <!-- 1.5 DOCUMENTS (MATRIX + Doc Lifecycle Agent) -->
+                <div *ngIf="activeTab === 'DOCUMENTS'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
                    <app-document-dependency-matrix [npaContext]="npaContext"></app-document-dependency-matrix>
+
+                   <!-- Document Lifecycle Agent Results -->
+                   <div class="mt-8 pt-6 border-t border-gray-200">
+                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                           <lucide-icon name="scan-search" class="w-4 h-4 text-teal-500"></lucide-icon>
+                           Document Lifecycle Agent
+                       </h4>
+                       <app-doc-completeness *ngIf="docCompleteness" [result]="docCompleteness"></app-doc-completeness>
+                       <div *ngIf="!docCompleteness" class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                           <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-400 animate-spin"></lucide-icon>
+                           <p class="text-sm font-medium">Document completeness analysis will appear once the agent runs.</p>
+                       </div>
+                   </div>
                 </div>
 
                 <!-- 2. ANALYSIS (Detailed Risk & Ops) -->
@@ -411,48 +434,28 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                        </div>
                    </div>
 
-                   <!-- AI PREDICTION (Legacy) -->
+                   <!-- AI PREDICTION (Agent-Driven) -->
                    <div class="mt-8 pt-8 border-t border-gray-200">
-                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">AI Predictions</h4>
-                       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                           <!-- Likelihood -->
-                           <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
-                              <div class="absolute right-0 top-0 p-4 opacity-10">
-                                 <lucide-icon name="trending-up" class="w-16 h-16 text-green-600"></lucide-icon>
-                              </div>
-                              <h4 class="text-sm font-medium text-gray-500 mb-2">Approval Likelihood</h4>
-                              <div class="flex items-baseline gap-2">
-                                  <span class="text-4xl font-bold text-gray-900">78%</span>
-                                  <span class="text-sm font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">High</span>
-                              </div>
-                              <p class="text-xs text-gray-400 mt-2">Confidence Interval: ±5%</p>
-                              <div class="mt-4 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                                 <div class="h-full bg-green-500 w-[78%] rounded-full"></div>
-                              </div>
-                           </div>
-    
-                           <!-- Timeline -->
-                           <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                              <h4 class="text-sm font-medium text-gray-500 mb-2">Predicted Timeline</h4>
-                              <div class="flex items-baseline gap-2">
-                                  <span class="text-4xl font-bold text-gray-900">4.2</span>
-                                  <span class="text-sm text-gray-500">Days</span>
-                              </div>
-                               <p class="text-xs text-gray-400 mt-2">vs 12 Day Baseline (67% faster)</p>
-                           </div>
-    
-                           <!-- Bottleneck -->
-                           <div class="bg-white p-6 rounded-xl border border-red-100 shadow-sm bg-red-50/30">
-                              <h4 class="text-sm font-medium text-red-600 mb-2 flex items-center gap-2">
-                                 <lucide-icon name="alert-circle" class="w-4 h-4"></lucide-icon>
-                                 Likely Bottleneck
-                              </h4>
-                              <p class="text-gray-900 font-bold">Finance Dept</p>
-                              <p class="text-sm text-gray-600 mt-1">Est. 1.8 Days</p>
-                              <p class="text-xs text-gray-500 mt-3 pt-3 border-t border-red-100">
-                                 Reason: ROAE analysis often requested for >$50M deals.
-                              </p>
-                           </div>
+                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                           <lucide-icon name="trending-up" class="w-4 h-4 text-amber-500"></lucide-icon>
+                           ML Prediction Agent
+                       </h4>
+                       <app-ml-prediction-result *ngIf="mlPrediction" [result]="mlPrediction"></app-ml-prediction-result>
+                       <div *ngIf="!mlPrediction" class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                           <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-400 animate-spin"></lucide-icon>
+                           <p class="text-sm font-medium">ML Prediction results will appear here once the agent runs.</p>
+                       </div>
+                   </div>
+
+                   <!-- Risk Agent (4-Layer Cascade) -->
+                   <div class="mt-8 pt-8 border-t border-gray-200">
+                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                           <lucide-icon name="shield-alert" class="w-4 h-4 text-red-500"></lucide-icon>
+                           Risk Agent — 4-Layer Cascade
+                       </h4>
+                       <app-risk-assessment-result *ngIf="riskAssessmentResult" [result]="riskAssessmentResult"></app-risk-assessment-result>
+                       <div *ngIf="!riskAssessmentResult" class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                           <p class="text-sm font-medium">Risk assessment will appear here once the agent runs.</p>
                        </div>
                    </div>
                 </div>
@@ -604,6 +607,19 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                       </div>
                    </div>
 
+                   <!-- Monitoring Agent Results -->
+                   <div class="mt-2 pt-6 border-t border-gray-200">
+                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                           <lucide-icon name="activity" class="w-4 h-4 text-emerald-500"></lucide-icon>
+                           Post-Launch Monitoring Agent
+                       </h4>
+                       <app-monitoring-alerts *ngIf="monitoringResult" [result]="monitoringResult"></app-monitoring-alerts>
+                       <div *ngIf="!monitoringResult" class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                           <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-400 animate-spin"></lucide-icon>
+                           <p class="text-sm font-medium">Monitoring agent results will appear here once the agent runs.</p>
+                       </div>
+                   </div>
+
                    <!-- Conversational Analytics -->
                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                       <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -622,7 +638,6 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
 
                 <!-- 6. CHAT (Existing) -->
                 <div *ngIf="activeTab === 'CHAT'" class="h-[calc(100vh-280px)] flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <!-- ... Existing Chat Content ... -->
                    <div class="flex-1 p-6 space-y-6 overflow-y-auto bg-slate-50/50">
                        <div class="flex items-start gap-4">
                           <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm">
@@ -674,9 +689,17 @@ export class NpaDetailComponent implements OnInit {
    projectData: any = null;
    currentStage: string = 'Discovery';
 
+   // Agent result properties
+   mlPrediction: MLPrediction | null = null;
+   riskAssessmentResult: RiskAssessment | null = null;
+   monitoringResult: MonitoringResult | null = null;
+   governanceState: GovernanceState | null = null;
+   docCompleteness: DocCompletenessResult | null = null;
+
    constructor(
       private route: ActivatedRoute,
-      private governanceService: AgentGovernanceService
+      private governanceService: AgentGovernanceService,
+      private difyService: DifyService
    ) { }
 
    ngOnInit() {

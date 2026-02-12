@@ -9,6 +9,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
+import { AGENT_REGISTRY } from '../../lib/agent-interfaces';
 
 type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
 
@@ -29,6 +30,11 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
            <p class="text-sm text-gray-500 mt-1">{{ dashboardSubtitle }}</p>
         </div>
         <div class="flex items-center gap-3">
+           <div class="flex items-center gap-1.5 bg-slate-50 text-slate-600 px-3 py-1 rounded-full text-xs font-medium border border-slate-200">
+              <lucide-icon name="workflow" class="w-3.5 h-3.5 text-slate-500"></lucide-icon>
+              Governance Agent
+              <span class="w-2 h-2 rounded-full bg-green-500"></span>
+           </div>
            <div class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100">
               {{ filteredItems().length }} Item(s)
            </div>

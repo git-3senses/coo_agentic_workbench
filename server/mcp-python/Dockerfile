@@ -1,11 +1,13 @@
 # ─── NPA MCP Tools Server ─────────────────────────────────────
-# Python 3.11 FastAPI server exposing 71 MCP tools via REST API
+# Python 3.12 server exposing 71 MCP tools via single port:
+#   - REST API + OpenAPI  at /tools, /openapi.json
+#   - MCP SSE transport   at /mcp/sse
 # ──────────────────────────────────────────────────────────────
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 LABEL maintainer="NPA Workbench Team" \
-      description="MCP Tools REST API for NPA Multi-Agent Workbench" \
-      version="1.0.0"
+      description="MCP Tools Server for NPA Multi-Agent Workbench" \
+      version="2.0.0"
 
 # Security: run as non-root
 RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
@@ -24,12 +26,12 @@ COPY tools/ ./tools/
 RUN chown -R appuser:appuser /app
 USER appuser
 
-# Expose REST API port
+# Expose single port (REST + MCP SSE unified)
 EXPOSE 3002
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+# Health check against REST API
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:3002/health')" || exit 1
 
-# Start the REST server
-CMD ["python3", "rest_server.py"]
+# Start both servers (MCP SSE + REST API)
+CMD ["python3", "start.py"]

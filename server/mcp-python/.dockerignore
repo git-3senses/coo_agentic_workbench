@@ -8,3 +8,8 @@ __pycache__/
 *.md
 .git/
 .claude/
+db_dump.sql
+test files/
+openshift/
+Jenkinsfile
+railway.toml

@@ -1,60 +1,71 @@
 """
-Combined launcher — starts both MCP SSE and REST API servers.
+Combined launcher — REST API + MCP SSE on single port.
 
-MCP SSE: http://localhost:3001 (for MCP-native clients)
-REST API: http://localhost:3002 (for Dify Custom Tool import)
+REST API + MCP SSE: http://localhost:3002
+  - /health, /tools, /openapi.json  (REST endpoints)
+  - /mcp/sse, /mcp/messages         (MCP SSE transport)
 
-Mirrors server/mcp/src/start.ts exactly.
+MCP SSE is mounted inside the FastAPI app so Railway (single-port)
+can serve both protocols on the same public domain.
 """
 import asyncio
 import os
 import sys
-import threading
+import time
 
 from dotenv import load_dotenv
 
-# Load environment from project root .env
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+# Load environment: try local .env first, then project root .env
+_dir = os.path.dirname(__file__)
+load_dotenv(os.path.join(_dir, ".env"))  # local (Docker / Railway)
+load_dotenv(os.path.join(_dir, "..", "..", ".env"))  # project root (dev)
 
 # Ensure this directory is on the path
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, _dir)
 
-from db import health_check  # noqa: E402
+from db import health_check, reset_pool  # noqa: E402
 
 
-async def main() -> None:
+def _check_db() -> bool:
+    """Run the async DB health check synchronously with retry logic."""
+    loop = asyncio.new_event_loop()
+    try:
+        for attempt in range(1, 6):
+            ok = loop.run_until_complete(health_check())
+            if ok:
+                # Reset pool so the server creates a fresh pool in its own loop
+                reset_pool()
+                return True
+            print(f"[INIT] DB attempt {attempt}/5 failed, retrying in 3s...")
+            time.sleep(3)
+        return False
+    finally:
+        loop.close()
+
+
+def main() -> None:
     print("=========================================")
     print("  NPA Workbench — MCP Tools Server (Python)")
     print("=========================================\n")
 
-    # 1. Verify database connectivity
+    # 1. Verify database connectivity (retry up to 5 times for cloud cold starts)
     print("[INIT] Checking database connection...")
-    db_ok = await health_check()
-    if not db_ok:
-        print("[INIT] Database connection failed. Ensure MariaDB is running.")
-        print("[INIT]    docker start npa_mariadb")
+    if not _check_db():
+        print("[INIT] Database connection failed after 5 attempts.")
+        print("[INIT]    Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME env vars.")
         sys.exit(1)
     print("[INIT] Database connected\n")
 
-    # 2. Start REST API server in a background thread
+    # 2. Start the unified server (REST API + MCP SSE mounted together)
     from rest_server import start_rest_server
-    rest_thread = threading.Thread(target=start_rest_server, daemon=True)
-    rest_thread.start()
-
-    # 3. Start MCP SSE server (blocks in main thread)
-    from main import start_mcp_sse_server
-    start_mcp_sse_server()
-
-    print("\n=========================================")
-    print("  All servers started successfully!")
-    print("=========================================")
+    start_rest_server()
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
-        print("\n[SHUTDOWN] Servers stopped.")
+        print("\n[SHUTDOWN] Server stopped.")
     except Exception as e:
         print(f"[FATAL] {e}")
         sys.exit(1)

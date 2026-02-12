@@ -793,7 +793,16 @@ interface NpaItem {
 })
 export class CooNpaDashboardComponent implements OnInit {
 
-    constructor(private router: Router, private governanceService: AgentGovernanceService) { }
+    private difyAgentService: DifyAgentService;
+
+    // Agent fleet data
+    allAgents: AgentDefinition[] = AGENT_REGISTRY;
+    agentsByTier: { tier: number; label: string; agents: AgentDefinition[] }[] = [];
+
+    constructor(private router: Router, private governanceService: AgentGovernanceService, difyAgentService: DifyAgentService) {
+        this.difyAgentService = difyAgentService;
+        this.agentsByTier = this.difyAgentService.getAgentsByTier();
+    }
 
     navigateToCreate() {
         this.router.navigate(['/agents/npa'], { queryParams: { mode: 'create' } });
