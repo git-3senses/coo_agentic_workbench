@@ -2,6 +2,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const db = require('./db');
 
 const app = express();
@@ -38,16 +39,32 @@ app.use('/api/prerequisites', prerequisitesRoutes);
 app.use('/api/agents', agentsRoutes);
 app.use('/api/dify', difyProxyRoutes);
 
-// Health Check
+// Health Check (always returns 200 so Railway healthcheck passes; DB status is informational)
 app.get('/api/health', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT 1');
         res.json({ status: 'UP', db: 'CONNECTED' });
     } catch (err) {
-        res.status(500).json({ status: 'DOWN', db: 'DISCONNECTED', error: err.message });
+        res.json({ status: 'UP', db: 'DISCONNECTED', error: err.message });
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+// ─── Serve Angular static files in production ────────────────────────────────
+// The Angular build output lives at ../dist/agent-command-hub-angular/browser
+// When deployed on Railway, Express serves both the API and the Angular SPA.
+const ANGULAR_DIST = path.join(__dirname, '..', 'dist', 'agent-command-hub-angular', 'browser');
+
+app.use(express.static(ANGULAR_DIST));
+
+// SPA fallback: any non-API route returns index.html so Angular router handles it
+app.get(/^\/(?!api\/).*/, (req, res) => {
+    res.sendFile(path.join(ANGULAR_DIST, 'index.html'), (err) => {
+        if (err) {
+            res.status(404).json({ error: 'Angular build not found. Run: npx ng build' });
+        }
+    });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
 });

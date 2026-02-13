@@ -1,6 +1,6 @@
 /**
  * Agent Interfaces — 13 Agents across 4 Tiers
- * Matches AGENT_ARCHITECTURE.md exactly
+ * Source of truth: ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md
  */
 
 // ─── Agent Registry ──────────────────────────────────────────────
@@ -23,18 +23,18 @@ export const AGENT_REGISTRY: AgentDefinition[] = [
     { id: 'NPA_ORCHESTRATOR', name: 'NPA Domain Orchestrator', tier: 2, icon: 'target', color: 'bg-orange-50 text-orange-600', difyType: 'chat', description: 'Decomposes NPA tasks into ordered sub-agent calls' },
 
     // Tier 3 — Specialist Workers
-    { id: 'IDEATION', name: 'Ideation Agent', tier: 3, icon: 'lightbulb', color: 'bg-indigo-50 text-indigo-600', difyType: 'workflow', description: 'Product concept development and NPA creation' },
+    { id: 'IDEATION', name: 'Ideation Agent', tier: 3, icon: 'lightbulb', color: 'bg-indigo-50 text-indigo-600', difyType: 'chat', description: 'Product concept development and NPA creation' },
     { id: 'CLASSIFIER', name: 'Classification Agent', tier: 3, icon: 'git-branch', color: 'bg-purple-50 text-purple-600', difyType: 'workflow', description: 'NTG/Variation/Existing classification and approval track assignment' },
     { id: 'AUTOFILL', name: 'Template AutoFill Agent', tier: 3, icon: 'file-edit', color: 'bg-blue-50 text-blue-600', difyType: 'workflow', description: '47-field NPA template auto-fill with RAG' },
     { id: 'ML_PREDICT', name: 'ML Prediction Agent', tier: 3, icon: 'trending-up', color: 'bg-amber-50 text-amber-600', difyType: 'workflow', description: 'Approval likelihood, timeline, and bottleneck prediction' },
     { id: 'RISK', name: 'Risk Agent', tier: 3, icon: 'shield-alert', color: 'bg-red-50 text-red-600', difyType: 'workflow', description: '4-layer risk cascade: Internal → Regulatory → Sanctions → Dynamic' },
     { id: 'GOVERNANCE', name: 'Governance Agent', tier: 3, icon: 'workflow', color: 'bg-slate-50 text-slate-600', difyType: 'workflow', description: 'Sign-off routing, SLA monitoring, loop-back, circuit breaker' },
-    { id: 'DILIGENCE', name: 'Conversational Diligence', tier: 3, icon: 'message-square', color: 'bg-cyan-50 text-cyan-600', difyType: 'workflow', description: 'Q&A with KB citations and regulatory context' },
+    { id: 'DILIGENCE', name: 'Conversational Diligence', tier: 3, icon: 'message-square', color: 'bg-cyan-50 text-cyan-600', difyType: 'chat', description: 'Q&A with KB citations and regulatory context' },
     { id: 'DOC_LIFECYCLE', name: 'Document Lifecycle', tier: 3, icon: 'scan-search', color: 'bg-teal-50 text-teal-600', difyType: 'workflow', description: 'Document validation, completeness, expiry tracking' },
     { id: 'MONITORING', name: 'Post-Launch Monitoring', tier: 3, icon: 'activity', color: 'bg-emerald-50 text-emerald-600', difyType: 'workflow', description: 'Performance metrics, breach detection, PIR scheduling' },
 
     // Tier 4 — Shared Utilities
-    { id: 'KB_SEARCH', name: 'KB Search Agent', tier: 4, icon: 'search', color: 'bg-fuchsia-50 text-fuchsia-600', difyType: 'workflow', description: 'Semantic/hybrid search over knowledge base' },
+    { id: 'KB_SEARCH', name: 'KB Search Agent', tier: 4, icon: 'search', color: 'bg-fuchsia-50 text-fuchsia-600', difyType: 'chat', description: 'Semantic/hybrid search over knowledge base' },
     { id: 'NOTIFICATION', name: 'Notification Agent', tier: 4, icon: 'bell', color: 'bg-pink-50 text-pink-600', difyType: 'workflow', description: 'Alert aggregation, deduplication, and multi-channel delivery' },
 ];
 
@@ -52,20 +52,22 @@ export interface AgentActivityUpdate {
 // ─── Agent Actions (from Dify metadata) ──────────────────────────
 
 export type AgentAction =
+    | 'ROUTE_DOMAIN'
+    | 'ASK_CLARIFICATION'
     | 'SHOW_CLASSIFICATION'
     | 'SHOW_RISK'
     | 'SHOW_PREDICTION'
-    | 'HARD_STOP'
     | 'SHOW_AUTOFILL'
     | 'SHOW_GOVERNANCE'
+    | 'SHOW_DOC_STATUS'
     | 'SHOW_MONITORING'
     | 'SHOW_KB_RESULTS'
-    | 'SHOW_DOC_STATUS'
-    | 'ASK_CLARIFICATION'
-    | 'ROUTE_WORK_ITEM'
-    | 'ROUTE_DOMAIN'
+    | 'HARD_STOP'
     | 'STOP_PROCESS'
-    | 'FINALIZE_DRAFT';
+    | 'FINALIZE_DRAFT'
+    | 'ROUTE_WORK_ITEM'
+    | 'SHOW_RAW_RESPONSE'
+    | 'SHOW_ERROR';
 
 // ─── Classification Agent (#4) ──────────────────────────────────
 
@@ -237,15 +239,18 @@ export interface NotificationResult {
 
 // ─── Dify Response Types ─────────────────────────────────────────
 
+export interface AgentMetadata {
+    agent_action: AgentAction;
+    agent_id: string;
+    payload: any;
+    trace: Record<string, any>;
+}
+
 export interface DifyChatResponse {
     answer: string;
     conversation_id: string;
     message_id: string;
-    metadata?: {
-        agent_action?: AgentAction;
-        payload?: any;
-        agent_id?: string;
-    };
+    metadata: AgentMetadata;
 }
 
 export interface DifyWorkflowResponse {
@@ -256,6 +261,7 @@ export interface DifyWorkflowResponse {
         status: 'succeeded' | 'failed' | 'running';
         error?: string;
     };
+    metadata: AgentMetadata;
 }
 
 export interface DifyStreamChunk {
