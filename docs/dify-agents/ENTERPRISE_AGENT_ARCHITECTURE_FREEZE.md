@@ -1,7 +1,7 @@
-# Enterprise Dify Agent Architecture (Frozen)
-## NPA Multi-Agent Workbench — Phase 0 (Dify Cloud + Railway Tools) + Angular Frontend
+# Enterprise Dify Agent Architecture (Phase 0 Target)
+## NPA Multi-Agent Workbench — Dify Cloud + Railway Tools + Angular Frontend
 
-**Status:** Frozen for Phase 0 build-out  
+**Status:** Phase 0 target (validate before freeze)  
 **Last updated:** 2026-02-13  
 **Primary UI:** Angular (not Dify WebApp)  
 **Agent host/orchestrator:** Dify Cloud (`https://cloud.dify.ai`)  
@@ -18,6 +18,7 @@ This document is the **single source of truth** for how we will build and wire D
 3. **Least privilege.** Orchestrator is a router + orchestrator; specialists do specialist work; tool access is minimized per app.
 4. **Auditability by default.** All write actions log via `audit_log_action` and session/routing tools.
 5. **Environment parity.** Cloud is the proving ground; self-hosted (OpenShift) must be a drop-in replacement with the same contracts.
+6. **One major action per turn.** Create, classify, risk, autofill, governance are separate user-visible steps with a human checkpoint.
 
 ---
 
@@ -43,7 +44,7 @@ Note:
 
 ---
 
-## 3) Logical Agents vs Dify Apps (Frozen Mapping)
+## 3) Logical Agents vs Dify Apps (Phase 0 Target Mapping)
 
 We keep the **13 logical agent identities** stable for UI/analytics (see `src/app/lib/agent-interfaces.ts` and `server/config/dify-agents.js`), but we deploy a smaller set of **Dify apps** for Phase 0 execution.
 
@@ -57,17 +58,17 @@ We keep the **13 logical agent identities** stable for UI/analytics (see `src/ap
 
 | Dify App | Type | Primary purpose | Logical agents mapped |
 |---|---|---|---|
-| `CF_NPA_Orchestrator` | Chatflow | Multi-turn routing + orchestrated execution | `MASTER_COO`, `NPA_ORCHESTRATOR` |
-| `WF_NPA_Ideation_CreateProject` | Workflow | Create project + prohibited/similar | `IDEATION` |
+| `CF_NPA_Orchestrator` | Chatflow | Multi-turn routing + intent gating + orchestration | `MASTER_COO`, `NPA_ORCHESTRATOR` |
+| `CF_NPA_Ideation` | Chatflow | Conversational discovery (clarify) + create NPA | `IDEATION` |
+| `CF_NPA_Query_Assistant` | Chatflow | Read-only Q&A + citations + status/audit | `DILIGENCE`, `KB_SEARCH`, `NOTIFICATION` (read) |
 | `WF_NPA_Classify_Predict` | Workflow | Intake + classification + routing rules + prediction writeback | `CLASSIFIER`, `ML_PREDICT` |
 | `WF_NPA_Autofill` | Workflow | Template fields + lineage | `AUTOFILL` |
 | `WF_NPA_Risk` | Workflow | Risk assessment + prerequisites | `RISK` |
 | `WF_NPA_Governance_Ops` | Workflow | Signoffs + docs + stage advance + monitoring ops | `GOVERNANCE`, `DOC_LIFECYCLE`, `MONITORING`, `NOTIFICATION` (write) |
-| `CF_NPA_Query_Assistant` | Chatflow | Read-only Q&A + citations + status/audit | `DILIGENCE`, `KB_SEARCH`, `NOTIFICATION` (read) |
 
 ---
 
-## 4) Tooling Layer (Frozen)
+## 4) Tooling Layer (Phase 0 Target)
 
 ### Tool provider
 - Dify `Custom Tools` provider imported from:
@@ -85,7 +86,7 @@ We keep the **13 logical agent identities** stable for UI/analytics (see `src/ap
 
 ---
 
-## 5) Knowledge Bases (Frozen Minimum)
+## 5) Knowledge Bases (Phase 0 Target Minimum)
 
 Even routing needs enterprise consistency (policy language, stage gate descriptions, clarifying questions).
 
@@ -124,7 +125,7 @@ Every chatflow response must include a final line:
 Envelope schema:
 ```json
 {
-  "agent_action": "ROUTE_DOMAIN|ASK_CLARIFICATION|SHOW_CLASSIFICATION|SHOW_RISK|SHOW_PREDICTION|SHOW_AUTOFILL|SHOW_GOVERNANCE|SHOW_DOC_STATUS|SHOW_MONITORING|HARD_STOP",
+  "agent_action": "ROUTE_DOMAIN|ASK_CLARIFICATION|SHOW_CLASSIFICATION|SHOW_RISK|SHOW_PREDICTION|SHOW_AUTOFILL|SHOW_GOVERNANCE|SHOW_DOC_STATUS|SHOW_MONITORING|HARD_STOP|SHOW_RAW_RESPONSE|SHOW_ERROR",
   "agent_id": "MASTER_COO",
   "payload": {
     "projectId": "uuid-or-empty",
@@ -135,6 +136,30 @@ Envelope schema:
   "trace": {
     "session_id": "uuid",
     "conversation_id": "dify-conversation-id"
+  }
+}
+```
+
+### Fallback contract (Express-enforced)
+If Express cannot parse `@@NPA_META@@{json}` from a Dify answer, it must degrade gracefully and return:
+```json
+{
+  "agent_action": "SHOW_RAW_RESPONSE",
+  "agent_id": "UNKNOWN",
+  "payload": { "raw_answer": "<full answer text>" },
+  "trace": { "error": "META_PARSE_FAILED" }
+}
+```
+
+For tool/workflow failures, Express must return:
+```json
+{
+  "agent_action": "SHOW_ERROR",
+  "agent_id": "UNKNOWN",
+  "payload": {
+    "error_type": "TOOL_FAILURE|WORKFLOW_TIMEOUT|LLM_ERROR",
+    "message": "<human-safe error>",
+    "retry_allowed": true
   }
 }
 ```
@@ -156,7 +181,7 @@ Example:
 
 ---
 
-## 7) Orchestrator Orchestration Pattern (Frozen)
+## 7) Orchestrator Orchestration Pattern (Phase 0 Target)
 
 `CF_NPA_Orchestrator` must:
 
@@ -165,12 +190,18 @@ Example:
 2. Create an agent session for traceability:
    - `session_create` once per new conversation (Phase 0)
 3. Classify intent deterministically (JSON-only output).
-4. For `create_npa`, orchestrate a pipeline:
-   - Call `WF_NPA_Ideation_CreateProject`
+4. Enforce **one major action per turn** with human checkpoints:
+   - Turn A: create project (ideation) only
+   - Turn B: classify/predict only
+   - Turn C: risk only
+   - Turn D: autofill only
+   - Turn E: governance/docs/stage advance only
+5. Orchestrate `create_npa` by delegating to `CF_NPA_Ideation`:
+   - Maintain `ideation_conversation_id` as a conversation variable
+   - Forward the user message to `CF_NPA_Ideation` until it returns a `projectId`
    - Set `current_project_id`
-   - Call `WF_NPA_Classify_Predict`
-   - Compose an Angular-friendly response + envelope
-5. Log routing:
+   - Ask for confirmation before running classification
+6. Log routing:
    - `log_routing_decision` for each specialist call
 
 ### Calling workflows from Orchestrator (inside Dify)
@@ -182,9 +213,49 @@ Orchestrator calls specialist workflows via Dify API using an `HTTP Request` nod
 { "inputs": { ... }, "response_mode": "blocking", "user": "<stable-user-id>" }
 ```
 
+### Calling chatflows from Orchestrator (inside Dify)
+Orchestrator calls conversational specialists (e.g., Ideation, Query Assistant) via an `HTTP Request` node:
+- `POST https://api.dify.ai/v1/chat-messages`
+- `Authorization: Bearer <CHATFLOW_APP_KEY>`
+- Include and persist the callee `conversation_id` (e.g., `ideation_conversation_id`) to preserve memory across turns.
+
 ---
 
-## 8) Express + Angular Wiring (Frozen)
+## 8) Context Switching (Enterprise Requirement)
+
+Users switch projects mid-conversation. The Orchestrator must:
+1. Detect explicit project references (ID or known name).
+2. Resolve via tools:
+   - If ID present: `get_npa_by_id`
+   - If name present: `ideation_find_similar` then confirm selection if multiple matches
+3. Update `current_project_id` and acknowledge the switch.
+4. If ambiguous, ask a single clarification question and do not execute workflows.
+
+---
+
+## 9) Query Assistant (First-Class Read Path)
+
+`CF_NPA_Query_Assistant` is expected to handle the majority of daily usage (read-heavy).
+
+### Minimum tool allowlist
+- `list_npas`, `get_npa_by_id`, `get_workflow_state`
+- `governance_get_signoffs`, `check_sla_status`
+- `audit_get_trail`
+- `get_dashboard_kpis`
+- `check_document_completeness`, `get_document_requirements`
+- `check_breach_thresholds`, `get_post_launch_conditions`, `get_performance_metrics`
+- `search_kb_documents`, `get_kb_document_by_id`
+- `get_pending_notifications`, `mark_notification_read`
+
+### Cross-domain query examples (must support)
+- "Which NPAs are blocked or at risk?"
+- "Who has not signed off on NPA X?"
+- "Which documents are missing for NPA X?"
+- "What is the policy position on crypto-linked products?"
+
+---
+
+## 10) Express + Angular Wiring (Phase 0 Target)
 
 ### Express proxy (server-side key storage)
 Express must remain the only holder of Dify Service API keys:
@@ -202,7 +273,7 @@ Express must parse `@@NPA_META@@{json}` from `answer` and translate it to the An
 
 ---
 
-## 9) Environment Configuration (Cloud)
+## 11) Environment Configuration (Cloud)
 
 Backend (Express) must be configured with:
 - `DIFY_BASE_URL=https://api.dify.ai/v1`
@@ -214,7 +285,7 @@ Tools provider in Dify points to Railway:
 
 ---
 
-## 10) What Changes for Self-Hosted Later (Not Phase 0)
+## 12) What Changes for Self-Hosted Later (Not Phase 0)
 
 Self-hosted Dify (OpenShift) swaps:
 - Dify base URL: `https://<company-dify>/v1`
@@ -225,3 +296,11 @@ No changes to:
 - Output contracts
 - Angular integration patterns
 
+---
+
+## 13) Validation Gates and Freeze Criteria
+
+We only declare this architecture "frozen" after these pass end-to-end (Angular -> Express -> Dify -> Tools -> DB -> back):
+1. Orchestrator envelope contract works and Express fallback is proven.
+2. Orchestrator -> Ideation chatflow delegation works across multiple turns (callee memory preserved).
+3. Query Assistant answers at least 5 cross-domain read queries using tools and/or KB with stable envelopes.
