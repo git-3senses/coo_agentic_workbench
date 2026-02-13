@@ -4,8 +4,8 @@ FROM node:20-alpine AS angular-build
 WORKDIR /app
 
 # Install Angular dependencies
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install
 
 # Build Angular for production (no base-href since Express serves at root)
 COPY . .
