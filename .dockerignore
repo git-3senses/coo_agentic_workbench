@@ -1,0 +1,10 @@
+node_modules
+server/node_modules
+dist
+.angular
+.git
+.github
+.claude
+docs
+Context
+*.md
