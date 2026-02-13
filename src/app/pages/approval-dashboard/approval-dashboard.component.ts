@@ -4,7 +4,7 @@ import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
 import { NpaProject, SignOffParty, SignOffDecision } from '../../lib/npa-interfaces';
-import { MOCK_PROJECTS } from '../../lib/mock-npa-data';
+import { NpaService } from '../../services/npa.service';
 import { LucideAngularModule } from 'lucide-angular';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -228,6 +228,7 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
 })
 export class ApprovalDashboardComponent {
    private userService = inject(UserService);
+   private npaService = inject(NpaService);
    private route = inject(ActivatedRoute);
 
    userRole = () => this.userService.currentUser().role;
@@ -238,17 +239,88 @@ export class ApprovalDashboardComponent {
       { initialValue: 'INBOX' }
    );
 
-   // Load Mock Data
-   items: NpaProject[] = MOCK_PROJECTS;
+   // Real data from API
+   items: NpaProject[] = [];
 
    // Filtered Items Signal
    filteredItems = signal<NpaProject[]>([]);
 
    constructor() {
+      // Load real data from API
+      this.npaService.getAll().subscribe({
+         next: (npas) => {
+            this.items = npas.map(n => this.mapApiToNpaProject(n));
+            this.updateFilteredItems();
+         },
+         error: (err) => console.error('Failed to load NPAs for approval dashboard', err)
+      });
+
       // Effect to update filtered items when view or role changes
       effect(() => {
          this.updateFilteredItems();
       }, { allowSignalWrites: true });
+   }
+
+   private mapApiToNpaProject(n: any): NpaProject {
+      const signOffMatrix: any = {};
+      const requiredSignOffs: SignOffParty[] = [];
+      if (n.signoff_summary) {
+         n.signoff_summary.forEach((s: any) => {
+            const party = s.party as SignOffParty;
+            requiredSignOffs.push(party);
+            signOffMatrix[party] = {
+               party,
+               status: this.mapSignoffStatus(s.status),
+               approverName: s.approver_name,
+               loopBackCount: 0,
+            };
+         });
+      }
+      return {
+         id: n.id,
+         title: n.title,
+         description: n.description || '',
+         submittedBy: n.submitted_by,
+         submittedDate: new Date(n.created_at),
+         type: n.npa_type?.includes('DCE') ? 'DCE' : 'NPA',
+         npaType: n.npa_type,
+         riskLevel: n.risk_level || 'LOW',
+         isCrossBorder: n.is_cross_border || false,
+         jurisdictions: n.jurisdictions || [],
+         notional: n.notional_amount || 0,
+         stage: this.mapStageToNpaStage(n.current_stage),
+         requiredSignOffs,
+         signOffMatrix,
+      };
+   }
+
+   private mapStageToNpaStage(stage: string): any {
+      const map: any = {
+         'DRAFT': 'DRAFT',
+         'PENDING_CHECKER': 'PENDING_CHECKER',
+         'RETURNED_TO_MAKER': 'RETURNED_TO_MAKER',
+         'PENDING_SIGN_OFFS': 'PENDING_SIGN_OFFS',
+         'PENDING_FINAL_APPROVAL': 'PENDING_FINAL_APPROVAL',
+         'APPROVED': 'APPROVED',
+         'REJECTED': 'REJECTED',
+         'DISCOVERY': 'DRAFT',
+         'RISK_ASSESSMENT': 'PENDING_CHECKER',
+         'DCE_REVIEW': 'PENDING_CHECKER',
+         'LAUNCHED': 'APPROVED',
+      };
+      return map[stage] || 'DRAFT';
+   }
+
+   private mapSignoffStatus(status: string): SignOffDecision {
+      const map: any = {
+         'PENDING': 'PENDING',
+         'APPROVED': 'APPROVED',
+         'REJECTED': 'REJECTED',
+         'REWORK': 'REWORK_REQUIRED',
+         'UNDER_REVIEW': 'PENDING',
+         'CLARIFICATION_NEEDED': 'PENDING',
+      };
+      return map[status] || 'PENDING';
    }
 
    updateFilteredItems() {

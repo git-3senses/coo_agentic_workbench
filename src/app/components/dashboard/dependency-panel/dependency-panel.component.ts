@@ -1,7 +1,14 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
-import { Dependency } from '../../../lib/mock-data';
+
+export interface Dependency {
+    id: string;
+    function: string;
+    agent: string;
+    status: 'ok' | 'pending' | 'blocked' | 'exception';
+    details?: string;
+}
 
 @Component({
     selector: 'app-dependency-panel',

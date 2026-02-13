@@ -1,12 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { map, delay } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { NpaClassification } from '../lib/npa-interfaces';
 
 export interface ReadinessDomain {
     name: string;
-    id?: string; // e.g. 'strategic'
+    id?: string;
     status: 'PASS' | 'FAIL' | 'MISSING' | 'PENDING' | 'WARNING';
     observation: string;
     score?: number;
@@ -52,15 +52,22 @@ export class AgentGovernanceService {
     }
 
     /**
-     * ANALYZE Readiness (Simulation of Dify Agent via Logic)
-     * Returns a PREDICTION to be used in the UI.
+     * ANALYZE Readiness — calls backend which uses DB prerequisite tables
      */
-    analyzeReadiness(description: string): Observable<ReadinessResult> {
-        // TODO: In future, this calls Dify Agent. For now, we simulate logic here or on backend.
-        // We will stick to local simulation for speed, then SAVE to backend.
+    analyzeReadiness(description: string, projectId?: string): Observable<ReadinessResult> {
+        if (projectId) {
+            return this.http.get<any>(`${this.apiUrl}/readiness/${projectId}`).pipe(
+                map(res => this.mapDbReadinessToResult(res))
+            );
+        }
 
-        // Simulating async delay
-        return of(this.mockReadinessLogic(description)).pipe(delay(1500));
+        // For new projects without an ID yet, POST to backend for analysis
+        return this.http.post<any>(`${this.apiUrl}/readiness`, {
+            description,
+            domain: 'ALL'
+        }).pipe(
+            map(res => this.mapDbReadinessToResult(res))
+        );
     }
 
     /**
@@ -69,7 +76,7 @@ export class AgentGovernanceService {
     saveReadinessAssessment(projectId: string, result: ReadinessResult): Observable<any> {
         return this.http.post(`${this.apiUrl}/readiness`, {
             projectId,
-            domain: 'ALL', // Simplified for demo
+            domain: 'ALL',
             status: result.isReady ? 'PASS' : 'FAIL',
             score: result.score,
             findings: result.domains.map(d => ({ domain: d.name, status: d.status, observation: d.observation }))
@@ -77,10 +84,21 @@ export class AgentGovernanceService {
     }
 
     /**
-     * ANALYZE Classification (Simulation)
+     * ANALYZE Classification — calls backend which uses DB classification tables
      */
-    analyzeClassification(description: string, jurisdiction: string = 'SG'): Observable<ClassificationResult> {
-        return of(this.mockClassificationLogic(description, jurisdiction)).pipe(delay(1500));
+    analyzeClassification(description: string, jurisdiction: string = 'SG', projectId?: string): Observable<ClassificationResult> {
+        if (projectId) {
+            return this.http.get<any>(`${this.apiUrl}/classification/${projectId}`).pipe(
+                map(res => this.mapDbClassificationToResult(res))
+            );
+        }
+
+        return this.http.post<any>(`${this.apiUrl}/classification`, {
+            description,
+            jurisdiction
+        }).pipe(
+            map(res => this.mapDbClassificationToResult(res))
+        );
     }
 
     /**
@@ -110,46 +128,28 @@ export class AgentGovernanceService {
         return this.http.get<any>(`${this.apiUrl}/projects/${id}`);
     }
 
-    // --- INTERNAL LOGIC (Moved from synchronous methods) ---
+    /**
+     * GET Document Rules (conditional document requirements)
+     */
+    getDocRules(): Observable<any[]> {
+        return this.http.get<any[]>(`${this.apiUrl}/doc-rules`);
+    }
 
-    private mockReadinessLogic(description: string): ReadinessResult {
-        const domains: ReadinessDomain[] = [
-            { name: 'Strategic Alignment', id: 'strategic', status: 'PASS', observation: 'Aligned with regional growth targets.' },
-            { name: 'Financial Viability', id: 'financial', status: 'MISSING', observation: 'No projected revenue or cost data found.' },
-            { name: 'Risk Management', id: 'risk', status: 'PASS', observation: 'Standard risk frameworks apply.' },
-            { name: 'Legal & Compliance', id: 'legal', status: 'PASS', observation: 'No specific regulatory hurdles detected.' },
-            { name: 'Operations', id: 'ops', status: 'PASS', observation: 'Standard settlement processes available.' },
-            { name: 'Technology', id: 'tech', status: 'PASS', observation: 'Uses existing trading platforms.' },
-            { name: 'Conduct & Culture', id: 'conduct', status: 'PASS', observation: 'No conduct risks identified.' }
-        ];
+    // --- MAPPING HELPERS ---
 
-        const text = description.toLowerCase();
+    private mapDbReadinessToResult(res: any): ReadinessResult {
+        if (res.domains) return res;
 
-        if (text.includes('crypto') || text.includes('digital asset')) {
-            const risk = domains.find(d => d.id === 'risk');
-            if (risk) {
-                risk.status = 'FAIL';
-                risk.observation = 'Digital Assets require special Risk Board approval.';
-            }
+        const domains: ReadinessDomain[] = (res.assessments || res.findings || []).map((a: any) => ({
+            name: a.domain || a.category_name || a.name,
+            id: a.category_code || a.id,
+            status: a.status || 'PENDING',
+            observation: a.observation || a.evidence || '',
+            score: a.score || 0,
+            weight: a.weight || 0,
+        }));
 
-            const tech = domains.find(d => d.id === 'tech');
-            if (tech) {
-                tech.status = 'MISSING';
-                tech.observation = 'Custody solution for digital assets not defined.';
-            }
-        }
-
-        if (text.includes('cross-border')) {
-            const legal = domains.find(d => d.id === 'legal');
-            if (legal) {
-                legal.status = 'MISSING';
-                legal.observation = 'Cross-border legal opinion required for target jurisdictions.';
-            }
-        }
-
-        // Calculate Score
-        const passCount = domains.filter(d => d.status === 'PASS').length;
-        const score = Math.round((passCount / 7) * 100);
+        const score = res.score || res.readiness_score || 0;
 
         return {
             isReady: score >= 85,
@@ -157,45 +157,27 @@ export class AgentGovernanceService {
             domains,
             overallAssessment: score >= 85
                 ? 'Project appears ready for initiation.'
-                : 'Critical gaps detected in Financials or Risk. Please address before proceeding.'
+                : 'Critical gaps detected. Please address before proceeding.'
         };
     }
 
-    private mockClassificationLogic(description: string, jurisdiction: string): ClassificationResult {
-        const text = description.toLowerCase();
-        let tier: NpaClassification = 'Existing';
-        let risk: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
-        let reason = 'Standard product classification.';
-        let approvers = ['Business Head'];
-        let score = 5;
+    private mapDbClassificationToResult(res: any): ClassificationResult {
+        if (res.tier) return res;
 
-        if (text.includes('crypto') || text.includes('blockchain') || text.includes('ai driven')) {
-            tier = 'New-to-Group';
-            risk = 'HIGH';
-            reason = 'Complex or Novel Product Structure detected.';
-            approvers = ['Group CRO', 'Group CFO', 'Board Risk Committee'];
-            score = 18;
-        } else if (text.includes('cross-border') || jurisdiction !== 'SG') {
-            tier = 'Variation';
-            risk = 'MEDIUM';
-            reason = 'Existing product extended to new jurisdiction.';
-            approvers = ['Regional Head', 'Legal', 'Compliance'];
-            score = 12;
-        } else if (text.includes('vanilla') || text.includes('enhancement')) {
-            tier = 'NPA Lite';
-            risk = 'LOW';
-            reason = 'Minor enhancement to existing approved product.';
-            approvers = ['Desk Head', 'Ops Head'];
-            score = 8;
-        }
+        const tier = res.calculated_tier || res.calculatedTier || 'Existing';
+        const score = res.total_score || res.totalScore || 0;
+
+        let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
+        if (tier === 'New-to-Group') riskLevel = 'HIGH';
+        else if (tier === 'Variation') riskLevel = 'MEDIUM';
 
         return {
-            tier,
-            riskLevel: risk,
-            reason,
-            requiredApprovers: approvers,
+            tier: tier as NpaClassification,
+            reason: res.override_reason || 'Classification from DB scorecard.',
+            requiredApprovers: res.required_approvers || [],
+            riskLevel,
             score,
-            breakdown: { text_match: true }
+            breakdown: res.breakdown || {}
         };
     }
 }

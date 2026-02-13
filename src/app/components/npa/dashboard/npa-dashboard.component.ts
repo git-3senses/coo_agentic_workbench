@@ -9,6 +9,7 @@ import { AgentHealthPanelComponent } from './agent-health-panel.component';
 
 import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
 import { UserService } from '../../../services/user.service';
+import { DashboardService } from '../../../services/dashboard.service';
 import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
 
 @Component({
@@ -61,17 +62,17 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
                <div class="flex items-center gap-6 text-sm font-medium text-slate-600 bg-slate-50 inline-flex px-4 py-2 rounded-lg border border-slate-200/60">
                   <span class="flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-help">
                      <lucide-icon name="database" class="w-4 h-4 text-indigo-500"></lucide-icon>
-                     1,784 NPAs Learned
+                     {{ heroActiveNpas }} Active NPAs
                   </span>
                   <div class="w-px h-4 bg-slate-300"></div>
                   <span class="flex items-center gap-1.5 hover:text-green-600 transition-colors cursor-help">
                      <lucide-icon name="zap" class="w-4 h-4 text-amber-500"></lucide-icon>
-                     95% Success Rate
+                     {{ heroApprovalRate }}% Approval Rate
                   </span>
                   <div class="w-px h-4 bg-slate-300"></div>
                   <span class="flex items-center gap-1.5 hover:text-purple-600 transition-colors cursor-help">
                      <lucide-icon name="brain-circuit" class="w-4 h-4 text-purple-500"></lucide-icon>
-                     92% Prediction Accuracy
+                     {{ heroAvgCycle }}d Avg Cycle
                   </span>
                </div>
             </div>
@@ -546,6 +547,7 @@ export class NpaDashboardComponent implements OnInit {
 
    private difyService = inject(DifyAgentService);
    private userService = inject(UserService);
+   private dashboardService = inject(DashboardService);
 
    userRole = () => this.userService.currentUser().role;
 
@@ -559,6 +561,11 @@ export class NpaDashboardComponent implements OnInit {
       status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0
    };
 
+   // Hero stats (from DashboardService KPIs)
+   heroActiveNpas = 0;
+   heroApprovalRate = 0;
+   heroAvgCycle = 0;
+
    // Data-driven agent lists from AGENT_REGISTRY
    tier3Agents: AgentDefinition[] = AGENT_REGISTRY.filter(a => a.tier === 3);
    tier4Agents: AgentDefinition[] = AGENT_REGISTRY.filter(a => a.tier === 4);
@@ -567,7 +574,29 @@ export class NpaDashboardComponent implements OnInit {
    constructor() { }
 
    ngOnInit() {
-      // Logic to refresh data if needed
+      this.loadHeroStats();
+   }
+
+   private loadHeroStats() {
+      this.dashboardService.getKpis().subscribe({
+         next: (kpis) => {
+            const find = (label: string) => kpis.find(k => k.label.includes(label));
+            const pipeline = find('Pipeline');
+            const approval = find('Approval');
+            const cycle = find('Cycle');
+
+            // Extract active NPA count from subValue (e.g. "42 Active NPAs")
+            if (pipeline?.subValue) {
+               const match = pipeline.subValue.match(/(\d+)/);
+               if (match) this.heroActiveNpas = parseInt(match[1], 10);
+            } else {
+               this.heroActiveNpas = Math.round(pipeline?.value || 0);
+            }
+            this.heroApprovalRate = Math.round(approval?.value || 0);
+            this.heroAvgCycle = Math.round(cycle?.value || 0);
+         },
+         error: (err) => console.warn('[NpaDashboard] Failed to load hero KPIs', err)
+      });
    }
 
    onCreateNew() {

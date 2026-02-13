@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Router } from '@angular/router';
-import { AgentGovernanceService } from '../../services/agent-governance.service';
+import { forkJoin } from 'rxjs';
 import { AGENT_REGISTRY, AgentDefinition } from '../../lib/agent-interfaces';
-import { DifyAgentService } from '../../services/dify/dify-agent.service';
+import { NpaService } from '../../services/npa.service';
+import { DashboardService } from '../../services/dashboard.service';
+import { MonitoringService } from '../../services/monitoring.service';
 
 interface KpiMetric {
     label: string;
@@ -75,17 +77,17 @@ interface NpaItem {
                <div class="flex items-center gap-6 text-sm font-medium text-slate-600 bg-slate-50 inline-flex px-4 py-2 rounded-lg border border-slate-200/60">
                   <span class="flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-help">
                      <lucide-icon name="layers" class="w-4 h-4 text-indigo-500"></lucide-icon>
-                     42 Active NPAs
+                     {{ headerActiveNpas }} Active NPAs
                   </span>
                   <div class="w-px h-4 bg-slate-300"></div>
                   <span class="flex items-center gap-1.5 hover:text-emerald-600 transition-colors cursor-help">
                      <lucide-icon name="check-circle" class="w-4 h-4 text-emerald-500"></lucide-icon>
-                     94% Approval Rate
+                     {{ headerApprovalRate }}% Approval Rate
                   </span>
                   <div class="w-px h-4 bg-slate-300"></div>
                   <span class="flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-help">
                      <lucide-icon name="clock" class="w-4 h-4 text-blue-500"></lucide-icon>
-                     32 Days Avg Cycle
+                     {{ headerAvgCycle }} Days Avg Cycle
                   </span>
                </div>
             </div>
@@ -138,7 +140,7 @@ interface NpaItem {
                (click)="activeTab = 'monitoring'"
                class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors flex items-center gap-2">
                Monitoring
-               <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-200">5</span>
+               <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-200">{{ monitoringSummary.open_breaches }}</span>
             </button>
          </div>
       </div>
@@ -636,7 +638,7 @@ interface NpaItem {
                      </div>
                      <span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">LIVE</span>
                   </div>
-                  <div class="text-3xl font-bold text-slate-900">5</div>
+                  <div class="text-3xl font-bold text-slate-900">{{ monitoringSummary.open_breaches }}</div>
                   <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Active Breaches</div>
                </div>
                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -645,7 +647,7 @@ interface NpaItem {
                         <lucide-icon name="clock" class="w-5 h-5"></lucide-icon>
                      </div>
                   </div>
-                  <div class="text-3xl font-bold text-slate-900">4.2h</div>
+                  <div class="text-3xl font-bold text-slate-900">{{ monitoringSummary.warning_count }}h</div>
                   <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Avg Resolution Time</div>
                </div>
                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -654,7 +656,7 @@ interface NpaItem {
                         <lucide-icon name="arrow-up-circle" class="w-5 h-5"></lucide-icon>
                      </div>
                   </div>
-                  <div class="text-3xl font-bold text-slate-900">2</div>
+                  <div class="text-3xl font-bold text-slate-900">{{ monitoringSummary.critical_count }}</div>
                   <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Open Escalations</div>
                </div>
                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -663,7 +665,7 @@ interface NpaItem {
                         <lucide-icon name="check-circle" class="w-5 h-5"></lucide-icon>
                      </div>
                   </div>
-                  <div class="text-3xl font-bold text-slate-900">12</div>
+                  <div class="text-3xl font-bold text-slate-900">{{ monitoringSummary.total_launched }}</div>
                   <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Launched Products</div>
                </div>
             </div>
@@ -793,16 +795,10 @@ interface NpaItem {
 })
 export class CooNpaDashboardComponent implements OnInit {
 
-    private difyAgentService: DifyAgentService;
-
-    // Agent fleet data
-    allAgents: AgentDefinition[] = AGENT_REGISTRY;
-    agentsByTier: { tier: number; label: string; agents: AgentDefinition[] }[] = [];
-
-    constructor(private router: Router, private governanceService: AgentGovernanceService, difyAgentService: DifyAgentService) {
-        this.difyAgentService = difyAgentService;
-        this.agentsByTier = this.difyAgentService.getAgentsByTier();
-    }
+    private router = inject(Router);
+    private npaService = inject(NpaService);
+    private dashboardService = inject(DashboardService);
+    private monitoringService = inject(MonitoringService);
 
     navigateToCreate() {
         this.router.navigate(['/agents/npa'], { queryParams: { mode: 'create' } });
@@ -812,12 +808,16 @@ export class CooNpaDashboardComponent implements OnInit {
         if (npa.id) {
             this.router.navigate(['/agents/npa'], { queryParams: { mode: 'detail', projectId: npa.id } });
         } else {
-            // Fallback for mock items without ID
             this.router.navigate(['/agents/npa'], { queryParams: { mode: 'detail', projectId: npa.productName } });
         }
     }
 
     activeTab: 'overview' | 'npa-pool' | 'monitoring' = 'overview';
+
+    // Header stats (bound from KPI API)
+    headerActiveNpas = 0;
+    headerApprovalRate = 0;
+    headerAvgCycle = 0;
 
     kpis: KpiMetric[] = [];
     pipelineStages: any[] = [];
@@ -828,118 +828,223 @@ export class CooNpaDashboardComponent implements OnInit {
     prospects: any[] = [];
     launchedNpas: any[] = [];
     monitoringBreaches: any[] = [];
+    monitoringSummary = { total_launched: 0, healthy_count: 0, warning_count: 0, critical_count: 0, open_breaches: 0, total_volume: 0 };
+
+    // Agent fleet (from static registry — no DB table)
+    allAgents = AGENT_REGISTRY;
+    agentsByTier = this.groupAgentsByTier();
 
     ngOnInit() {
-        this.loadRealData();
+        this.loadAllData();
     }
 
-    loadRealData() {
-        this.governanceService.getProjects().subscribe({
+    /**
+     * Fetch all data from real APIs in parallel
+     */
+    loadAllData() {
+        // 1. NPA Pool from NpaService
+        this.npaService.getAll().subscribe({
             next: (projects) => {
-                // Transform backend data to NpaItem format
                 this.npaPool = projects.map(p => ({
-                    productName: p.title || 'Untitled',
-                    // Store ID separately if possible, or use productName as ID if that was the convention (it's not ideal but fits existing interface)
-                    // Better: The interface NpaItem should have an id field. 
-                    // For now, let's map ID to productName to ensure uniqueness in navigation if possible, or just add ID to interface.
-                    // Let's stick to the interface for now and hijack 'productName' or just map 'id' to 'productName' if compatible?
-                    // actually, let's update navigation to use ID.
                     id: p.id,
+                    productName: p.title || 'Untitled',
                     location: p.jurisdictions?.[0] || 'SG',
-                    businessUnit: 'Global Fin. Markets', // Default or fetch
+                    businessUnit: p.pm_team || 'Global Fin. Markets',
                     kickoffDate: new Date(p.created_at).toLocaleDateString(),
-                    productManager: p.submitted_by || 'Unknown',
-                    pmTeam: 'Digital Assets', // Default
-                    pacApproval: 'Pending',
+                    productManager: p.product_manager || p.submitted_by || 'Unknown',
+                    pmTeam: p.pm_team || 'N/A',
+                    pacApproval: p.current_stage === 'APPROVED' ? 'Approved' : 'Pending',
                     proposalPreparer: p.submitted_by || 'Unknown',
                     template: 'Standard NPA',
-                    classification: p.npa_type === 'New-to-Group' ? 'Complex' : (p.npa_type === 'NPA Lite' ? 'Light' : 'Standard'),
+                    classification: this.mapClassification(p.npa_type),
                     stage: this.mapStage(p.current_stage),
-                    status: 'On Track', // Logic needed
+                    status: this.mapStatus(p.status),
                     ageDays: Math.floor((Date.now() - new Date(p.created_at).getTime()) / (1000 * 3600 * 24))
                 }));
-
-                this.calculateKPIs();
-                this.initializeStaticMockData(); // Keep static charts for now
             },
-            error: (err) => console.error('Failed to load projects', err)
+            error: (err) => console.error('[COO] Failed to load NPA pool', err)
+        });
+
+        // 2. Dashboard KPIs + Pipeline + Ageing + Clusters + Prospects + Revenue (parallel)
+        forkJoin({
+            kpis: this.dashboardService.getKpis(),
+            pipeline: this.dashboardService.getPipeline(),
+            ageing: this.dashboardService.getAgeing(),
+            clusters: this.dashboardService.getClusters(),
+            prospects: this.dashboardService.getProspects(),
+            revenue: this.dashboardService.getRevenue(),
+        }).subscribe({
+            next: (data) => {
+                // KPIs → header stats + KPI cards
+                this.mapKpis(data.kpis);
+
+                // Pipeline stages
+                this.pipelineStages = data.pipeline.map(s => ({
+                    name: this.mapStage(s.stage),
+                    count: s.count,
+                    avgTime: '--',
+                    risk: s.risk_count || 0,
+                    status: (s.risk_count || 0) > 0 ? 'danger' : (s.count > 10 ? 'warning' : 'normal')
+                }));
+
+                // Ageing buckets → bar chart
+                const maxCount = Math.max(...data.ageing.map(a => a.count), 1);
+                this.ageing = data.ageing.map(a => ({
+                    label: a.bucket,
+                    count: a.count,
+                    height: Math.max(10, Math.round((a.count / maxCount) * 120))
+                }));
+
+                // Market clusters
+                const clusterColors = ['bg-emerald-500', 'bg-indigo-500', 'bg-purple-500', 'bg-blue-500', 'bg-amber-500', 'bg-rose-500'];
+                this.clusters = data.clusters.map((c, i) => ({
+                    name: c.cluster_name,
+                    growth: (c.growth_percent >= 0 ? '+' : '') + c.growth_percent + '%',
+                    count: c.npa_count,
+                    color: clusterColors[i % clusterColors.length],
+                    intensity: c.intensity_percent + '%'
+                }));
+
+                // Prospects
+                this.prospects = data.prospects.map(p => ({
+                    name: p.name,
+                    theme: p.theme,
+                    prob: Math.round(p.probability),
+                    estValue: '$' + this.formatValue(p.estimated_value)
+                }));
+
+                // Top revenue
+                this.topRevenue = data.revenue.map(r => ({
+                    name: r.title,
+                    owner: r.product_manager || '--',
+                    stage: this.mapStage(r.current_stage),
+                    revenue: '$' + this.formatValue(r.estimated_revenue),
+                    progress: Math.min(100, Math.round((r.estimated_revenue / 50000000) * 100))
+                }));
+            },
+            error: (err) => console.error('[COO] Failed to load dashboard data', err)
+        });
+
+        // 3. Monitoring data (parallel)
+        forkJoin({
+            summary: this.monitoringService.getSummary(),
+            products: this.monitoringService.getProducts(),
+            breaches: this.monitoringService.getBreaches(),
+        }).subscribe({
+            next: (data) => {
+                this.monitoringSummary = data.summary;
+
+                // Launched products → Post-Launch NPA Health table
+                this.launchedNpas = data.products.map(p => ({
+                    name: p.title,
+                    desk: p.npa_type + (p.launched_at ? ' · Launched ' + new Date(p.launched_at).toLocaleDateString() : ' · Pre-Launch'),
+                    volume: '$' + this.formatValue(p.total_volume),
+                    pnl: (p.realized_pnl >= 0 ? '+$' : '-$') + this.formatValue(Math.abs(p.realized_pnl)),
+                    breachCount: p.active_breaches,
+                    health: p.health_status === 'healthy' ? 'Healthy' : (p.health_status === 'warning' ? 'Warning' : 'Critical')
+                }));
+
+                // Breach alerts → Recent Breaches list
+                this.monitoringBreaches = data.breaches.map(b => ({
+                    title: b.title,
+                    severity: b.severity.toLowerCase(),
+                    description: b.description,
+                    product: b.npa_title || 'Unknown Product',
+                    triggeredAt: this.timeAgo(b.triggered_at)
+                }));
+            },
+            error: (err) => console.error('[COO] Failed to load monitoring data', err)
         });
     }
 
-    mapStage(backendStage: string): any {
+    // --- MAPPING HELPERS ---
+
+    private mapKpis(kpis: any[]) {
+        const findKpi = (label: string) => kpis.find(k => k.label.includes(label));
+        const pipelineValue = findKpi('Pipeline');
+        const avgCycle = findKpi('Cycle');
+        const approvalRate = findKpi('Approval');
+        const criticalRisks = findKpi('Critical') || findKpi('Risk');
+
+        // Header stats — extract numeric values
+        this.headerActiveNpas = Math.round(pipelineValue?.value || 0);
+        this.headerApprovalRate = Math.round(approvalRate?.value || 0);
+        this.headerAvgCycle = Math.round(avgCycle?.value || 0);
+
+        // If the "42 Active NPAs" is in the subValue, parse it
+        if (pipelineValue?.subValue) {
+            const match = pipelineValue.subValue.match(/(\d+)/);
+            if (match) this.headerActiveNpas = parseInt(match[1], 10);
+        }
+
+        const kpiColors = ['indigo', 'blue', 'emerald', 'rose'];
+        const kpiIcons = ['layers', 'clock', 'check-circle', 'shield-alert'];
+
+        this.kpis = [pipelineValue, avgCycle, approvalRate, criticalRisks]
+            .filter(k => !!k)
+            .map((k, i) => ({
+                label: k.label,
+                value: k.displayValue || String(k.value),
+                subValue: k.subValue || '',
+                trend: k.trend || '',
+                trendUp: k.trendUp !== false,
+                color: kpiColors[i] || 'slate',
+                icon: kpiIcons[i] || 'activity'
+            }));
+    }
+
+    private mapStage(backendStage: string): any {
         const map: any = {
             'INITIATION': 'Discovery',
+            'DISCOVERY': 'Discovery',
+            'RISK_ASSESSMENT': 'Risk Assess',
+            'DCE_REVIEW': 'DCE Review',
+            'GOVERNANCE': 'Governance',
             'PENDING_SIGN_OFFS': 'Sign-Off',
             'APPROVED': 'Launch',
-            'RETURNED_TO_MAKER': 'Review'
+            'LAUNCHED': 'Launch',
+            'RETURNED_TO_MAKER': 'Discovery'
         };
         return map[backendStage] || 'Discovery';
     }
 
-    calculateKPIs() {
-        const activeCount = this.npaPool.length;
-        const complexCount = this.npaPool.filter(p => p.classification === 'Complex').length;
-        this.kpis = [
-            { label: 'Pipeline Value', value: '$' + (activeCount * 3.5).toFixed(1) + 'M', subValue: `${activeCount} Active`, trend: '+12%', trendUp: true, color: 'indigo', icon: 'layers' },
-            { label: 'Avg Cycle Time', value: '32 Days', subValue: '-4d YoY', trend: '-8%', trendUp: true, color: 'blue', icon: 'clock' },
-            { label: 'Approval Rate', value: '94%', subValue: '178/190', trend: '+2%', trendUp: true, color: 'emerald', icon: 'check-circle' },
-            { label: 'Critical Risks', value: '3', subValue: 'Action Req', trend: '+1', trendUp: false, color: 'rose', icon: 'shield-alert' }
-        ];
+    private mapStatus(status: string): 'On Track' | 'At Risk' | 'Delayed' {
+        const s = (status || '').toLowerCase();
+        if (s === 'on track' || s === 'completed') return 'On Track';
+        if (s === 'at risk' || s === 'warning') return 'At Risk';
+        if (s === 'blocked' || s === 'delayed') return 'Delayed';
+        return 'On Track';
     }
 
-    initializeStaticMockData() {
-        this.pipelineStages = [
-            { name: 'Discovery', count: 12, avgTime: '5d', risk: 0, status: 'normal' },
-            { name: 'DCE Review', count: 8, avgTime: '3d', risk: 1, status: 'warning' },
-            { name: 'Risk Assess', count: 14, avgTime: '12d', risk: 3, status: 'danger' },
-            { name: 'Governance', count: 5, avgTime: '7d', risk: 0, status: 'normal' },
-            { name: 'Sign-Off', count: 3, avgTime: '2d', risk: 0, status: 'success' }
-        ];
+    private mapClassification(npaType: string): 'Complex' | 'Standard' | 'Light' {
+        if (npaType === 'New-to-Group') return 'Complex';
+        if (npaType === 'NPA Lite') return 'Light';
+        return 'Standard';
+    }
 
-        this.ageing = [
-            { label: '< 30d', count: 28, height: 120 },
-            { label: '30-60d', count: 10, height: 60 },
-            { label: '60-90d', count: 3, height: 25 },
-            { label: '> 90d', count: 1, height: 10 }
-        ];
+    private formatValue(val: number): string {
+        if (val >= 1_000_000) return (val / 1_000_000).toFixed(1) + 'M';
+        if (val >= 1_000) return (val / 1_000).toFixed(0) + 'K';
+        return '' + val;
+    }
 
-        this.topRevenue = [
-            { name: 'Green Bond ETF', owner: 'Sarah J.', stage: 'Risk Assess', revenue: '$15.2M', progress: 65 },
-            { name: 'Crypto Custody', owner: 'Mike R.', stage: 'DCE Review', revenue: '$12.8M', progress: 30 },
-            { name: 'AI Wealth Advisory', owner: 'Elena T.', stage: 'Discovery', revenue: '$8.5M', progress: 15 },
-            { name: 'Digital Asset Fund', owner: 'Sarah J.', stage: 'Discovery', revenue: '$9.1M', progress: 10 },
-            { name: 'Algo Trading Bot', owner: 'Elena T.', stage: 'Risk Assess', revenue: '$6.5M', progress: 55 }
-        ];
+    private timeAgo(dateStr: string): string {
+        if (!dateStr) return '';
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const hours = Math.floor(diff / 3600000);
+        if (hours < 1) return 'Just now';
+        if (hours < 24) return hours + ' hours ago';
+        const days = Math.floor(hours / 24);
+        return days + (days === 1 ? ' day ago' : ' days ago');
+    }
 
-
-
-        this.clusters = [
-            { name: 'Sustainability (ESG)', growth: '+45%', count: 18, color: 'bg-emerald-500', intensity: '85%' },
-            { name: 'Digital Assets', growth: '+120%', count: 12, color: 'bg-indigo-500', intensity: '95%' },
-            { name: 'AI Advisory', growth: '+28%', count: 9, color: 'bg-purple-500', intensity: '60%' },
-            { name: 'SME Lending', growth: '+12%', count: 24, color: 'bg-blue-500', intensity: '40%' }
-        ];
-
-        this.prospects = [
-            { name: 'Tokenized Real Estate', theme: 'Digital Assets', prob: 25, estValue: '$45M' },
-            { name: 'Carbon Credit Exchange', theme: 'Sustainability', prob: 60, estValue: '$120M' },
-            { name: 'Algorithmic FX Hedging', theme: 'AI Advisory', prob: 40, estValue: '$15M' },
-            { name: 'Supply Chain Finance 2.0', theme: 'SME Lending', prob: 85, estValue: '$8M' },
-            { name: 'Quantum Key Custody', theme: 'Cybersecurity', prob: 10, estValue: '$200M' }
-        ];
-
-        this.launchedNpas = [
-            { name: 'Multi-Currency Deposit', desk: 'Consumer Banking · Singapore', volume: '$42.8M', pnl: '+$1.2M', breachCount: 0, health: 'Healthy' },
-            { name: 'FX Accumulator - USD/SGD', desk: 'Treasury & Markets · Singapore', volume: '$128.5M', pnl: '+$3.8M', breachCount: 2, health: 'Warning' },
-            { name: 'Green Bond Framework', desk: 'Corporate Banking · Hong Kong', volume: '$85.2M', pnl: '-$0.4M', breachCount: 3, health: 'Critical' }
-        ];
-
-        this.monitoringBreaches = [
-            { title: 'Volume Threshold Exceeded', severity: 'critical', description: 'FX Accumulator USD/SGD daily volume exceeded 150% of approved limit ($192M vs $128M cap).', product: 'FX Accumulator - USD/SGD', triggeredAt: '2 hours ago' },
-            { title: 'Counterparty Rating Downgrade', severity: 'critical', description: 'Moody\'s downgraded counterparty XYZ Corp from A- to BBB+, triggering mandatory review.', product: 'Green Bond Framework', triggeredAt: '6 hours ago' },
-            { title: 'Collateral Coverage Below Threshold', severity: 'warning', description: 'Collateral coverage ratio dropped to 92%, below the 95% minimum requirement.', product: 'Green Bond Framework', triggeredAt: '1 day ago' },
-            { title: 'Concentration Limit Warning', severity: 'warning', description: 'Single counterparty exposure approaching 80% of approved concentration limit.', product: 'FX Accumulator - USD/SGD', triggeredAt: '2 days ago' },
-            { title: 'P&L Drawdown Alert', severity: 'warning', description: 'Cumulative P&L drawdown of -$0.4M exceeds weekly monitoring threshold of -$0.3M.', product: 'Green Bond Framework', triggeredAt: '3 days ago' }
-        ];
+    private groupAgentsByTier() {
+        const tierLabels: Record<number, string> = { 1: 'Strategic Command', 2: 'Domain Orchestration', 3: 'Specialist Workers', 4: 'Shared Utilities' };
+        const tiers = [1, 2, 3, 4];
+        return tiers.map(t => ({
+            tier: t,
+            label: tierLabels[t],
+            agents: AGENT_REGISTRY.filter(a => a.tier === t)
+        }));
     }
 }
