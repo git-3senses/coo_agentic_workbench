@@ -14,6 +14,7 @@
 ## Dify Agent Configuration
 | Document | Description |
 |----------|-------------|
+| [Enterprise Agent Architecture (Frozen)](dify-agents/ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md) | Canonical Phase 0 architecture for Dify Cloud + Railway tools + Angular frontend. **Start here.** |
 | [Dify Agent Setup Guide](dify-agents/DIFY_AGENT_SETUP_GUIDE.md) | How to configure all 13 agents in Dify with tools, prompts, and connections. |
 | [Chatflow Node Guide](dify-agents/DIFY_CHATFLOW_NODE_GUIDE.md) | Detailed chatflow node configuration for each agent. |
 | [Agent Creation Guide](dify-agents/Dify_Agent_Creation_Guide.md) | Step-by-step agent creation in Dify. |
