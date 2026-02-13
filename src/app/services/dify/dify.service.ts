@@ -4,6 +4,7 @@ import { Observable, of, delay, map, Subject, BehaviorSubject } from 'rxjs';
 import {
     AgentAction,
     AgentActivityUpdate,
+    AgentMetadata,
     DifyChatResponse,
     DifyWorkflowResponse,
     DifyStreamChunk,
@@ -14,11 +15,7 @@ export interface DifyAgentResponse {
     answer: string;
     conversationId?: string;
     messageId?: string;
-    metadata?: {
-        agent_action?: AgentAction;
-        payload?: any;
-        agent_id?: string;
-    };
+    metadata: AgentMetadata;
 }
 
 @Injectable({
@@ -200,7 +197,7 @@ export class DifyService {
                 return of({
                     answer: "I've identified this as a **New Product Approval** request. Routing you to the **NPA Domain Orchestrator**.\n\nPlease describe the product structure, underlying asset, and payout logic so I can begin the analysis.",
                     metadata: {
-                        agent_action: 'ROUTE_DOMAIN' as const,
+                        agent_action: 'ROUTE_DOMAIN' as AgentAction,
                         agent_id: 'MASTER_COO',
                         payload: {
                             domainId: 'NPA',
@@ -209,7 +206,8 @@ export class DifyService {
                             icon: 'target',
                             color: 'bg-orange-50 text-orange-600',
                             route: '/agents/npa'
-                        }
+                        },
+                        trace: {}
                     }
                 }).pipe(delay(1200));
             }
@@ -219,7 +217,7 @@ export class DifyService {
                 return of({
                     answer: "I've identified this as a **Risk & Compliance** query. The Risk domain is currently in development.\n\nFor now, I can help you with NPA-related risk assessments through the NPA Agent. Would you like me to route you there?",
                     metadata: {
-                        agent_action: 'ROUTE_DOMAIN' as const,
+                        agent_action: 'ROUTE_DOMAIN' as AgentAction,
                         agent_id: 'MASTER_COO',
                         payload: {
                             domainId: 'RISK',
@@ -228,7 +226,8 @@ export class DifyService {
                             icon: 'shield-alert',
                             color: 'bg-red-50 text-red-600',
                             route: '/functions/orm'
-                        }
+                        },
+                        trace: {}
                     }
                 }).pipe(delay(1200));
             }
@@ -238,7 +237,7 @@ export class DifyService {
                 return of({
                     answer: "I've routed your request to the **Knowledge Base Search Agent**. Let me search our SOPs, policies, and regulatory guidance for you.\n\nSearching...\n\n**Results (3 matches):**\n1. **MAS Notice 656** — Guidelines on Risk Management (92% match)\n2. **NPA SOP v4.2** — Standard Operating Procedure for Product Approvals (87% match)\n3. **T&M Policy Framework** — Trading & Markets Governance Policies (81% match)\n\nWould you like me to drill into any of these documents?",
                     metadata: {
-                        agent_action: 'ROUTE_DOMAIN' as const,
+                        agent_action: 'ROUTE_DOMAIN' as AgentAction,
                         agent_id: 'KB_SEARCH',
                         payload: {
                             domainId: 'KB',
@@ -247,7 +246,8 @@ export class DifyService {
                             icon: 'search',
                             color: 'bg-fuchsia-50 text-fuchsia-600',
                             route: '/knowledge/base'
-                        }
+                        },
+                        trace: {}
                     }
                 }).pipe(delay(1500));
             }
@@ -263,7 +263,13 @@ export class DifyService {
                     "* **Strategic PM** — Coming Soon\n" +
                     "* **Business Leads** — Coming Soon\n" +
                     "* **Business Analysis** — Coming Soon\n\n" +
-                    "Currently, the **NPA domain** is fully active. Try asking me to create a new product, run a risk check, or search the knowledge base."
+                    "Currently, the **NPA domain** is fully active. Try asking me to create a new product, run a risk check, or search the knowledge base.",
+                metadata: {
+                    agent_action: 'SHOW_RAW_RESPONSE' as AgentAction,
+                    agent_id: 'MASTER_COO',
+                    payload: { raw_answer: 'Domain overview' },
+                    trace: {}
+                }
             }).pipe(delay(1000));
         }
 
@@ -276,14 +282,15 @@ export class DifyService {
                 return of({
                     answer: "**HARD STOP** — Prohibited item detected.\n\nMy analysis classifies this as a **New-to-Group (NTG)** product involving Crypto assets, which is on the **Prohibited List** (Layer: REGULATORY).\n\nYou cannot proceed with an NPA. Contact the Product Approval Committee for exemption review.",
                     metadata: {
-                        agent_action: 'STOP_PROCESS' as const,
+                        agent_action: 'STOP_PROCESS' as AgentAction,
                         agent_id: 'RISK',
                         payload: {
                             type: 'NTG',
                             track: 'Prohibited',
                             hardStop: true,
                             prohibitedMatch: { matched: true, item: 'Cryptocurrency', layer: 'REGULATORY' }
-                        }
+                        },
+                        trace: {}
                     }
                 }).pipe(delay(2000));
             }
@@ -308,7 +315,8 @@ export class DifyService {
                         ],
                         overallConfidence: 88,
                         prohibitedMatch: { matched: false }
-                    }
+                    },
+                    trace: {}
                 }
             }).pipe(delay(2000));
         }
@@ -336,7 +344,8 @@ export class DifyService {
             return of({
                 answer,
                 metadata: {
-                    agent_action: 'FINALIZE_DRAFT' as const,
+                    agent_action: 'FINALIZE_DRAFT' as AgentAction,
+                    agent_id: 'NPA_ORCHESTRATOR',
                     payload: {
                         track: 'NPA_LITE',
                         isCrossBorder,
@@ -345,13 +354,20 @@ export class DifyService {
                             : ['FINANCE', 'CREDIT', 'OPS'],
                         autoFillCoverage: 85,
                         mlPrediction: { approvalLikelihood: 82, timelineDays: 35, bottleneckDept: 'Legal' }
-                    }
+                    },
+                    trace: {}
                 }
             }).pipe(delay(2500));
         }
 
         return of({
-            answer: "I've completed this analysis. You can reset the conversation to start a new query, or use the button above to open the full NPA workspace."
+            answer: "I've completed this analysis. You can reset the conversation to start a new query, or use the button above to open the full NPA workspace.",
+            metadata: {
+                agent_action: 'SHOW_RAW_RESPONSE' as AgentAction,
+                agent_id: 'MASTER_COO',
+                payload: { raw_answer: "Analysis complete." },
+                trace: {}
+            }
         }).pipe(delay(500));
     }
 
@@ -417,12 +433,20 @@ export class DifyService {
             }
         };
 
+        const outputs = mockOutputs[agentId] || {};
+
         return of({
             workflow_run_id: `wf-${Date.now()}`,
             task_id: `task-${Date.now()}`,
             data: {
-                outputs: mockOutputs[agentId] || {},
+                outputs,
                 status: 'succeeded' as const
+            },
+            metadata: {
+                agent_action: 'SHOW_RAW_RESPONSE' as AgentAction,
+                agent_id: agentId,
+                payload: outputs,
+                trace: {}
             }
         }).pipe(
             delay(1500),
