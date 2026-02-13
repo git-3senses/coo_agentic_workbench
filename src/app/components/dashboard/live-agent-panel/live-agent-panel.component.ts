@@ -1,7 +1,29 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
-import { Workflow } from '../../../lib/mock-data';
+
+export interface AgentStep {
+    id: string;
+    name: string;
+    agent: string;
+    status: 'queued' | 'in-progress' | 'completed' | 'exception';
+    timestamp?: string;
+    duration?: string;
+    details?: string;
+    dataSources?: string[];
+}
+
+export interface Workflow {
+    id: string;
+    title: string;
+    function: string;
+    desk: string;
+    status: 'queued' | 'in-progress' | 'completed' | 'exception';
+    assignedAgent: string;
+    steps: AgentStep[];
+    startTime: string;
+    estimatedCompletion?: string;
+}
 
 @Component({
     selector: 'app-live-agent-panel',

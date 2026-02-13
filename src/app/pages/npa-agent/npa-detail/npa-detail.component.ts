@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { NpaTemplateEditorComponent } from '../npa-template-editor/npa-template-editor.component';
@@ -6,7 +6,7 @@ import { ActivatedRoute } from '@angular/router';
 import { AgentGovernanceService } from '../../../services/agent-governance.service';
 import { NpaWorkflowVisualizerComponent } from '../../../components/npa/npa-workflow-visualizer/npa-workflow-visualizer.component';
 import { DocumentDependencyMatrixComponent } from '../../../components/npa/document-dependency-matrix/document-dependency-matrix.component';
-import { MOCK_NPA_SECTIONS } from '../../../lib/mock-npa-data';
+import { NpaService } from '../../../services/npa.service';
 import { RiskAssessmentResultComponent } from '../../../components/npa/agent-results/risk-assessment-result.component';
 import { MlPredictionResultComponent } from '../../../components/npa/agent-results/ml-prediction-result.component';
 import { MonitoringAlertsComponent } from '../../../components/npa/agent-results/monitoring-alerts.component';
@@ -719,8 +719,10 @@ export class NpaDetailComponent implements OnInit {
       });
    }
 
-   // New properties for Golden Source data
-   sections = MOCK_NPA_SECTIONS;
+   private npaService = inject(NpaService);
+
+   // Form sections loaded from API
+   sections: any[] = [];
    intakeAssessments: any[] = [];
    strategicAssessment: any = null;
 
@@ -728,11 +730,32 @@ export class NpaDetailComponent implements OnInit {
       this.governanceService.getProjectDetails(id).subscribe({
          next: (data) => {
             this.projectData = data;
-            // Update view properties
             this.currentStage = data.current_stage;
             this.mapBackendDataToView(data);
          },
          error: (err) => console.error('Failed to load project details', err)
+      });
+
+      // Load real form sections from API
+      this.npaService.getFormSections(id).subscribe({
+         next: (sections) => {
+            this.sections = sections.map((s: any) => ({
+               id: s.section_id,
+               title: s.title,
+               description: s.description,
+               fields: (s.fields || []).map((f: any) => ({
+                  key: f.field_key,
+                  label: f.label,
+                  value: f.value || '',
+                  lineage: f.lineage || 'MANUAL',
+                  type: f.field_type || 'text',
+                  required: f.is_required,
+                  tooltip: f.tooltip,
+                  options: (f.options || []).map((o: any) => o.label || o.value),
+               }))
+            }));
+         },
+         error: (err) => console.warn('Could not load form sections, using empty', err)
       });
    }
 

@@ -1,7 +1,18 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
-import { Exception } from '../../../lib/mock-data';
+
+// Interface matches the shape of breach alerts from monitoring API
+export interface Exception {
+    id: string;
+    function: string;
+    task: string;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    type: string;
+    timestamp: string;
+    assignee?: string;
+    description: string;
+}
 
 @Component({
     selector: 'app-exceptions-panel',

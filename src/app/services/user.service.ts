@@ -1,4 +1,5 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 
 export type UserRole =
   | 'MAKER'
@@ -19,59 +20,114 @@ export interface UserProfile {
   role: UserRole;
   avatarUrl?: string; // Optional
   email: string;
+  department?: string;
+  jobTitle?: string;
 }
+
+// Map DB department → frontend granular approver role
+const DEPARTMENT_ROLE_MAP: Record<string, UserRole> = {
+  'RMG-Credit': 'APPROVER_RISK',
+  'RMG-Market': 'APPROVER_MARKET',
+  'Finance': 'APPROVER_FINANCE',
+  'Group Tax': 'APPROVER_TAX',
+  'Legal & Compliance': 'APPROVER_LEGAL',
+  'Operations': 'APPROVER_OPS',
+  'Technology': 'APPROVER_TECH',
+  'MLR': 'APPROVER_LEGAL',
+  'Product Control': 'CHECKER',
+  'COO Office': 'COO',
+};
 
 @Injectable({
   providedIn: 'root'
 })
 export class UserService {
+  private http = inject(HttpClient);
 
   // --- STATE ---
+  private _currentUser = signal<UserProfile>(this.getDefaultUser());
+  private _allUsers = signal<UserProfile[]>([]);
+  private _loaded = signal(false);
 
-  // We strive to use Signals for modern Angular state management
-  private _currentUser = signal<UserProfile>(this.getInitialUser());
-
-  // Public read-only signal
+  // Public read-only signals
   currentUser = this._currentUser.asReadonly();
+  allUsers = this._allUsers.asReadonly();
+  loaded = this._loaded.asReadonly();
 
   // Derived State (Selectors)
   isMaker = computed(() => this.currentUser().role === 'MAKER');
   isApprover = computed(() => this.currentUser().role.startsWith('APPROVER_'));
   isAdmin = computed(() => this.currentUser().role === 'ADMIN');
 
+  constructor() {
+    this.loadUsers();
+  }
 
   // --- ACTIONS ---
 
   switchRole(role: UserRole) {
-    // Mock User Switching for Demo Purpose
-    const user = this.getMockUserForRole(role);
-    this._currentUser.set(user);
-    console.log(`Switched to role: ${role}`, user);
-  }
-
-  // --- HELPERS ---
-
-  private getInitialUser(): UserProfile {
-    return this.getMockUserForRole('MAKER'); // Default start as Maker
-  }
-
-  private getMockUserForRole(role: UserRole): UserProfile {
-    switch (role) {
-      case 'MAKER': return { id: 'u1', name: 'Sarah Jenkins', role: 'MAKER', email: 'sarah.j@dbs.com' };
-      case 'CHECKER': return { id: 'u2', name: 'Rajiv Kumar', role: 'CHECKER', email: 'rajiv.k@dbs.com' };
-
-      // Functional Approvers
-      case 'APPROVER_RISK': return { id: 'u3', name: 'David Lee', role: 'APPROVER_RISK', email: 'david.lee@dbs.com' };
-      case 'APPROVER_MARKET': return { id: 'u3b', name: 'Lisa Wong', role: 'APPROVER_MARKET', email: 'lisa.w@dbs.com' };
-      case 'APPROVER_FINANCE': return { id: 'u4', name: 'Amanda Low', role: 'APPROVER_FINANCE', email: 'amanda.l@dbs.com' };
-      case 'APPROVER_TAX': return { id: 'u4b', name: 'Simon Tan', role: 'APPROVER_TAX', email: 'simon.t@dbs.com' };
-      case 'APPROVER_LEGAL': return { id: 'u5b', name: 'James Tan', role: 'APPROVER_LEGAL', email: 'james.t@dbs.com' };
-      case 'APPROVER_OPS': return { id: 'u5', name: 'Raj Patel', role: 'APPROVER_OPS', email: 'raj.p@dbs.com' };
-      case 'APPROVER_TECH': return { id: 'u6', name: 'Mei Lin', role: 'APPROVER_TECH', email: 'mei.l@dbs.com' };
-
-      case 'COO': return { id: 'u7', name: 'Vikramaditya', role: 'COO', email: 'vikram@dbs.com' };
-      case 'ADMIN': return { id: 'u0', name: 'Admin User', role: 'ADMIN', email: 'admin@dbs.com' };
-      default: return { id: 'u1', name: 'Sarah Jenkins', role: 'MAKER', email: 'sarah.j@dbs.com' };
+    const users = this._allUsers();
+    // Find a user matching this role from real DB users
+    const match = users.find(u => u.role === role);
+    if (match) {
+      this._currentUser.set(match);
+      console.log(`[UserService] Switched to role: ${role}`, match);
+    } else {
+      // Fallback: create a synthetic user for this role if no DB user
+      this._currentUser.set({ ...this._currentUser(), role });
+      console.log(`[UserService] Switched to role: ${role} (no DB user found)`);
     }
+  }
+
+  // --- DATA LOADING FROM /api/users ---
+
+  private loadUsers() {
+    this.http.get<any[]>('/api/users').subscribe({
+      next: (dbUsers) => {
+        const mapped: UserProfile[] = dbUsers.map(u => ({
+          id: u.id,
+          name: u.display_name || u.full_name,
+          email: u.email,
+          role: this.mapDbRole(u.role, u.department),
+          department: u.department,
+          jobTitle: u.job_title,
+        }));
+
+        this._allUsers.set(mapped);
+        this._loaded.set(true);
+
+        // Set initial current user to first MAKER from DB
+        const maker = mapped.find(u => u.role === 'MAKER');
+        if (maker) {
+          this._currentUser.set(maker);
+        }
+
+        console.log(`[UserService] Loaded ${mapped.length} users from DB`);
+      },
+      error: (err) => {
+        console.warn('[UserService] Failed to load users from API, using fallback', err);
+        // Keep default user as fallback — service still works offline
+      }
+    });
+  }
+
+  /**
+   * Map DB role + department to frontend granular role
+   * DB has: MAKER, CHECKER, APPROVER, COO, ADMIN
+   * Frontend needs: APPROVER_RISK, APPROVER_FINANCE, etc.
+   */
+  private mapDbRole(dbRole: string, department: string): UserRole {
+    if (dbRole === 'MAKER') return 'MAKER';
+    if (dbRole === 'CHECKER') return 'CHECKER';
+    if (dbRole === 'COO') return 'COO';
+    if (dbRole === 'ADMIN') return 'ADMIN';
+    if (dbRole === 'APPROVER') {
+      return DEPARTMENT_ROLE_MAP[department] || 'APPROVER_RISK';
+    }
+    return 'MAKER'; // default
+  }
+
+  private getDefaultUser(): UserProfile {
+    return { id: 'USR-001', name: 'Sarah Lim', role: 'MAKER', email: 'sarah.lim@dbs.com' };
   }
 }

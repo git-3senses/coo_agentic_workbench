@@ -2,7 +2,7 @@ import { Component, EventEmitter, Output, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { RouterModule } from '@angular/router';
-import { AgentGovernanceService } from '../../../services/agent-governance.service';
+import { NpaService } from '../../../services/npa.service';
 
 export interface NPAPipelineItem {
   id: string;
@@ -101,25 +101,38 @@ export class NpaPipelineTableComponent implements OnInit {
 
   pipelineData: NPAPipelineItem[] = [];
 
-  constructor(private governanceService: AgentGovernanceService) { }
+  private npaService = inject(NpaService);
+
+  constructor() { }
 
   ngOnInit() {
-    this.governanceService.getProjects().subscribe({
-      next: (projects) => {
-        this.pipelineData = projects.map(p => ({
+    this.npaService.getAll().subscribe({
+      next: (npas) => {
+        this.pipelineData = npas.map(p => ({
           id: p.id,
           name: p.title || 'Untitled',
           productType: p.npa_type || 'New Product',
-          businessUnit: 'Global Fin. Markets', // Default or fetch if available
+          businessUnit: p.pm_team || 'Global Fin. Markets',
           currentStage: this.mapStage(p.current_stage),
-          status: 'on-track', // Default logic for now as status isn't fully in DB yet
+          status: this.mapStatus(p.status),
           daysInStage: Math.floor((Date.now() - new Date(p.created_at).getTime()) / (1000 * 3600 * 24)),
           owner: p.submitted_by || 'Unknown',
           lastUpdated: new Date(p.updated_at || p.created_at).toLocaleDateString()
         }));
       },
-      error: (err) => console.error('Failed to load projects for pipeline table', err)
+      error: (err) => console.error('Failed to load NPA pipeline from API', err)
     });
+  }
+
+  private mapStatus(dbStatus: string): 'on-track' | 'at-risk' | 'blocked' | 'completed' {
+    switch (dbStatus) {
+      case 'On Track': return 'on-track';
+      case 'At Risk': return 'at-risk';
+      case 'Blocked': return 'blocked';
+      case 'Completed': return 'completed';
+      case 'Warning': return 'at-risk';
+      default: return 'on-track';
+    }
   }
 
   private mapStage(backendStage: string): string {

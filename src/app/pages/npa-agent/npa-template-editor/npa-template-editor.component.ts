@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LucideAngularModule, UploadCloud, Edit2, AlertCircle, Paperclip } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
 import { NpaSection, NpaField, FieldLineage } from '../../../lib/npa-interfaces';
-import { MOCK_NPA_SECTIONS } from '../../../lib/mock-npa-data';
+import { NpaService } from '../../../services/npa.service';
 import { AgentGovernanceService, ReadinessResult } from '../../../services/agent-governance.service';
 
 @Component({
@@ -391,12 +391,48 @@ export class NpaTemplateEditorComponent implements OnInit {
    showValidationModal = false;
    validationResult: ReadinessResult | null = null;
 
-   // Load MOCK data initially
-   sections: NpaSection[] = JSON.parse(JSON.stringify(MOCK_NPA_SECTIONS)); // Deep copy to avoid mutating mock
+   private npaService = inject(NpaService);
+
+   // Sections loaded from API (or empty until loaded)
+   sections: NpaSection[] = [];
 
    ngOnInit() {
-      if (this.inputData) {
-         this.mergeInputData();
+      // Load real form sections from API if a project ID is available via inputData
+      const projectId = this.inputData?.projectId || this.inputData?.id;
+      if (projectId) {
+         this.npaService.getFormSections(projectId).subscribe({
+            next: (apiSections) => {
+               this.sections = apiSections.map((s: any) => ({
+                  id: s.section_id,
+                  title: s.title,
+                  description: s.description,
+                  fields: (s.fields || []).map((f: any) => ({
+                     key: f.field_key,
+                     label: f.label,
+                     value: f.value || '',
+                     lineage: f.lineage || 'MANUAL',
+                     type: f.field_type || 'text',
+                     required: f.is_required,
+                     tooltip: f.tooltip,
+                     placeholder: f.tooltip || '',
+                     options: (f.options || []).map((o: any) => o.label || o.value),
+                  }))
+               }));
+               if (this.inputData) {
+                  this.mergeInputData();
+               }
+            },
+            error: () => {
+               console.warn('[TemplateEditor] Could not load form sections from API');
+               if (this.inputData) {
+                  this.mergeInputData();
+               }
+            }
+         });
+      } else {
+         if (this.inputData) {
+            this.mergeInputData();
+         }
       }
    }
 
