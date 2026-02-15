@@ -80,7 +80,7 @@ export interface ClassificationScore {
 
 export interface ClassificationResult {
     type: 'NTG' | 'Variation' | 'Existing';
-    track: 'Full NPA' | 'NPA Lite' | 'Evergreen' | 'Prohibited';
+    track: 'Full NPA' | 'NPA Lite' | 'Bundling' | 'Evergreen' | 'Prohibited';
     scores: ClassificationScore[];
     overallConfidence: number;
     prohibitedMatch?: {
@@ -129,7 +129,7 @@ export interface MLPrediction {
 
 export interface SignoffItem {
     department: string;
-    status: 'pending' | 'approved' | 'rejected' | 'looped_back';
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'REWORK';
     assignee?: string;
     slaDeadline?: string;
     slaBreached?: boolean;
