@@ -3,6 +3,16 @@ REST API + MCP SSE Server — Port 3002
 Exposes all NPA tools as:
   1. HTTP endpoints + auto-generated OpenAPI spec (for Dify Custom Tool import)
   2. MCP SSE transport at /sse (for Dify native MCP integration)
+
+ARCHITECTURE FIX (2026-02-16):
+  Previously, MCP SSE was mounted inside FastAPI via app.mount("/mcp", ...).
+  This caused FastAPI's CORS middleware to interfere with MCP SSE streams,
+  producing duplicate JSON responses ("Extra data" parse errors in Dify).
+
+  Now we use a raw ASGI path router that splits traffic at the ASGI level:
+    /mcp/*  → MCP SSE app (no FastAPI middleware)
+    /*      → FastAPI REST app (with CORS middleware)
+  Both share the same port (Railway single-port constraint).
 """
 import os
 import sys
@@ -25,7 +35,8 @@ from main import mcp_server  # noqa: E402
 
 REST_PORT = int(os.getenv("REST_PORT", "3002"))
 
-app = FastAPI(
+# ─── FastAPI REST app (with CORS middleware) ─────────────────────
+rest_app = FastAPI(
     title="NPA Workbench MCP Tools API",
     description="REST API exposing MCP tools for NPA Multi-Agent Workbench. Import this spec into Dify as a Custom Tool provider.",
     version="1.0.0",
@@ -34,21 +45,50 @@ app = FastAPI(
     openapi_url=None,
 )
 
-app.add_middleware(
+rest_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ─── Mount MCP SSE transport on the same server ─────────────────
-# This makes /sse and /messages available on port 3002 alongside REST endpoints
-app.mount("/mcp", mcp_server.sse_app())
+# ─── MCP SSE app (standalone — NO FastAPI middleware) ────────────
+# FastMCP's sse_app() returns a Starlette app with /sse and /messages endpoints.
+# It MUST run without CORS middleware to avoid duplicate JSON responses.
+mcp_sse_app = mcp_server.sse_app()
+
+
+# ─── ASGI Path Router — splits /mcp/* vs /* at the ASGI level ───
+# This ensures MCP SSE traffic NEVER passes through FastAPI middleware.
+class ASGIPathRouter:
+    """Routes requests by path prefix to different ASGI apps.
+    /mcp/* → MCP SSE app (strips /mcp prefix)
+    /*     → FastAPI REST app
+    """
+    def __init__(self, mcp_app, rest_app):
+        self.mcp_app = mcp_app
+        self.rest_app = rest_app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            path = scope.get("path", "")
+            if path.startswith("/mcp"):
+                # Strip /mcp prefix so SSE app sees /sse, /messages
+                scope = dict(scope)
+                scope["path"] = path[4:] or "/"
+                scope["root_path"] = scope.get("root_path", "") + "/mcp"
+                await self.mcp_app(scope, receive, send)
+                return
+        await self.rest_app(scope, receive, send)
+
+
+# The top-level ASGI app — this is what uvicorn runs
+app = ASGIPathRouter(mcp_app=mcp_sse_app, rest_app=rest_app)
 
 
 # ─── Custom OpenAPI spec matching TypeScript output ───────────────
 
-@app.get("/openapi.json", include_in_schema=False)
+@rest_app.get("/openapi.json", include_in_schema=False)
 async def openapi_spec():
     """Generate OpenAPI 3.0.3 spec identical to the TypeScript version."""
     all_tools = registry.get_all()
@@ -106,7 +146,7 @@ async def openapi_spec():
 
 # ─── Tool listing endpoint ────────────────────────────────────────
 
-@app.get("/tools")
+@rest_app.get("/tools")
 async def list_tools():
     all_tools = registry.get_all()
     return {
@@ -117,7 +157,7 @@ async def list_tools():
 
 # ─── Dynamic tool execution ──────────────────────────────────────
 
-@app.api_route("/tools/{tool_name}", methods=["POST"], include_in_schema=False)
+@rest_app.api_route("/tools/{tool_name}", methods=["POST"], include_in_schema=False)
 async def execute_tool(tool_name: str, request: Request):
     """Execute a tool by name. Matches POST /tools/{tool-name} from TypeScript."""
     td = registry.get_tool(tool_name)
@@ -138,7 +178,7 @@ async def execute_tool(tool_name: str, request: Request):
 
 # ─── Health check ─────────────────────────────────────────────────
 
-@app.get("/health")
+@rest_app.get("/health")
 async def health():
     return {
         "status": "ok",
@@ -150,14 +190,16 @@ async def health():
 
 
 def start_rest_server():
-    """Start the unified FastAPI server (REST + MCP SSE)."""
+    """Start the unified server (ASGI path router → REST + MCP SSE)."""
     import uvicorn
     public = os.getenv("PUBLIC_URL", f"http://localhost:{REST_PORT}")
     print(f"[SERVER]   Listening on http://0.0.0.0:{REST_PORT}")
+    print(f"[SERVER]   ASGI path router: /mcp/* → MCP SSE, /* → FastAPI REST")
     print(f"[REST API] OpenAPI spec: {public}/openapi.json")
     print(f"[REST API] {registry.count()} tools exposed as POST /tools/{{name}}")
     print(f"[MCP SSE]  SSE endpoint: {public}/mcp/sse")
-    print(f"[MCP SSE]  {registry.count()} tools via MCP protocol")
+    print(f"[MCP SSE]  Messages endpoint: {public}/mcp/messages")
+    print(f"[MCP SSE]  {registry.count()} tools via MCP protocol (CORS-free)")
     uvicorn.run(app, host="0.0.0.0", port=REST_PORT, log_level="info")
 
 
