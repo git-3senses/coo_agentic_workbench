@@ -1,36 +1,60 @@
 # Documentation Index
 
-## Architecture
-| Document | Description |
-|----------|-------------|
-| [Agent Architecture](architecture/AGENT_ARCHITECTURE.md) | Complete 13-agent, 4-tier system design. Agent responsibilities, tool mappings, DB access patterns, UI integration. **Start here for system understanding.** |
-| [UI Integration Changes](architecture/UI_CHANGES_FOR_AGENT_INTEGRATION.md) | Angular component changes needed for agent integration. |
+> **COO Multi-Agent Workbench** — Enterprise Documentation Hub
+> Last Updated: 2026-02-17
 
-## MCP Tools Server
-| Document | Description |
-|----------|-------------|
-| [MCP Tools Documentation](mcp-server/MCP_TOOLS_DOCUMENTATION.md) | Complete technical reference for all 71 tools. Architecture, agent-to-tool mapping, API reference, deployment guide. **Share this with DevOps for deployment.** |
+---
+
+## Getting Started
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [**PROGRESS.md**](PROGRESS.md) | Detailed progress report — architecture, bugs fixed, troubleshooting playbook, next steps. **Start here for current state.** | All Engineers |
+| [SHIPPING_CHECKLIST.md](SHIPPING_CHECKLIST.md) | Stakeholder handoff checklist and delivery criteria. | Project Managers, Tech Leads |
+
+---
+
+## Architecture
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [Agent Architecture](architecture/AGENT_ARCHITECTURE.md) | Complete 13-agent, 4-tier system design. Agent responsibilities, tool mappings, DB access patterns, UI integration. | Architects, Tech Leads |
+| [UI Integration Guide](architecture/UI_CHANGES_FOR_AGENT_INTEGRATION.md) | Angular component changes for agent integration — DifyService wiring, envelope protocol, card rendering. | Frontend Engineers |
 
 ## Dify Agent Configuration
-| Document | Description |
-|----------|-------------|
-| [Enterprise Agent Architecture (Phase 0 Target)](dify-agents/ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md) | Phase 0 target architecture for Dify Cloud + Railway tools + Angular frontend. Freeze only after validation gates pass. **Start here.** |
-| [Dify Agent Setup Guide](dify-agents/DIFY_AGENT_SETUP_GUIDE.md) | How to configure all 13 agents in Dify with tools, prompts, and connections. |
-| [Chatflow Node Guide](dify-agents/DIFY_CHATFLOW_NODE_GUIDE.md) | Detailed chatflow node configuration for each agent. |
-| [Agent Creation Guide](dify-agents/Dify_Agent_Creation_Guide.md) | Step-by-step agent creation in Dify. |
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [Enterprise Agent Architecture](dify-agents/ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md) | Phase 0 target architecture for Dify Cloud + Railway MCP + Angular. Freeze specification with validation gates. **Primary reference for agent setup.** | AI Engineers, Architects |
+
+## MCP Tools Server
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [MCP Tools Documentation](mcp-server/MCP_TOOLS_DOCUMENTATION.md) | Complete technical reference for all 71 tools across 18 modules. API reference, agent-to-tool mapping, deployment guide. | Backend Engineers, DevOps |
 
 ## Knowledge Base
-| Document | Description |
-|----------|-------------|
-| [KB Architecture Strategy](knowledge-base/Dify_KB_Architecture_Strategy.md) | Knowledge base design and ingestion strategy. |
-| [KB Strategy (LLM-First)](knowledge-base/Dify_KB_Strategy_FINAL_LLM_First.md) | Final LLM-first RAG strategy. |
-| [NPA Approval Matrix](knowledge-base/KB_NPA_Approval_Matrix.md) | Approval routing rules and authority matrix. |
-| [NPA Classification Rules](knowledge-base/KB_NPA_Classification_Rules.md) | Classification criteria, scoring, and track determination. |
-| [NPA Policies](knowledge-base/KB_NPA_Policies.md) | NPA policy documentation for RAG. |
-| [NPA State Machine](knowledge-base/KB_NPA_State_Machine.md) | Workflow states, transitions, and gate conditions. |
-| [NPA Templates](knowledge-base/KB_NPA_Templates.md) | 47-field NPA template structure. |
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [KB Strategy (LLM-First)](knowledge-base/Dify_KB_Strategy_FINAL_LLM_First.md) | Final LLM-first RAG strategy for Knowledge Base ingestion and retrieval. | AI Engineers |
+| [NPA Approval Matrix](knowledge-base/KB_NPA_Approval_Matrix.md) | Approval routing rules, authority matrix, delegation hierarchy. | Domain Experts, Compliance |
+| [NPA Classification Rules](knowledge-base/KB_NPA_Classification_Rules.md) | NTG scoring criteria, track determination, prohibited screening. | Domain Experts, Risk |
+| [NPA Policies](knowledge-base/KB_NPA_Policies.md) | NPA policy documentation for RAG ingestion. | Compliance, Legal |
+| [NPA State Machine](knowledge-base/KB_NPA_State_Machine.md) | Workflow states, transitions, gate conditions, loop-back rules. | Process Engineers |
+| [NPA Templates](knowledge-base/KB_NPA_Templates.md) | 47-field NPA template structure for AutoFill agent. | Domain Experts |
 
 ## Database
-| Document | Description |
-|----------|-------------|
-| [Database Schema](database/database_schema.md) | 42-table schema documentation with relationships. |
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| [Database Schema](database/database_schema.md) | 42-table schema with relationships, indexes, and seed data reference. | DBAs, Backend Engineers |
+
+---
+
+## Quick Links
+
+- **Root README:** [../README.md](../README.md)
+- **Project Context:** [../PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md)
+- **Railway Deployment:** [../RAILWAY_DEPLOYMENT_STATUS.md](../RAILWAY_DEPLOYMENT_STATUS.md)
+- **Progress Report:** [PROGRESS.md](PROGRESS.md)

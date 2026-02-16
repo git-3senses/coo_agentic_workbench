@@ -1,7 +1,7 @@
 # Railway Deployment Status
 
 > **Project:** COO Multi-Agent Workbench (`agent-command-hub-angular`)
-> **Last Updated:** 2026-02-15
+> **Last Updated:** 2026-02-17
 > **Railway Dashboard:** https://railway.com/project/f9a1e7d9-fb38-4b37-9d7f-64ec4c6177e2
 
 ---
@@ -330,12 +330,24 @@ The following are excluded from Railway builds:
 - [x] Health check endpoints configured
 - [x] OpenShift/Kubernetes alternative deployment ready
 
+### Recently Completed (2026-02-17)
+
+- [x] Dify agents created and wired: MASTER_COO, IDEATION, CLASSIFIER
+- [x] Real agent routing working end-to-end (no more mock data)
+- [x] CLASSIFIER auto-triggers after FINALIZE_DRAFT
+- [x] Express crash protection (uncaughtException + unhandledRejection handlers)
+- [x] Fallback users when MySQL unavailable
+- [x] Fast-fail DB timeout (3s instead of 30s)
+- [x] Stop button + Enter/Shift+Enter chat UX
+- [x] ASGI Path Router preserved (prevents MCP CORS interference)
+- [x] Comprehensive PROGRESS.md documentation
+
 ### Pending
 
-- [ ] Create Dify Chatflow/Workflow apps (7 apps for 13 agents)
-- [ ] Populate `DIFY_KEY_*` environment variables with Dify API keys
-- [ ] Switch `useMockDify` to `false` in Angular DifyService
+- [ ] Create remaining Dify apps (AUTOFILL, RISK, GOVERNANCE, DILIGENCE, DOC_LIFECYCLE, MONITORING)
+- [ ] Populate remaining `DIFY_KEY_*` environment variables
 - [ ] Add API-key auth to MCP Tools Server
-- [ ] End-to-end test: User -> Command Center -> Master COO -> Domain agent -> Real data
+- [ ] Wire frontend result cards for remaining agents
+- [ ] Implement SSE streaming for real-time token display
 - [ ] Restrict CORS to known origins for production
 - [ ] Strict SSL certificate validation
