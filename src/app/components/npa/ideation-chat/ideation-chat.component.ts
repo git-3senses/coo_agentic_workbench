@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { DifyService, DifyAgentResponse } from '../../../services/dify/dify.service';
 import { MarkdownModule } from 'ngx-markdown';
-import { AGENT_REGISTRY, AgentDefinition, AgentAction, AgentActivityUpdate } from '../../../lib/agent-interfaces';
+import { AGENT_REGISTRY, AgentDefinition, AgentAction, AgentActivityUpdate, ClassificationResult, ClassificationScore } from '../../../lib/agent-interfaces';
+import { ClassificationResultComponent } from '../agent-results/classification-result.component';
 import { Subscription } from 'rxjs';
 
 interface ChatMessage {
@@ -28,7 +29,7 @@ interface AgentIdentity {
 @Component({
     selector: 'app-orchestrator-chat',
     standalone: true,
-    imports: [CommonModule, FormsModule, LucideAngularModule, MarkdownModule],
+    imports: [CommonModule, FormsModule, LucideAngularModule, MarkdownModule, ClassificationResultComponent],
     template: `
     <div class="flex flex-col h-full bg-white relative">
       <!-- TOAST NOTIFICATION -->
@@ -66,34 +67,11 @@ interface AgentIdentity {
                    <span class="text-[9px] opacity-40 mt-1 block font-mono">{{ msg.timestamp | date:'shortTime' }}</span>
                 </div>
 
-                <!-- CARD: CLASSIFICATION (from Dify metadata) -->
-                <div *ngIf="msg.cardType === 'CLASSIFICATION' && msg.cardData" class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm animate-fade-in w-full">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
-                                <lucide-icon name="git-branch" class="w-5 h-5"></lucide-icon>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-bold text-indigo-900">{{ msg.cardData.type || 'Classification' }}</h4>
-                                <p class="text-[10px] text-indigo-600 font-mono uppercase">{{ msg.cardData.track }}</p>
-                            </div>
-                        </div>
-                        <span class="px-2.5 py-1 rounded-full text-xs font-bold" [ngClass]="msg.cardData.overallConfidence > 80 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">
-                            {{ msg.cardData.overallConfidence }}% Confidence
-                        </span>
-                    </div>
-
-                    <!-- Score Bars (7-criteria) -->
-                    <div *ngIf="msg.cardData.scores" class="space-y-2 mb-3">
-                        <div *ngFor="let score of msg.cardData.scores" class="flex items-center gap-2 text-xs">
-                            <span class="w-24 text-slate-600 font-medium truncate">{{ score.criterion }}</span>
-                            <div class="flex-1 h-1.5 bg-indigo-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-indigo-500 rounded-full transition-all duration-700" [style.width.%]="(score.score / score.maxScore) * 100"></div>
-                            </div>
-                            <span class="font-mono text-indigo-700 w-8 text-right">{{ score.score }}/{{ score.maxScore }}</span>
-                        </div>
-                    </div>
-                </div>
+                <!-- CARD: CLASSIFICATION (rich standalone component) -->
+                <app-classification-result *ngIf="msg.cardType === 'CLASSIFICATION' && msg.cardData"
+                                           [result]="msg.cardData"
+                                           class="w-full animate-fade-in">
+                </app-classification-result>
 
                 <!-- CARD: HARD STOP (Prohibited Product) -->
                 <div *ngIf="msg.cardType === 'HARD_STOP' && msg.cardData" class="bg-red-50 border-2 border-red-300 rounded-xl p-4 shadow-sm animate-fade-in w-full">
@@ -371,6 +349,147 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
 
         this.showGenerateButton = true;
         setTimeout(() => { this.showToast = false; }, 5000);
+
+        // ─── Auto-trigger CLASSIFIER workflow ──────────────────
+        const classifierInputs: Record<string, string> = {
+            product_name: payload?.product_name || payload?.title || 'Untitled Product',
+            product_description: payload?.product_description || payload?.description || '',
+            product_type: payload?.product_type || '',
+            asset_class: payload?.asset_class || '',
+            target_market: payload?.target_market || '',
+            distribution_channel: payload?.distribution_channel || '',
+            risk_features: payload?.risk_features || '',
+            jurisdictions: (payload?.jurisdictions || []).join(', '),
+            notional_size: payload?.notional_size || payload?.notional || '',
+            regulatory_framework: payload?.regulatory_framework || ''
+        };
+
+        this.difyService.runWorkflow('CLASSIFIER', classifierInputs).subscribe({
+            next: (res) => {
+                if (res.data.status === 'succeeded') {
+                    const classificationData = this.parseClassifierResponse(res.data.outputs);
+
+                    // Handle PROHIBITED hard stop
+                    if (classificationData.prohibitedMatch?.matched) {
+                        this.isDraftReady = false;
+                        this.showGenerateButton = false;
+                        this.messages.push({
+                            role: 'agent',
+                            content: '**HARD STOP** — This product has been classified as **Prohibited**. NPA creation is blocked.',
+                            timestamp: new Date(),
+                            agentIdentity: this.AGENTS['CLASSIFIER'],
+                            cardType: 'HARD_STOP',
+                            cardData: classificationData
+                        });
+                    } else {
+                        this.messages.push({
+                            role: 'agent',
+                            content: 'Classification analysis complete.',
+                            timestamp: new Date(),
+                            agentIdentity: this.AGENTS['CLASSIFIER'],
+                            cardType: 'CLASSIFICATION',
+                            cardData: classificationData
+                        });
+                    }
+                }
+            },
+            error: (err) => {
+                console.error('[CLASSIFIER] Workflow failed:', err);
+            }
+        });
+    }
+
+    /**
+     * Parse the CLASSIFIER workflow response into a ClassificationResult.
+     * The Dify workflow returns a JSON string wrapped in markdown code fences
+     * inside data.outputs.result.
+     */
+    private parseClassifierResponse(outputs: any): ClassificationResult {
+        let rawResult = outputs?.result || '';
+
+        // Strip markdown code fences (```json ... ```)
+        const jsonMatch = rawResult.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+            rawResult = jsonMatch[1];
+        }
+
+        let parsed: any;
+        try {
+            parsed = JSON.parse(rawResult);
+        } catch {
+            // Fallback if parse fails
+            return {
+                type: 'NTG',
+                track: 'Full NPA',
+                scores: [],
+                overallConfidence: 0,
+                mandatorySignOffs: []
+            };
+        }
+
+        // Map classification_type → track
+        const trackMap: Record<string, string> = {
+            'FULL_NPA': 'Full NPA',
+            'NPA_LITE': 'NPA Lite',
+            'EVERGREEN': 'Evergreen',
+            'PROHIBITED': 'Prohibited',
+            'VARIATION': 'NPA Lite'
+        };
+
+        // Map classification_type → type
+        const typeMap: Record<string, string> = {
+            'FULL_NPA': 'NTG',
+            'NPA_LITE': 'Variation',
+            'EVERGREEN': 'Existing',
+            'PROHIBITED': 'NTG',
+            'VARIATION': 'Variation'
+        };
+
+        const sc = parsed.scorecard || {};
+        const ntgScore = sc.ntg_total_score || 0;
+        const ntgMax = sc.ntg_max_score || 30;
+
+        // Build 4 category scores from scorecard subtotals
+        const scores: ClassificationScore[] = [];
+        const categories = [
+            { key: 'product_innovation', name: 'Product Innovation', max: 15 },
+            { key: 'market_customer', name: 'Market & Customer', max: 8 },
+            { key: 'risk_regulatory', name: 'Risk & Regulatory', max: 7 },
+            { key: 'financial_operational', name: 'Financial & Operational', max: 0 }
+        ];
+
+        for (const cat of categories) {
+            const catData = sc[cat.key];
+            if (catData) {
+                scores.push({
+                    criterion: cat.name,
+                    score: catData.subtotal || 0,
+                    maxScore: catData.max_subtotal || cat.max,
+                    reasoning: Object.entries(catData)
+                        .filter(([k]) => !['subtotal', 'max_subtotal'].includes(k))
+                        .map(([k, v]: [string, any]) => `${k}: ${v.score}/${v.max}`)
+                        .join(', ')
+                });
+            }
+        }
+
+        // Calculate confidence from score density
+        const overallConfidence = ntgMax > 0
+            ? Math.round((1 - Math.abs(ntgScore - ntgMax / 2) / (ntgMax / 2)) * 100)
+            : 80;
+
+        return {
+            type: (typeMap[parsed.classification_type] || 'NTG') as any,
+            track: (trackMap[parsed.classification_type] || 'Full NPA') as any,
+            scores,
+            overallConfidence: Math.max(overallConfidence, 60),
+            prohibitedMatch: parsed.prohibited_check ? {
+                matched: parsed.prohibited_check.is_prohibited || false,
+                item: (parsed.prohibited_check.matched_items || [])[0] || undefined,
+                layer: parsed.prohibited_check.is_prohibited ? 'REGULATORY' : undefined
+            } : undefined,
+            mandatorySignOffs: parsed.mandatory_signoffs || []
+        };
     }
 
     generateWorkItem() {
