@@ -12,7 +12,7 @@ interface ChatMessage {
     content: string;
     timestamp: Date;
     agentIdentity?: AgentIdentity;
-    cardType?: 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION';
+    cardType?: 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION' | 'DELEGATION';
     cardData?: any;
     agentAction?: AgentAction;
 }
@@ -144,7 +144,7 @@ interface AgentIdentity {
                  <lucide-icon name="loader-2" class="w-3 h-3 text-indigo-600 animate-spin"></lucide-icon>
              </div>
              <div class="text-xs text-gray-400 flex items-center gap-2 py-2">
-                 <span>Processing request...</span>
+                 <span>{{ thinkingMessage }}</span>
              </div>
          </div>
       </div>
@@ -224,9 +224,11 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
 
     private difyService = inject(DifyService);
     private activitySub?: Subscription;
+    private agentChangeSub?: Subscription;
 
     userInput = '';
     isThinking = false;
+    thinkingMessage = 'Processing request...';
     isDraftReady = false;
     showToast = false;
     messages: ChatMessage[] = [];
@@ -262,6 +264,14 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.activitySub = this.difyService.getAgentActivity().subscribe(update => {
             this.activeAgents.set(update.agentId, update.status);
         });
+
+        // Subscribe to agent change events — update the UI label when routing happens
+        this.agentChangeSub = this.difyService.getAgentChanges().subscribe(change => {
+            const newAgent = this.AGENTS[change.toAgent];
+            if (newAgent) {
+                this.currentAgent = newAgent;
+            }
+        });
     }
 
     ngAfterViewChecked() {
@@ -270,11 +280,12 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
 
     ngOnDestroy() {
         this.activitySub?.unsubscribe();
+        this.agentChangeSub?.unsubscribe();
     }
 
     startConversation() {
         this.difyService.reset();
-        // Push initial greeting via DifyService
+        // Push initial greeting via DifyService — starts with MASTER_COO
         this.isThinking = true;
         this.difyService.sendMessage('', {}, 'MASTER_COO').subscribe(res => {
             this.messages.push({
@@ -300,18 +311,22 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.messages.push({ role: 'user', content, timestamp: new Date() });
         this.userInput = '';
         this.isThinking = true;
+        this.thinkingMessage = `${this.currentAgent?.name || 'Agent'} processing...`;
 
-        // Send to rewritten DifyService (mock or real Dify API)
-        this.difyService.sendMessage(content, {}, 'MASTER_COO').subscribe({
+        // Send to the currently active agent (resolved by DifyService)
+        // DifyService.activeAgentId tracks which agent we're talking to,
+        // and each agent has its own conversation_id in the Map.
+        this.difyService.sendMessage(content).subscribe({
             next: (res) => {
                 this.handleDifyResponse(res);
             },
             error: () => {
+                const currentId = this.difyService.activeAgentId;
                 this.messages.push({
                     role: 'agent',
                     content: 'Sorry, I encountered an error processing your request.',
                     timestamp: new Date(),
-                    agentIdentity: this.AGENTS['MASTER_COO']
+                    agentIdentity: this.AGENTS[currentId] || this.AGENTS['MASTER_COO']
                 });
                 this.isThinking = false;
             }
@@ -319,9 +334,15 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
     }
 
     private handleDifyResponse(res: DifyAgentResponse) {
-        const agentId = res.metadata?.agent_id || 'MASTER_COO';
+        const agentId = res.metadata?.agent_id || this.difyService.activeAgentId;
         const identity = this.AGENTS[agentId] || this.AGENTS['MASTER_COO'];
         const action = res.metadata?.agent_action;
+
+        // Let DifyService handle routing logic (ROUTE_DOMAIN, DELEGATE_AGENT, etc.)
+        let routing: { shouldSwitch: boolean; targetAgent?: string; action: AgentAction } | null = null;
+        if (res.metadata) {
+            routing = this.difyService.processAgentRouting(res.metadata);
+        }
 
         // Determine card type from agent_action metadata
         let cardType: ChatMessage['cardType'] = undefined;
@@ -336,6 +357,9 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         } else if (action === 'SHOW_PREDICTION' && res.metadata?.payload) {
             cardType = 'PREDICTION';
             cardData = res.metadata.payload;
+        } else if (action === 'DELEGATE_AGENT' && res.metadata?.payload) {
+            cardType = 'DELEGATION';
+            cardData = res.metadata.payload;
         } else if (action === 'FINALIZE_DRAFT') {
             this.finishDraft(res.metadata?.payload);
         }
@@ -349,7 +373,55 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             cardData,
             agentAction: action as AgentAction
         });
-        this.isThinking = false;
+
+        // ─── AUTO-GREETING: When agent switches, auto-send greeting to new agent ───
+        // This fires the new agent's introduction so the user doesn't have to type.
+        if (routing?.shouldSwitch && routing.targetAgent) {
+            const targetId = routing.targetAgent;
+            const targetAgent = this.AGENTS[targetId];
+            const intent = res.metadata?.payload?.intent
+                || res.metadata?.payload?.data?.intent
+                || '';
+
+            // Build context message that carries the user's original intent
+            const contextMsg = intent
+                ? `The user wants to: ${intent}. Please introduce yourself and guide them.`
+                : '';
+
+            // Keep thinking indicator active with updated agent name
+            this.isThinking = true;
+            this.thinkingMessage = `Connecting to ${targetAgent?.name || targetId}...`;
+
+            // Update currentAgent immediately so UI label reflects the new agent
+            if (targetAgent) {
+                this.currentAgent = targetAgent;
+            }
+
+            this.difyService.sendMessage(contextMsg, {}, targetId).subscribe({
+                next: (greeting) => {
+                    const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
+                    this.messages.push({
+                        role: 'agent',
+                        content: greeting.answer,
+                        timestamp: new Date(),
+                        agentIdentity: greetIdentity
+                    });
+                    this.isThinking = false;
+                },
+                error: () => {
+                    // Even on error, show a fallback greeting so user knows what happened
+                    this.messages.push({
+                        role: 'agent',
+                        content: `You're now connected to **${targetAgent?.name || targetId}**. How can I help you?`,
+                        timestamp: new Date(),
+                        agentIdentity: targetAgent || this.AGENTS['MASTER_COO']
+                    });
+                    this.isThinking = false;
+                }
+            });
+        } else {
+            this.isThinking = false;
+        }
     }
 
     private finishDraft(payload?: any) {
@@ -368,6 +440,11 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             submittedBy: 'Current User',
             submittedDate: new Date()
         };
+
+        // If Ideation sent target_agent, route back to Orchestrator
+        if (payload?.target_agent) {
+            this.difyService.returnToPreviousAgent('finalize_draft');
+        }
 
         this.showGenerateButton = true;
         setTimeout(() => { this.showToast = false; }, 5000);

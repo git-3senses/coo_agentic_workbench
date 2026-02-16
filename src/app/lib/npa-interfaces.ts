@@ -57,7 +57,7 @@ export type SignOffParty =
    | 'T&O-Ops'
    | 'T&O-Tech';
 
-export type SignOffDecision = 'PENDING' | 'APPROVED' | 'APPROVED_CONDITIONAL' | 'REJECTED' | 'REWORK';
+export type SignOffDecision = 'PENDING' | 'APPROVED' | 'APPROVED_CONDITIONAL' | 'REJECTED' | 'REWORK' | 'REWORK_REQUIRED';
 
 export interface SignOffStatus {
    party: SignOffParty;

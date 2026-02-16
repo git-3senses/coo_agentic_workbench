@@ -53,6 +53,7 @@ export interface AgentActivityUpdate {
 
 export type AgentAction =
     | 'ROUTE_DOMAIN'
+    | 'DELEGATE_AGENT'
     | 'ASK_CLARIFICATION'
     | 'SHOW_CLASSIFICATION'
     | 'SHOW_RISK'

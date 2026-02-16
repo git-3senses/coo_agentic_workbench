@@ -24,10 +24,11 @@ const router = express.Router();
 // ─── Valid AgentAction values (source: agent-interfaces.ts + Freeze doc §6) ───
 
 const VALID_AGENT_ACTIONS = new Set([
-    'ROUTE_DOMAIN', 'ASK_CLARIFICATION', 'SHOW_CLASSIFICATION', 'SHOW_RISK',
-    'SHOW_PREDICTION', 'SHOW_AUTOFILL', 'SHOW_GOVERNANCE', 'SHOW_DOC_STATUS',
-    'SHOW_MONITORING', 'SHOW_KB_RESULTS', 'HARD_STOP', 'STOP_PROCESS',
-    'FINALIZE_DRAFT', 'ROUTE_WORK_ITEM', 'SHOW_RAW_RESPONSE', 'SHOW_ERROR'
+    'ROUTE_DOMAIN', 'DELEGATE_AGENT', 'ASK_CLARIFICATION', 'SHOW_CLASSIFICATION',
+    'SHOW_RISK', 'SHOW_PREDICTION', 'SHOW_AUTOFILL', 'SHOW_GOVERNANCE',
+    'SHOW_DOC_STATUS', 'SHOW_MONITORING', 'SHOW_KB_RESULTS', 'HARD_STOP',
+    'STOP_PROCESS', 'FINALIZE_DRAFT', 'ROUTE_WORK_ITEM', 'SHOW_RAW_RESPONSE',
+    'SHOW_ERROR'
 ]);
 
 // ─── @@NPA_META@@ Envelope Parsing ───────────────────────────────────────────
@@ -35,8 +36,66 @@ const VALID_AGENT_ACTIONS = new Set([
 const META_REGEX = /@@NPA_META@@(\{[\s\S]*\})$/;
 
 /**
- * Parse @@NPA_META@@{json} from a chatflow answer string.
- * Returns { answer, metadata } where answer has the meta line stripped.
+ * Parse [NPA_ACTION]...[NPA_SESSION] markers from Agent app response.
+ * Returns { markers, markerStartIndex } or null if no markers found.
+ */
+function parseMarkers(rawAnswer) {
+    const lines = rawAnswer.split('\n');
+    const markers = {};
+    let markerStartIndex = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+        const stripped = lines[i].trim();
+        if (stripped.startsWith('[NPA_')) {
+            if (markerStartIndex === -1) markerStartIndex = i;
+            const bracketEnd = stripped.indexOf(']');
+            if (bracketEnd > 0) {
+                const key = stripped.substring(1, bracketEnd);
+                const value = stripped.substring(bracketEnd + 1).trim();
+                markers[key] = value;
+            }
+        }
+    }
+
+    if (markerStartIndex === -1 || !markers.NPA_ACTION) return null;
+
+    const cleanAnswer = lines.slice(0, markerStartIndex).join('\n').trimEnd();
+
+    // Parse [NPA_DATA] JSON
+    let dataObj = {};
+    if (markers.NPA_DATA) {
+        try {
+            dataObj = JSON.parse(markers.NPA_DATA);
+        } catch {
+            dataObj = { raw_answer: markers.NPA_DATA };
+        }
+    }
+
+    return {
+        answer: cleanAnswer,
+        metadata: {
+            agent_action: markers.NPA_ACTION || 'SHOW_RAW_RESPONSE',
+            agent_id: markers.NPA_AGENT || 'UNKNOWN',
+            payload: {
+                projectId: markers.NPA_PROJECT || '',
+                intent: markers.NPA_INTENT || '',
+                target_agent: markers.NPA_TARGET || '',
+                uiRoute: '/agents/npa',
+                data: dataObj
+            },
+            trace: {
+                session_id: markers.NPA_SESSION || ''
+            }
+        }
+    };
+}
+
+/**
+ * Parse envelope from a Dify agent/chatflow answer string.
+ * Supports TWO formats:
+ *   1. [NPA_ACTION]...[NPA_SESSION] markers (Agent app)
+ *   2. @@NPA_META@@{json} (Chatflow / future apps)
+ * Returns { answer, metadata } where answer has markers/meta stripped.
  */
 function parseEnvelope(rawAnswer) {
     if (!rawAnswer || typeof rawAnswer !== 'string') {
@@ -46,6 +105,16 @@ function parseEnvelope(rawAnswer) {
         };
     }
 
+    // Try marker format first (Agent app)
+    const markerResult = parseMarkers(rawAnswer);
+    if (markerResult) {
+        if (markerResult.metadata.agent_action && !VALID_AGENT_ACTIONS.has(markerResult.metadata.agent_action)) {
+            console.warn(`Unknown agent_action: ${markerResult.metadata.agent_action}`);
+        }
+        return markerResult;
+    }
+
+    // Try @@NPA_META@@ format (Chatflow)
     const match = rawAnswer.match(META_REGEX);
     if (!match) {
         return {
@@ -57,12 +126,10 @@ function parseEnvelope(rawAnswer) {
     try {
         const meta = JSON.parse(match[1]);
 
-        // Validate agent_action is known
         if (meta.agent_action && !VALID_AGENT_ACTIONS.has(meta.agent_action)) {
             console.warn(`Unknown agent_action: ${meta.agent_action}`);
         }
 
-        // Strip the @@NPA_META@@ line from human-readable answer
         const cleanAnswer = rawAnswer.slice(0, match.index).trimEnd();
 
         return {
@@ -142,19 +209,190 @@ function extractWorkflowMeta(outputs, agentId) {
     };
 }
 
+// ─── SSE Stream Collector ─────────────────────────────────────────────────────
+
+/**
+ * Collect SSE stream from Dify into a complete response.
+ * Dify Agent apps only support streaming — this collects all chunks,
+ * reassembles the answer, and returns structured data.
+ *
+ * SSE event types from Dify Agent app:
+ *   - agent_message: text chunks from the LLM (incremental answer)
+ *   - agent_thought: reasoning steps, tool calls
+ *   - message_end: final event with conversation_id, message_id
+ *   - message_file: file attachments
+ *   - error: error events
+ */
+function collectSSEStream(stream) {
+    return new Promise((resolve, reject) => {
+        let fullAnswer = '';
+        let conversationId = null;
+        let messageId = null;
+        let buffer = '';
+        let streamError = null; // Capture Dify-level errors but don't abort immediately
+
+        stream.on('data', (chunk) => {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
+            // Keep the last partial line in the buffer
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.startsWith('data:')) continue;
+                const jsonStr = line.slice(5).trim();
+                if (!jsonStr) continue;
+
+                try {
+                    const evt = JSON.parse(jsonStr);
+
+                    if (evt.event === 'agent_message' || evt.event === 'message') {
+                        // Incremental answer text
+                        fullAnswer += (evt.answer || '');
+                    } else if (evt.event === 'message_end') {
+                        conversationId = evt.conversation_id || conversationId;
+                        messageId = evt.message_id || messageId;
+                    } else if (evt.event === 'error') {
+                        // Dify-level error (e.g. tool failure mid-stream).
+                        // Capture it but DON'T reject — wait for stream end.
+                        // If we already have a partial answer we can still return it.
+                        streamError = {
+                            code: evt.code || 'DIFY_STREAM_ERROR',
+                            message: evt.message || 'Dify stream error',
+                            status: evt.status || 500
+                        };
+                        console.warn(`[SSE] Dify error event: ${evt.code} — ${evt.message}`);
+                    }
+
+                    // Capture IDs from any event that has them
+                    if (evt.conversation_id) conversationId = evt.conversation_id;
+                    if (evt.message_id) messageId = evt.message_id;
+                } catch { /* skip malformed SSE lines */ }
+            }
+        });
+
+        stream.on('end', () => {
+            // Process any remaining buffer
+            if (buffer.startsWith('data:')) {
+                const jsonStr = buffer.slice(5).trim();
+                try {
+                    const evt = JSON.parse(jsonStr);
+                    if (evt.event === 'agent_message' || evt.event === 'message') {
+                        fullAnswer += (evt.answer || '');
+                    }
+                    if (evt.conversation_id) conversationId = evt.conversation_id;
+                    if (evt.message_id) messageId = evt.message_id;
+                } catch { /* ignore */ }
+            }
+
+            // If we got a Dify error but also have a partial answer, return both.
+            // If we got an error with NO answer, still resolve (let caller handle empty answer).
+            resolve({ fullAnswer, conversationId, messageId, streamError });
+        });
+
+        stream.on('error', (err) => {
+            // Network-level error (TCP disconnect, etc.) — truly fatal
+            reject(err);
+        });
+    });
+}
+
+// ─── Helper: Read stream error body ──────────────────────────────────────────
+
+/**
+ * When axios uses responseType:'stream' and Dify returns an HTTP error,
+ * err.response.data is a readable stream, not parsed JSON.
+ * This helper reads it into a string/object for proper error logging.
+ */
+async function readStreamError(err) {
+    if (!err.response?.data) return err.message;
+    // If it's already a string or object, return directly
+    if (typeof err.response.data === 'string') return err.response.data;
+    if (typeof err.response.data === 'object' && !err.response.data.on) return err.response.data;
+
+    // It's a stream — read it
+    return new Promise((resolve) => {
+        let body = '';
+        err.response.data.on('data', (chunk) => { body += chunk.toString(); });
+        err.response.data.on('end', () => {
+            try { resolve(JSON.parse(body)); } catch { resolve(body); }
+        });
+        err.response.data.on('error', () => resolve(err.message));
+        // Timeout after 3s to avoid hanging
+        setTimeout(() => resolve(body || err.message), 3000);
+    });
+}
+
+// ─── Blocking Chat Helpers ───────────────────────────────────────────────────
+
+/**
+ * Execute a blocking chat request: call Dify streaming, collect SSE, return result.
+ * Returns { fullAnswer, convId, msgId, streamError }.
+ */
+async function collectBlockingChat(agent, difyPayload, agentId) {
+    const response = await axios.post(
+        `${DIFY_BASE_URL}/chat-messages`,
+        difyPayload,
+        {
+            headers: {
+                'Authorization': `Bearer ${agent.key}`,
+                'Content-Type': 'application/json'
+            },
+            responseType: 'stream'
+        }
+    );
+
+    const { fullAnswer, conversationId: convId, messageId: msgId, streamError } = await collectSSEStream(response.data);
+
+    console.log(`[${agentId}] Collected answer (${fullAnswer.length} chars), conv=${convId}${streamError ? `, streamError: ${streamError.message}` : ''}`);
+
+    return { fullAnswer, convId, msgId, streamError };
+}
+
+/**
+ * Parse envelope from collected stream and send JSON response.
+ */
+function respondWithCollected(res, collected, agentId) {
+    const { fullAnswer, convId, msgId, streamError } = collected;
+
+    const { answer, metadata } = parseEnvelope(fullAnswer);
+
+    // If there was a stream error but we got a partial answer, append a warning
+    if (streamError) {
+        console.warn(`[${agentId}] Returning partial answer despite stream error: ${streamError.message}`);
+        if (!metadata.trace) metadata.trace = {};
+        metadata.trace.stream_warning = streamError.message;
+    }
+
+    res.json({
+        answer,
+        conversation_id: convId,
+        message_id: msgId,
+        metadata
+    });
+}
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 /**
  * POST /api/dify/chat
- * Forward chat messages to Dify Chatflow agents.
- * Parses @@NPA_META@@ envelope from answer before returning to Angular.
+ * Forward chat messages to Dify Agent/Chatflow apps.
+ *
+ * Dify Agent apps ONLY support streaming mode. When Angular sends
+ * response_mode='blocking', Express collects the SSE stream server-side,
+ * parses [NPA_ACTION] markers from the assembled answer, and returns
+ * a clean JSON response. This keeps Angular simple (just HTTP POST/JSON).
  */
 router.post('/chat', async (req, res) => {
-    const { agent_id, query, inputs = {}, conversation_id, user = 'default-user', response_mode = 'streaming' } = req.body;
+    const { agent_id, query, inputs = {}, conversation_id, user = 'default-user', response_mode = 'blocking' } = req.body;
 
-    if (!agent_id || !query) {
-        return res.status(400).json({ error: 'agent_id and query are required' });
+    console.log(`[CHAT] Incoming: agent=${agent_id}, query="${(query || '').slice(0, 50)}", conv=${conversation_id || 'NEW'}, mode=${response_mode}`);
+
+    if (!agent_id) {
+        return res.status(400).json({ error: 'agent_id is required' });
     }
+
+    // Default empty query to greeting — Dify Agent apps need non-empty query
+    const safeQuery = query && query.trim() ? query : 'Hello';
 
     let agent;
     try {
@@ -163,11 +401,6 @@ router.post('/chat', async (req, res) => {
         return res.status(400).json({ error: err.message });
     }
 
-    // Route by difyEndpoint (chat or workflow) rather than strict type check
-    // This allows agents registered as 'workflow' to be called via chat if their
-    // Dify app is actually a Chatflow (e.g. IDEATION, DILIGENCE, KB_SEARCH).
-    const endpoint = agent.difyEndpoint || (agent.type === 'chat' ? 'chat-messages' : 'chat-messages');
-
     if (!agent.key) {
         return res.status(503).json({
             error: `Agent ${agent_id} is not configured (missing API key)`,
@@ -175,17 +408,18 @@ router.post('/chat', async (req, res) => {
         });
     }
 
+    // Always use streaming for Dify Agent apps (they don't support blocking)
     const difyPayload = {
-        query,
+        query: safeQuery,
         inputs,
         user,
-        response_mode,
+        response_mode: 'streaming',
         ...(conversation_id && { conversation_id })
     };
 
     try {
         if (response_mode === 'streaming') {
-            // SSE streaming — pipe through, Angular parses @@NPA_META@@ from final chunk
+            // Client wants SSE — pipe stream through to Angular
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
@@ -209,30 +443,78 @@ router.post('/chat', async (req, res) => {
                 res.end();
             });
         } else {
-            // Blocking response — parse envelope server-side
-            const response = await axios.post(
-                `${DIFY_BASE_URL}/chat-messages`,
-                difyPayload,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${agent.key}`,
-                        'Content-Type': 'application/json'
+            // Client wants blocking JSON — collect stream server-side, parse, return JSON
+            //
+            // Retry strategy for the session_create MCP tool bug:
+            // Dify's MCP+REST dual-mount can produce "Extra data" JSON parse errors
+            // when the LLM calls session_create. Since whether Dify calls the tool is
+            // non-deterministic, retrying often succeeds. We retry up to MAX_RETRIES
+            // times, alternating between fresh conversation and original conversation_id.
+            const MAX_RETRIES = 3;
+            let lastCollected = null;
+
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                const isRetry = attempt > 0;
+                let payload = difyPayload;
+
+                if (isRetry) {
+                    // Alternate: odd retries drop conversation_id, even retries keep it
+                    payload = { ...difyPayload };
+                    if (attempt % 2 === 1) {
+                        delete payload.conversation_id;
+                    }
+                    console.warn(`[${agent_id}] Retry ${attempt}/${MAX_RETRIES} (conv=${payload.conversation_id || 'FRESH'})`);
+                }
+
+                try {
+                    lastCollected = await collectBlockingChat(agent, payload, agent_id);
+                } catch (retryErr) {
+                    // Network error during retry — continue to next attempt
+                    console.error(`[${agent_id}] Attempt ${attempt} network error: ${retryErr.message}`);
+                    continue;
+                }
+
+                // Success: got an answer (even partial)
+                if (lastCollected.fullAnswer.trim()) {
+                    return respondWithCollected(res, lastCollected, agent_id);
+                }
+
+                // No answer but also no error — unusual, but still return it
+                if (!lastCollected.streamError) {
+                    return respondWithCollected(res, lastCollected, agent_id);
+                }
+
+                // Error with no answer — retry if we have attempts left
+                if (attempt < MAX_RETRIES) {
+                    console.warn(`[${agent_id}] Attempt ${attempt} failed (${lastCollected.streamError.message}), will retry...`);
+                }
+            }
+
+            // All retries exhausted — return a user-friendly 200 with fallback message
+            // instead of a 400/500 which would show "error occurred" in the UI
+            console.error(`[${agent_id}] All ${MAX_RETRIES + 1} attempts failed. Returning fallback.`);
+            const fallbackAnswer = "I'm having a temporary issue processing your request. This is caused by an intermittent tool error on the AI backend. Please try again — it usually works on the next attempt.";
+            res.json({
+                answer: fallbackAnswer,
+                conversation_id: lastCollected?.convId || conversation_id || null,
+                message_id: lastCollected?.msgId || null,
+                metadata: {
+                    agent_action: 'SHOW_RAW_RESPONSE',
+                    agent_id: agent_id,
+                    payload: { raw_answer: fallbackAnswer },
+                    trace: {
+                        error: 'TOOL_ERROR_EXHAUSTED',
+                        detail: lastCollected?.streamError?.message || 'All retry attempts failed',
+                        retries: MAX_RETRIES
                     }
                 }
-            );
-
-            const difyData = response.data;
-            const { answer, metadata } = parseEnvelope(difyData.answer);
-
-            res.json({
-                answer,
-                conversation_id: difyData.conversation_id,
-                message_id: difyData.message_id,
-                metadata
             });
         }
     } catch (err) {
-        console.error('Dify chat proxy error:', err.response?.data || err.message);
+        const errorBody = await readStreamError(err);
+        const errorMsg = typeof errorBody === 'object' ? (errorBody.message || JSON.stringify(errorBody)) : errorBody;
+        console.error(`[CHAT ERROR] agent=${agent_id}, status=${err.response?.status || 'N/A'}, error:`, errorMsg);
+
         const status = err.response?.status || 500;
         res.status(status).json({
             answer: '',
@@ -242,7 +524,7 @@ router.post('/chat', async (req, res) => {
                 agent_id,
                 'DIFY_API_ERROR',
                 'Dify chat request failed',
-                err.response?.data?.message || err.message
+                errorMsg
             )
         });
     }

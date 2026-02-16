@@ -624,12 +624,17 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
     private processMessage(content: string) {
         this.messages.push({ role: 'user', content, timestamp: new Date() });
         this.isThinking = true;
-        this.thinkingMessage = this.activeDomainAgent
-            ? `${this.activeDomainAgent.name} processing...`
+
+        // Use DifyService.activeAgentId — it tracks which agent is current
+        const currentAgent = this.difyService.activeAgentId;
+        const agentDisplay = this.AGENTS[currentAgent];
+        this.thinkingMessage = agentDisplay
+            ? `${agentDisplay.name} processing...`
             : 'Master COO analyzing request...';
 
-        const agentId = this.activeDomainAgent ? 'NPA_ORCHESTRATOR' : 'MASTER_COO';
-        this.difyService.sendMessage(content, {}, agentId).subscribe({
+        // sendMessage() with no agentId arg → uses difyService.activeAgentId
+        // Each agent has its own conversation_id in the Map
+        this.difyService.sendMessage(content).subscribe({
             next: (res) => this.handleResponse(res),
             error: () => {
                 this.messages.push({
@@ -644,23 +649,56 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
     }
 
     private handleResponse(res: DifyAgentResponse) {
-        const agentId = res.metadata?.agent_id || 'MASTER_COO';
+        const agentId = res.metadata?.agent_id || this.difyService.activeAgentId;
         const identity = this.AGENTS[agentId] || this.AGENTS['MASTER_COO'];
         const action = res.metadata?.agent_action;
+
+        // Let DifyService handle routing logic centrally
+        let routing: ReturnType<typeof this.difyService.processAgentRouting> | null = null;
+        if (res.metadata) {
+            routing = this.difyService.processAgentRouting(res.metadata);
+        }
 
         let cardType: ChatMessage['cardType'] = undefined;
         let cardData: any = undefined;
 
         // Domain routing detection
         if (action === 'ROUTE_DOMAIN' && res.metadata?.payload) {
+            // Dify proxy nests domain info under payload.data (from [NPA_DATA] JSON).
+            // Support both flat (payload.domainId) and nested (payload.data.domainId).
+            const p = res.metadata.payload;
+            const domainData = p.data || p; // fallback to flat if data not present
+
             cardType = 'DOMAIN_ROUTE';
-            cardData = res.metadata.payload;
-            // Activate the domain agent for subsequent messages
+            cardData = { ...domainData, target_agent: p.target_agent, intent: p.intent };
+            // Update display state from payload
             this.activeDomainAgent = {
-                id: res.metadata.payload.domainId || 'NPA',
-                name: res.metadata.payload.name || 'NPA Domain Orchestrator',
-                icon: res.metadata.payload.icon || 'target',
-                color: res.metadata.payload.color || 'bg-orange-50 text-orange-600'
+                id: domainData.domainId || p.domainId || 'NPA',
+                name: domainData.name || p.name || 'NPA Domain Orchestrator',
+                icon: domainData.icon || p.icon || 'target',
+                color: domainData.color || p.color || 'bg-orange-50 text-orange-600'
+            };
+            // Capture the route for navigation
+            const route = domainData.route || p.uiRoute || p.route;
+            if (route) {
+                this.activeDomainRoute = route;
+            }
+        } else if (action === 'DELEGATE_AGENT' && res.metadata?.payload) {
+            // Agent delegation — DifyService already switched the active agent
+            const targetId = res.metadata.payload.target_agent;
+            const targetAgent = this.AGENTS[targetId];
+            if (targetAgent) {
+                this.activeDomainAgent = {
+                    id: targetId,
+                    name: targetAgent.name,
+                    icon: targetAgent.icon,
+                    color: targetAgent.color
+                };
+            }
+            cardType = 'INFO';
+            cardData = {
+                title: `Delegating to ${targetAgent?.name || targetId}`,
+                description: res.metadata.payload.reason || 'Switching to specialist agent'
             };
         } else if (action === 'SHOW_CLASSIFICATION' && res.metadata?.payload) {
             cardType = 'CLASSIFICATION';
@@ -673,7 +711,11 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
             cardData = res.metadata.payload;
         } else if (action === 'FINALIZE_DRAFT') {
             this.showGenerateButton = true;
-            this.activeDomainRoute = '/agents/npa';
+            this.activeDomainRoute = res.metadata?.payload?.route || '/agents/npa';
+            // If the agent sent target_agent, route back to previous agent
+            if (res.metadata?.payload?.target_agent) {
+                this.difyService.returnToPreviousAgent('finalize_draft');
+            }
         }
 
         this.messages.push({
@@ -685,7 +727,66 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
             cardData,
             agentAction: action
         });
-        this.isThinking = false;
+
+        // ─── AUTO-GREETING: When agent switches, auto-send greeting to new agent ───
+        // This fires the new agent's introduction so the user doesn't have to type.
+        if (routing?.shouldSwitch && routing.targetAgent) {
+            const targetId = routing.targetAgent;
+            const targetAgent = this.AGENTS[targetId];
+            const intent = res.metadata?.payload?.intent
+                || res.metadata?.payload?.data?.intent
+                || '';
+
+            // Build context message that carries the user's original intent
+            const contextMsg = intent
+                ? `The user wants to: ${intent}. Please introduce yourself and guide them.`
+                : '';
+
+            // Keep thinking indicator with updated agent label
+            this.isThinking = true;
+            this.thinkingMessage = `Connecting to ${targetAgent?.name || targetId}...`;
+
+            // Update activeDomainAgent immediately so the UI label at the bottom reflects the new agent
+            if (targetAgent) {
+                this.activeDomainAgent = {
+                    id: targetId,
+                    name: targetAgent.name,
+                    icon: targetAgent.icon,
+                    color: targetAgent.color
+                };
+            }
+
+            this.difyService.sendMessage(contextMsg, {}, targetId).subscribe({
+                next: (greeting) => {
+                    const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
+
+                    // Process any metadata from the new agent's greeting
+                    if (greeting.metadata) {
+                        this.difyService.processAgentRouting(greeting.metadata);
+                    }
+
+                    this.messages.push({
+                        role: 'agent',
+                        content: greeting.answer,
+                        timestamp: new Date(),
+                        agentIdentity: greetIdentity
+                    });
+                    this.isThinking = false;
+                },
+                error: () => {
+                    // Even on error, show a fallback greeting so user knows what happened
+                    this.messages.push({
+                        role: 'agent',
+                        content: `You're now connected to **${targetAgent?.name || targetId}**. How can I help you?`,
+                        timestamp: new Date(),
+                        agentIdentity: targetAgent || this.AGENTS['MASTER_COO']
+                    });
+                    this.isThinking = false;
+                }
+            });
+        } else {
+            this.isThinking = false;
+        }
     }
 
     resetChat() {

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, delay, map, Subject, BehaviorSubject } from 'rxjs';
+import { Observable, of, delay, map, Subject, BehaviorSubject, catchError, retry, timer } from 'rxjs';
 import {
     AgentAction,
     AgentActivityUpdate,
@@ -18,19 +18,59 @@ export interface DifyAgentResponse {
     metadata: AgentMetadata;
 }
 
+/**
+ * Tracks the conversation state for a single Dify app.
+ * Each Dify app (Orchestrator, Ideation, Diligence, etc.) has its own
+ * conversation namespace — you cannot send a conversation_id from one
+ * app to another.
+ */
+interface AgentConversation {
+    conversationId: string | null;
+    messageCount: number;
+    startedAt: Date;
+}
+
 @Injectable({
     providedIn: 'root'
 })
 export class DifyService {
-    private useMockDify = true; // Toggle: true=mock, false=real Dify
-    private conversationId: string | null = null;
+    private useMockDify = false; // Toggle: true=mock, false=real Dify
     private conversationStep = 0;
+
+    // ─── Per-Agent Conversation Management ───────────────────────
+    // Each Dify app has its own conversation thread. When the UI switches
+    // from Orchestrator → Ideation → back, each agent resumes its own
+    // conversation seamlessly.
+    private conversations = new Map<string, AgentConversation>();
+
+    // The currently active agent (drives UI label + message routing)
+    private _activeAgentId = 'MASTER_COO';
+
+    // Agent delegation stack — supports nested handoff + return
+    // e.g. MASTER_COO → NPA_ORCHESTRATOR → IDEATION → back to NPA_ORCHESTRATOR
+    private delegationStack: string[] = [];
 
     // Observable streams for real-time updates
     private agentActivity$ = new Subject<AgentActivityUpdate>();
     private streaming$ = new Subject<string>();
 
+    // Emits when the active agent changes (components subscribe to update UI)
+    private activeAgentChanged$ = new Subject<{ fromAgent: string; toAgent: string; reason: string }>();
+
     constructor(private http: HttpClient) { }
+
+    // ─── Public Getters ──────────────────────────────────────────
+
+    /** Get the current active agent ID */
+    get activeAgentId(): string {
+        return this._activeAgentId;
+    }
+
+    /** Get the conversation ID for a specific agent (or current agent) */
+    getConversationId(agentId?: string): string | null {
+        const id = agentId || this._activeAgentId;
+        return this.conversations.get(id)?.conversationId || null;
+    }
 
     /** Get agent activity stream (which agents are running/done) */
     getAgentActivity(): Observable<AgentActivityUpdate> {
@@ -42,25 +82,172 @@ export class DifyService {
         return this.streaming$.asObservable();
     }
 
+    /** Get notified when the active agent changes (for UI updates) */
+    getAgentChanges(): Observable<{ fromAgent: string; toAgent: string; reason: string }> {
+        return this.activeAgentChanged$.asObservable();
+    }
+
+    /** Check if we have a prior conversation with a specific agent */
+    hasConversation(agentId: string): boolean {
+        return this.conversations.has(agentId) && !!this.conversations.get(agentId)?.conversationId;
+    }
+
+    // ─── Agent Routing ───────────────────────────────────────────
+
     /**
-     * Send a chat message to a Dify Chatflow agent (Tier 1 or 2)
-     * Used for orchestrator conversations
+     * Switch the active agent. Used when:
+     * - Orchestrator delegates to Ideation (DELEGATE_AGENT / ROUTE_DOMAIN)
+     * - Ideation hands back to Orchestrator (FINALIZE_DRAFT with target_agent)
+     * - User navigates between agent views
+     *
+     * Pushes the current agent onto the delegation stack so we can return.
      */
-    sendMessage(query: string, userContext: any = {}, agentId: string = 'MASTER_COO'): Observable<DifyAgentResponse> {
+    switchAgent(toAgentId: string, reason: string = 'manual'): void {
+        const fromAgent = this._activeAgentId;
+        if (fromAgent === toAgentId) return; // No-op if same agent
+
+        // Push current agent to stack (for returnToPreviousAgent)
+        this.delegationStack.push(fromAgent);
+
+        this._activeAgentId = toAgentId;
+        console.log(`[DifyService] Agent switch: ${fromAgent} → ${toAgentId} (${reason})`);
+
+        this.activeAgentChanged$.next({ fromAgent, toAgent: toAgentId, reason });
+    }
+
+    /**
+     * Return to the previous agent in the delegation stack.
+     * Used when a specialist agent (e.g. Ideation) completes and
+     * hands back to the orchestrator.
+     */
+    returnToPreviousAgent(reason: string = 'handoff_complete'): string {
+        const previousAgent = this.delegationStack.pop() || 'MASTER_COO';
+        const fromAgent = this._activeAgentId;
+
+        this._activeAgentId = previousAgent;
+        console.log(`[DifyService] Agent return: ${fromAgent} → ${previousAgent} (${reason})`);
+
+        this.activeAgentChanged$.next({ fromAgent, toAgent: previousAgent, reason });
+        return previousAgent;
+    }
+
+    /**
+     * Set active agent directly without pushing to delegation stack.
+     * Used for ROUTE_DOMAIN where MASTER_COO and NPA_ORCHESTRATOR share
+     * the same Dify app, so it's a logical switch, not a true delegation.
+     */
+    setActiveAgent(agentId: string): void {
+        const fromAgent = this._activeAgentId;
+        if (fromAgent === agentId) return;
+        this._activeAgentId = agentId;
+        this.activeAgentChanged$.next({ fromAgent, toAgent: agentId, reason: 'set_active' });
+    }
+
+    /**
+     * Process metadata from a Dify response and handle agent routing actions.
+     * Returns routing info so the caller can render cards/notifications.
+     *
+     * This centralizes all routing logic — components don't need to
+     * know the routing rules, they just call this and react to the return.
+     */
+    processAgentRouting(metadata: AgentMetadata): { shouldSwitch: boolean; targetAgent?: string; action: AgentAction } {
+        const action = metadata?.agent_action;
+        const payload = metadata?.payload;
+
+        // DELEGATE_AGENT: Explicit delegation to a specific agent
+        if (action === 'DELEGATE_AGENT' && payload?.target_agent) {
+            this.switchAgent(payload.target_agent, `delegate:${action}`);
+            return { shouldSwitch: true, targetAgent: payload.target_agent, action };
+        }
+
+        // ROUTE_DOMAIN: Orchestrator identified the domain — route to domain agent
+        if (action === 'ROUTE_DOMAIN' && payload) {
+            // Dify proxy produces payload.data.domainId (nested under data).
+            // Support both flat (payload.domainId) and nested (payload.data.domainId).
+            const domainId = payload.domainId || payload.data?.domainId;
+
+            // Map domainId to the correct Dify agent_id
+            const domainAgentMap: Record<string, string> = {
+                'NPA': 'NPA_ORCHESTRATOR',
+                'IDEATION': 'IDEATION',
+                'RISK': 'RISK',
+                'KB': 'KB_SEARCH',
+                'OPS': 'GOVERNANCE',
+                'DESK': 'DILIGENCE',
+            };
+
+            // If Dify explicitly set target_agent (e.g. "IDEATION"), prefer that
+            // over the generic domainId mapping. This enables direct agent-to-agent
+            // handoff within a ROUTE_DOMAIN action.
+            let targetAgent: string;
+            if (payload.target_agent && payload.target_agent !== 'NPA_ORCHESTRATOR' && payload.target_agent !== 'MASTER_COO') {
+                // Explicit target — real delegation to a different Dify app
+                targetAgent = payload.target_agent;
+            } else {
+                targetAgent = domainAgentMap[domainId] || 'NPA_ORCHESTRATOR';
+            }
+
+            console.log(`[DifyService] ROUTE_DOMAIN: domainId=${domainId}, target_agent=${payload.target_agent}, resolved=${targetAgent}`);
+
+            // NPA_ORCHESTRATOR shares the same Dify app as MASTER_COO
+            // so we only do a logical switch (no new conversation needed)
+            if (targetAgent === 'NPA_ORCHESTRATOR') {
+                this.setActiveAgent(targetAgent);
+                return { shouldSwitch: false, targetAgent, action };
+            }
+
+            // For other domains, do a real delegation (push to stack)
+            this.switchAgent(targetAgent, `route_domain:${domainId}`);
+            return { shouldSwitch: true, targetAgent, action };
+        }
+
+        // FINALIZE_DRAFT with target_agent: Agent completed, hand back
+        if (action === 'FINALIZE_DRAFT' && payload?.target_agent) {
+            // Don't auto-switch — let the component decide when to switch back
+            return { shouldSwitch: false, targetAgent: payload.target_agent, action };
+        }
+
+        return { shouldSwitch: false, action: action || 'SHOW_RAW_RESPONSE' };
+    }
+
+    // ─── Chat Messages ───────────────────────────────────────────
+
+    /**
+     * Send a chat message to a Dify Chatflow/Agent app.
+     * Automatically resolves the correct conversation_id for the target agent.
+     *
+     * @param query - User's message
+     * @param userContext - Additional inputs for Dify
+     * @param agentId - Target agent (defaults to activeAgentId)
+     */
+    sendMessage(query: string, userContext: any = {}, agentId?: string): Observable<DifyAgentResponse> {
+        const targetAgent = agentId || this._activeAgentId;
+
         if (this.useMockDify) {
             return this.mockDifyLogic(query);
         }
 
+        // Get the conversation_id for THIS specific agent
+        const conversationId = this.getConversationId(targetAgent);
+
         return this.http.post<DifyChatResponse>('/api/dify/chat', {
-            agent_id: agentId,
+            agent_id: targetAgent,
             query,
             inputs: userContext,
-            conversation_id: this.conversationId,
+            conversation_id: conversationId,
             user: 'user-123',
             response_mode: 'blocking'
         }).pipe(
+            // Retry up to 2 times on HTTP errors (400/500) with 1s delay
+            // This handles the intermittent session_create MCP tool bug
+            retry({ count: 2, delay: (error, retryCount) => {
+                console.warn(`[DifyService] Retry ${retryCount}/2 for ${targetAgent}: ${error.status || error.message}`);
+                return timer(1000);
+            }}),
             map(res => {
-                this.conversationId = res.conversation_id;
+                // Store conversation_id scoped to THIS agent
+                this.setConversationId(targetAgent, res.conversation_id);
+
                 return {
                     answer: res.answer,
                     conversationId: res.conversation_id,
@@ -72,12 +259,13 @@ export class DifyService {
     }
 
     /**
-     * Send a chat message with SSE streaming support
-     * Returns immediately, emits chunks via streaming$ observable
+     * Send a chat message with SSE streaming support.
+     * Returns immediately, emits chunks via streaming$ observable.
      */
-    sendMessageStreaming(query: string, userContext: any = {}, agentId: string = 'MASTER_COO'): void {
+    sendMessageStreaming(query: string, userContext: any = {}, agentId?: string): void {
+        const targetAgent = agentId || this._activeAgentId;
+
         if (this.useMockDify) {
-            // Mock streaming by emitting words with delay
             const words = 'I am analyzing your request and routing to the appropriate specialist agent...'.split(' ');
             let i = 0;
             const interval = setInterval(() => {
@@ -92,12 +280,13 @@ export class DifyService {
             return;
         }
 
-        // Real SSE streaming via fetch
+        const conversationId = this.getConversationId(targetAgent);
+
         const body = JSON.stringify({
-            agent_id: agentId,
+            agent_id: targetAgent,
             query,
             inputs: userContext,
-            conversation_id: this.conversationId,
+            conversation_id: conversationId,
             user: 'user-123',
             response_mode: 'streaming'
         });
@@ -117,7 +306,6 @@ export class DifyService {
                         return;
                     }
                     const chunk = decoder.decode(value, { stream: true });
-                    // Parse SSE data lines
                     const lines = chunk.split('\n').filter(l => l.startsWith('data:'));
                     for (const line of lines) {
                         try {
@@ -126,7 +314,7 @@ export class DifyService {
                                 this.streaming$.next(data.answer);
                             }
                             if (data.conversation_id) {
-                                this.conversationId = data.conversation_id;
+                                this.setConversationId(targetAgent, data.conversation_id);
                             }
                         } catch { /* skip malformed chunks */ }
                     }
@@ -138,15 +326,14 @@ export class DifyService {
     }
 
     /**
-     * Execute a Dify Workflow agent (Tier 3 or 4)
-     * Used for specialist agent calls (classification, risk, etc.)
+     * Execute a Dify Workflow agent (Tier 3 or 4).
+     * Workflows are stateless — no conversation_id needed.
      */
     runWorkflow(agentId: string, inputs: Record<string, any> = {}): Observable<DifyWorkflowResponse> {
         if (this.useMockDify) {
             return this.mockWorkflow(agentId, inputs);
         }
 
-        // Emit agent activity: running
         this.agentActivity$.next({ agentId, status: 'running' });
 
         return this.http.post<DifyWorkflowResponse>('/api/dify/workflow', {
@@ -156,7 +343,6 @@ export class DifyService {
             response_mode: 'blocking'
         }).pipe(
             map(res => {
-                // Emit agent activity: done
                 this.agentActivity$.next({
                     agentId,
                     status: res.data.status === 'succeeded' ? 'done' : 'error'
@@ -166,10 +352,36 @@ export class DifyService {
         );
     }
 
-    /** Reset conversation state */
+    // ─── State Management ────────────────────────────────────────
+
+    /** Reset ALL conversation state (full reset on new session) */
     reset(): void {
         this.conversationStep = 0;
-        this.conversationId = null;
+        this.conversations.clear();
+        this.delegationStack = [];
+        this._activeAgentId = 'MASTER_COO';
+    }
+
+    /** Reset only a specific agent's conversation (keep others intact) */
+    resetAgent(agentId: string): void {
+        this.conversations.delete(agentId);
+    }
+
+    // ─── Private Helpers ─────────────────────────────────────────
+
+    /** Store conversation_id scoped to a specific agent */
+    private setConversationId(agentId: string, conversationId: string): void {
+        const existing = this.conversations.get(agentId);
+        if (existing) {
+            existing.conversationId = conversationId;
+            existing.messageCount++;
+        } else {
+            this.conversations.set(agentId, {
+                conversationId,
+                messageCount: 1,
+                startedAt: new Date()
+            });
+        }
     }
 
     // ─── Mock Logic ──────────────────────────────────────────────
@@ -180,9 +392,6 @@ export class DifyService {
      *   Step 1: Product description → Classification
      *   Step 2: Cross-border → Finalize
      *   Step 3+: Conversation done
-     *
-     * The Master COO first identifies the domain (NPA, Desk Support, etc.)
-     * then hands off to the domain orchestrator. For Phase 0, only NPA is active.
      */
     private mockDifyLogic(query: string): Observable<DifyAgentResponse> {
         const lower = query.toLowerCase();
