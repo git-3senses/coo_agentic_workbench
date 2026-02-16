@@ -33,7 +33,15 @@ for tool_def in registry.get_all():
         async def handler(**kwargs):
             try:
                 result = await td.handler(kwargs)
-                return result.to_json()
+                # FastMCP wraps the return value as TextContent(type="text", text=...).
+                # Return compact JSON (no indent) to minimize response size.
+                # Dify's MCP plugin reads the text field and parses it.
+                d = {"success": result.success}
+                if result.data is not None:
+                    d["data"] = result.data
+                if result.error is not None:
+                    d["error"] = result.error
+                return json.dumps(d, default=str)
             except Exception as e:
                 return json.dumps({"success": False, "error": str(e)})
         # Set function metadata for FastMCP
