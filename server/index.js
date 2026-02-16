@@ -65,6 +65,21 @@ app.get(/^\/(?!api\/).*/, (req, res) => {
     });
 });
 
+// ─── Express error-handling middleware (must be AFTER all routes) ─────────────
+app.use((err, req, res, next) => {
+    console.error('[EXPRESS ERROR]', err.stack || err.message);
+    res.status(500).json({ error: 'Internal server error' });
+});
+
+// ─── Global crash protection ─────────────────────────────────────────────────
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught Exception:', err.stack || err.message);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
