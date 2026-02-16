@@ -272,7 +272,7 @@ interface GlobalTemplate {
                     <!-- CARD: DOMAIN ROUTING -->
                     <div *ngIf="msg.cardType === 'DOMAIN_ROUTE' && msg.cardData" class="bg-violet-50 border border-violet-100 rounded-xl p-4 shadow-sm animate-fade-in w-full">
                         <div class="flex items-center gap-2 mb-3">
-                            <lucide-icon name="route" class="w-4 h-4 text-violet-600"></lucide-icon>
+                            <lucide-icon name="navigation" class="w-4 h-4 text-violet-600"></lucide-icon>
                             <span class="text-xs font-bold text-violet-900">Domain Identified</span>
                         </div>
                         <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-violet-200">
