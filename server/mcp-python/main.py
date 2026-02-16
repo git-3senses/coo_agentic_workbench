@@ -5,7 +5,6 @@ Mirrors server/mcp/src/index.ts exactly.
 """
 import os
 import sys
-import json
 
 from mcp.server.fastmcp import FastMCP
 
@@ -33,9 +32,19 @@ for tool_def in registry.get_all():
         async def handler(**kwargs):
             try:
                 result = await td.handler(kwargs)
-                return result.to_json()
+                # Return a plain dict — FastMCP serialises it once as TextContent.
+                # Returning a JSON *string* caused double-serialisation: the string
+                # was wrapped in TextContent and then JSON-encoded again, producing
+                # two concatenated JSON objects that Dify could not parse
+                # ("Extra data: line 1 column 160").
+                d: dict = {"success": result.success}
+                if result.data is not None:
+                    d["data"] = result.data
+                if result.error is not None:
+                    d["error"] = result.error
+                return d
             except Exception as e:
-                return json.dumps({"success": False, "error": str(e)})
+                return {"success": False, "error": str(e)}
         # Set function metadata for FastMCP
         handler.__name__ = td.name
         handler.__doc__ = td.description
