@@ -171,18 +171,25 @@ interface AgentIdentity {
              </div>
          </div>
          
-         <div class="relative flex items-center">
-             <input type="text" 
-                    [(ngModel)]="userInput" 
-                    (keydown.enter)="sendMessage()"
-                    placeholder="Ask me anything about your NPA..." 
-                    class="w-full bg-white text-gray-900 text-sm rounded-lg pl-4 pr-12 py-3 border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-gray-400 shadow-sm"
-                    [disabled]="isThinking">
-             
-             <button (click)="sendMessage()" 
-                     [disabled]="!userInput.trim() || isThinking"
-                     class="absolute right-2 p-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">
+         <div class="relative flex items-end">
+             <textarea rows="1"
+                    [(ngModel)]="userInput"
+                    (keydown)="handleKeyDown($event)"
+                    placeholder="Ask me anything about your NPA..."
+                    class="w-full bg-white text-gray-900 text-sm rounded-lg pl-4 pr-12 py-3 border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-gray-400 shadow-sm chat-textarea"
+                    ></textarea>
+
+             <button *ngIf="!isThinking"
+                     (click)="sendMessage()"
+                     [disabled]="!userInput.trim()"
+                     class="absolute right-2 bottom-2 p-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">
                 <lucide-icon name="send" class="w-4 h-4"></lucide-icon>
+             </button>
+             <button *ngIf="isThinking"
+                     (click)="stopRequest()"
+                     class="absolute right-2 bottom-2 p-1.5 rounded-md bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm"
+                     title="Stop processing">
+                <lucide-icon name="square" class="w-3.5 h-3.5"></lucide-icon>
              </button>
          </div>
       </div>
@@ -194,6 +201,7 @@ interface AgentIdentity {
     .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 3px; }
     @keyframes fade-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     .animate-fade-in { animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .chat-textarea { resize: none; overflow-y: auto; min-height: 44px; max-height: 120px; }
   `]
 })
 export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDestroy {
@@ -203,6 +211,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
     private difyService = inject(DifyService);
     private activitySub?: Subscription;
     private agentChangeSub?: Subscription;
+    private currentSubscription?: Subscription;
 
     userInput = '';
     isThinking = false;
@@ -259,6 +268,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
     ngOnDestroy() {
         this.activitySub?.unsubscribe();
         this.agentChangeSub?.unsubscribe();
+        this.currentSubscription?.unsubscribe();
     }
 
     startConversation() {
@@ -281,6 +291,30 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.processUserMessage(this.userInput);
     }
 
+    stopRequest() {
+        this.currentSubscription?.unsubscribe();
+        this.currentSubscription = undefined;
+        this.isThinking = false;
+        this.messages.push({
+            role: 'agent',
+            content: '*Request cancelled by user.*',
+            timestamp: new Date(),
+            agentIdentity: this.AGENTS['MASTER_COO']
+        });
+    }
+
+    handleKeyDown(event: KeyboardEvent) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            if (this.isThinking) {
+                this.stopRequest();
+            }
+            if (this.userInput.trim()) {
+                this.sendMessage();
+            }
+        }
+    }
+
     public triggerInput(text: string) {
         this.processUserMessage(text);
     }
@@ -294,7 +328,8 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         // Send to the currently active agent (resolved by DifyService)
         // DifyService.activeAgentId tracks which agent we're talking to,
         // and each agent has its own conversation_id in the Map.
-        this.difyService.sendMessage(content).subscribe({
+        this.currentSubscription?.unsubscribe();
+        this.currentSubscription = this.difyService.sendMessage(content).subscribe({
             next: (res) => {
                 this.handleDifyResponse(res);
             },
@@ -375,7 +410,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
                 this.currentAgent = targetAgent;
             }
 
-            this.difyService.sendMessage(contextMsg, {}, targetId).subscribe({
+            this.currentSubscription = this.difyService.sendMessage(contextMsg, {}, targetId).subscribe({
                 next: (greeting) => {
                     const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
                     this.messages.push({

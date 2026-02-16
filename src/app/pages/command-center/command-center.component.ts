@@ -376,17 +376,24 @@ interface GlobalTemplate {
                      <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">{{ activeDomainAgent ? activeDomainAgent.name : 'Master COO Orchestrator' }}</span>
                  </div>
              </div>
-             <div class="relative flex items-center">
-                 <input type="text"
+             <div class="relative flex items-end">
+                 <textarea rows="1"
                         [(ngModel)]="userInput"
-                        (keydown.enter)="sendMessage()"
+                        (keydown)="handleKeyDown($event)"
                         placeholder="Continue the conversation..."
-                        class="w-full bg-white text-gray-900 text-sm rounded-lg pl-4 pr-12 py-3 border border-gray-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none transition-all placeholder:text-gray-400 shadow-sm"
-                        [disabled]="isThinking">
-                 <button (click)="sendMessage()"
-                         [disabled]="!userInput.trim() || isThinking"
-                         class="absolute right-2 p-1.5 rounded-md bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">
+                        class="w-full bg-white text-gray-900 text-sm rounded-lg pl-4 pr-12 py-3 border border-gray-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none transition-all placeholder:text-gray-400 shadow-sm chat-textarea"
+                        ></textarea>
+                 <button *ngIf="!isThinking"
+                         (click)="sendMessage()"
+                         [disabled]="!userInput.trim()"
+                         class="absolute right-2 bottom-2 p-1.5 rounded-md bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">
                     <lucide-icon name="send" class="w-4 h-4"></lucide-icon>
+                 </button>
+                 <button *ngIf="isThinking"
+                         (click)="stopRequest()"
+                         class="absolute right-2 bottom-2 p-1.5 rounded-md bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm"
+                         title="Stop processing">
+                    <lucide-icon name="square" class="w-3.5 h-3.5"></lucide-icon>
                  </button>
              </div>
           </div>
@@ -445,6 +452,7 @@ interface GlobalTemplate {
     .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 3px; }
     @keyframes fade-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     .animate-fade-in { animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .chat-textarea { resize: none; overflow-y: auto; min-height: 44px; max-height: 120px; }
   `]
 })
 export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestroy {
@@ -455,6 +463,7 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
     private difyService = inject(DifyService);
     private router = inject(Router);
     private activitySub?: Subscription;
+    private currentSubscription?: Subscription;
 
     userRole = () => this.userService.currentUser().role;
 
@@ -548,6 +557,7 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
 
     ngOnDestroy() {
         this.activitySub?.unsubscribe();
+        this.currentSubscription?.unsubscribe();
         // Restore sidebar when leaving chat
         if (this.viewMode === 'CHAT') {
             this.layoutService.setSidebarVisible(true);
@@ -601,6 +611,30 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
         this.processMessage(content);
     }
 
+    stopRequest() {
+        this.currentSubscription?.unsubscribe();
+        this.currentSubscription = undefined;
+        this.isThinking = false;
+        this.messages.push({
+            role: 'agent',
+            content: '*Request cancelled by user.*',
+            timestamp: new Date(),
+            agentIdentity: this.AGENTS['MASTER_COO']
+        });
+    }
+
+    handleKeyDown(event: KeyboardEvent) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            if (this.isThinking) {
+                this.stopRequest();
+            }
+            if (this.userInput.trim()) {
+                this.sendMessage();
+            }
+        }
+    }
+
     private processMessage(content: string) {
         this.messages.push({ role: 'user', content, timestamp: new Date() });
         this.isThinking = true;
@@ -614,7 +648,8 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
 
         // sendMessage() with no agentId arg → uses difyService.activeAgentId
         // Each agent has its own conversation_id in the Map
-        this.difyService.sendMessage(content).subscribe({
+        this.currentSubscription?.unsubscribe();
+        this.currentSubscription = this.difyService.sendMessage(content).subscribe({
             next: (res) => this.handleResponse(res),
             error: () => {
                 this.messages.push({
@@ -737,7 +772,7 @@ export class CommandCenterComponent implements OnInit, AfterViewChecked, OnDestr
                 };
             }
 
-            this.difyService.sendMessage(contextMsg, {}, targetId).subscribe({
+            this.currentSubscription = this.difyService.sendMessage(contextMsg, {}, targetId).subscribe({
                 next: (greeting) => {
                     const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
 
