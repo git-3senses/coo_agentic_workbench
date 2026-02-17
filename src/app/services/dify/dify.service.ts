@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, delay, map, Subject, BehaviorSubject, catchError, retry, timer } from 'rxjs';
 import {
@@ -17,6 +17,12 @@ export interface DifyAgentResponse {
     messageId?: string;
     metadata: AgentMetadata;
 }
+
+/** Streaming events emitted by sendMessageStreamed() */
+export type StreamEvent =
+    | { type: 'chunk'; text: string }                    // Incremental text (display immediately)
+    | { type: 'thought'; thought: string }                // Agent reasoning step (optional UI)
+    | { type: 'done'; response: DifyAgentResponse };      // Final parsed response with metadata
 
 /**
  * Tracks the conversation state for a single Dify app.
@@ -57,7 +63,7 @@ export class DifyService {
     // Emits when the active agent changes (components subscribe to update UI)
     private activeAgentChanged$ = new Subject<{ fromAgent: string; toAgent: string; reason: string }>();
 
-    constructor(private http: HttpClient) { }
+    constructor(private http: HttpClient, private ngZone: NgZone) { }
 
     // ─── Public Getters ──────────────────────────────────────────
 
@@ -90,6 +96,11 @@ export class DifyService {
     /** Check if we have a prior conversation with a specific agent */
     hasConversation(agentId: string): boolean {
         return this.conversations.has(agentId) && !!this.conversations.get(agentId)?.conversationId;
+    }
+
+    /** Restore a conversation ID for a specific agent (used when resuming a session) */
+    restoreConversation(agentId: string, conversationId: string): void {
+        this.setConversationId(agentId, conversationId);
     }
 
     // ─── Agent Routing ───────────────────────────────────────────
@@ -238,12 +249,8 @@ export class DifyService {
             user: 'user-123',
             response_mode: 'blocking'
         }).pipe(
-            // Retry up to 2 times on HTTP errors (400/500) with 1s delay
-            // This handles the intermittent session_create MCP tool bug
-            retry({ count: 2, delay: (error, retryCount) => {
-                console.warn(`[DifyService] Retry ${retryCount}/2 for ${targetAgent}: ${error.status || error.message}`);
-                return timer(1000);
-            }}),
+            // No client-side retries — Express proxy already handles retries server-side.
+            // Double retries caused 1m+ latency (up to 12 Dify calls per message).
             map(res => {
                 // Store conversation_id scoped to THIS agent
                 this.setConversationId(targetAgent, res.conversation_id);
@@ -326,6 +333,210 @@ export class DifyService {
     }
 
     /**
+     * Send a chat message with TRUE SSE streaming.
+     * Returns an Observable<StreamEvent> that emits:
+     *  - { type:'chunk', text } as Dify streams answer tokens (display live)
+     *  - { type:'thought', thought } for agent reasoning steps (update status bar)
+     *  - { type:'done', response } when the full answer + metadata is ready
+     *
+     * The Express proxy pipes Dify's SSE stream directly when response_mode='streaming'.
+     * This method parses those SSE events client-side, builds the full answer incrementally,
+     * and at the end parses the [NPA_ACTION] markers from the accumulated text.
+     */
+    sendMessageStreamed(query: string, userContext: any = {}, agentId?: string): Observable<StreamEvent> {
+        const targetAgent = agentId || this._activeAgentId;
+
+        if (this.useMockDify) {
+            return this._mockStreamedResponse(query);
+        }
+
+        const conversationId = this.getConversationId(targetAgent);
+
+        return new Observable<StreamEvent>(subscriber => {
+            let fullAnswer = '';
+            let convId: string | undefined;
+            let msgId: string | undefined;
+            let abortController = new AbortController();
+
+            fetch('/api/dify/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agent_id: targetAgent,
+                    query,
+                    inputs: userContext,
+                    conversation_id: conversationId,
+                    user: 'user-123',
+                    response_mode: 'streaming'
+                }),
+                signal: abortController.signal
+            }).then(response => {
+                if (!response.ok) {
+                    subscriber.error(new Error(`HTTP ${response.status}`));
+                    return;
+                }
+                const reader = response.body?.getReader();
+                if (!reader) { subscriber.error(new Error('No stream')); return; }
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                const read = (): void => {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            // Stream ended — emit final parsed response
+                            this.ngZone.run(() => this._finishStream(subscriber, fullAnswer, convId, msgId, targetAgent));
+                            return;
+                        }
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || ''; // keep partial last line
+
+                        // Run inside NgZone so Angular change detection picks up
+                        // the incremental content mutations on the streaming message
+                        this.ngZone.run(() => {
+                            for (const line of lines) {
+                                if (!line.startsWith('data:')) continue;
+                                const jsonStr = line.slice(5).trim();
+                                if (!jsonStr) continue;
+                                try {
+                                    const evt = JSON.parse(jsonStr);
+                                    if (evt.event === 'agent_message' || evt.event === 'message') {
+                                        const chunk = evt.answer || '';
+                                        fullAnswer += chunk;
+                                        subscriber.next({ type: 'chunk', text: chunk });
+                                    } else if (evt.event === 'agent_thought') {
+                                        const thought = evt.thought || '';
+                                        if (thought) subscriber.next({ type: 'thought', thought });
+                                    } else if (evt.event === 'message_end') {
+                                        convId = evt.conversation_id || convId;
+                                        msgId = evt.message_id || msgId;
+                                    }
+                                    // Capture IDs from any event
+                                    if (evt.conversation_id) convId = evt.conversation_id;
+                                    if (evt.message_id) msgId = evt.message_id;
+                                } catch { /* skip malformed SSE lines */ }
+                            }
+                        });
+                        read();
+                    }).catch(err => {
+                        if (err.name !== 'AbortError') {
+                            // Stream interrupted — still emit what we have
+                            this.ngZone.run(() => this._finishStream(subscriber, fullAnswer, convId, msgId, targetAgent));
+                        }
+                    });
+                };
+                read();
+            }).catch(err => {
+                if (err.name !== 'AbortError') subscriber.error(err);
+            });
+
+            // Teardown: abort fetch on unsubscribe
+            return () => abortController.abort();
+        });
+    }
+
+    /** Parse the accumulated answer for [NPA_ACTION] markers and emit final event */
+    private _finishStream(
+        subscriber: import('rxjs').Subscriber<StreamEvent>,
+        fullAnswer: string, convId: string | undefined, msgId: string | undefined,
+        targetAgent: string
+    ) {
+        if (convId) this.setConversationId(targetAgent, convId);
+
+        // Parse the full answer through the blocking path's JSON endpoint to get metadata
+        // For streaming, we parse markers client-side (simple regex for [NPA_ACTION] etc.)
+        const metadata = this._parseMarkersClientSide(fullAnswer);
+        const cleanAnswer = metadata._cleanAnswer;
+        delete metadata._cleanAnswer;
+
+        subscriber.next({
+            type: 'done',
+            response: {
+                answer: cleanAnswer,
+                conversationId: convId,
+                messageId: msgId,
+                metadata
+            }
+        });
+        subscriber.complete();
+    }
+
+    /**
+     * Client-side marker parser (mirrors server-side parseMarkers in dify-proxy.js).
+     * Extracts [NPA_ACTION], [NPA_DATA], [NPA_AGENT], etc. from the full answer text.
+     */
+    private _parseMarkersClientSide(rawAnswer: string): any {
+        if (!rawAnswer) {
+            return { agent_action: 'SHOW_RAW_RESPONSE', agent_id: 'UNKNOWN', payload: {}, trace: {}, _cleanAnswer: '' };
+        }
+
+        const lines = rawAnswer.split('\n');
+        const markers: Record<string, string> = {};
+        let markerStartIndex = -1;
+
+        for (let i = 0; i < lines.length; i++) {
+            const stripped = lines[i].trim();
+            if (stripped.startsWith('[NPA_')) {
+                if (markerStartIndex === -1) markerStartIndex = i;
+                const bracketEnd = stripped.indexOf(']');
+                if (bracketEnd > 0) {
+                    const key = stripped.substring(1, bracketEnd);
+                    const value = stripped.substring(bracketEnd + 1).trim();
+                    markers[key] = value;
+                }
+            }
+        }
+
+        if (markerStartIndex === -1 || !markers['NPA_ACTION']) {
+            return {
+                agent_action: 'SHOW_RAW_RESPONSE', agent_id: 'UNKNOWN',
+                payload: { raw_answer: rawAnswer }, trace: {},
+                _cleanAnswer: rawAnswer
+            };
+        }
+
+        const cleanAnswer = lines.slice(0, markerStartIndex).join('\n').trimEnd();
+
+        let dataObj: any = {};
+        if (markers['NPA_DATA']) {
+            try { dataObj = JSON.parse(markers['NPA_DATA']); } catch { dataObj = { raw: markers['NPA_DATA'] }; }
+        }
+
+        return {
+            agent_action: markers['NPA_ACTION'] || 'SHOW_RAW_RESPONSE',
+            agent_id: markers['NPA_AGENT'] || 'UNKNOWN',
+            payload: {
+                projectId: markers['NPA_PROJECT'] || '',
+                intent: markers['NPA_INTENT'] || '',
+                target_agent: markers['NPA_TARGET'] || '',
+                uiRoute: '/agents/npa',
+                data: dataObj
+            },
+            trace: { session_id: markers['NPA_SESSION'] || '' },
+            _cleanAnswer: cleanAnswer
+        };
+    }
+
+    /** Mock streamed response for dev mode */
+    private _mockStreamedResponse(query: string): Observable<StreamEvent> {
+        return new Observable<StreamEvent>(sub => {
+            const words = 'I am analyzing your request and routing to the appropriate specialist agent...'.split(' ');
+            let i = 0;
+            const iv = setInterval(() => {
+                if (i < words.length) {
+                    sub.next({ type: 'chunk', text: words[i] + ' ' });
+                    i++;
+                } else {
+                    clearInterval(iv);
+                    sub.next({ type: 'done', response: { answer: words.join(' '), metadata: { agent_action: 'SHOW_RAW_RESPONSE', agent_id: 'MASTER_COO', payload: {}, trace: {} } } });
+                    sub.complete();
+                }
+            }, 80);
+            return () => clearInterval(iv);
+        });
+    }
+
+    /**
      * Execute a Dify Workflow agent (Tier 3 or 4).
      * Workflows are stateless — no conversation_id needed.
      */
@@ -348,6 +559,11 @@ export class DifyService {
                     status: res.data.status === 'succeeded' ? 'done' : 'error'
                 });
                 return res;
+            }),
+            catchError(err => {
+                console.error(`[DifyService] Workflow ${agentId} failed:`, err);
+                this.agentActivity$.next({ agentId, status: 'error' });
+                throw err;
             })
         );
     }

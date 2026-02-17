@@ -11,17 +11,12 @@ import { LayoutService } from '../../../services/layout.service';
     template: `
     <aside class="flex flex-col h-full bg-[#f9f9f9] text-[#4b5563] text-[13px] font-medium tracking-tight select-none overflow-hidden transition-all duration-300 border-r border-border/40 relative z-30"
            [class.items-center]="isCollapsed()">
-       
-       <!-- Navigation Area -->
-       <nav class="flex-1 py-4 space-y-6 overflow-y-auto overflow-x-hidden scrollbar-hide w-full" 
-            [class.px-3]="!isCollapsed()" [class.px-2]="isCollapsed()">
-          
-          <!-- Toggle Button (Visible ONLY when Collapsed) and above Home -->
-          <div *ngIf="isCollapsed()" class="mb-4 flex justify-center w-full">
-               <button (click)="toggleSidebar()" class="p-2 rounded-md hover:bg-black/5 text-gray-500 hover:text-black transition-colors" title="Expand Sidebar">
-                    <lucide-icon name="panel-left" class="w-5 h-5"></lucide-icon>
-               </button>
-          </div>
+
+       <!-- Collapsed: empty strip (hamburger is in top-bar) -->
+       <div *ngIf="isCollapsed()" class="flex-1"></div>
+
+       <!-- Navigation Area (expanded only) -->
+       <nav *ngIf="!isCollapsed()" class="flex-1 py-4 space-y-6 overflow-y-auto overflow-x-hidden scrollbar-hide w-full px-3">
 
 
           <!-- Section: My Workspace -->
@@ -271,11 +266,11 @@ import { LayoutService } from '../../../services/layout.service';
 
        </nav>
 
-       <!-- Footer -->
-       <div class="p-3 border-t border-gray-200/60 w-full flex flex-col gap-2 z-40 sticky bottom-0 bg-[#f9f9f9]">
-           <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors font-medium text-black" [class.justify-center]="isCollapsed()" title="User Profile">
+       <!-- Footer (expanded only) -->
+       <div *ngIf="!isCollapsed()" class="p-3 border-t border-gray-200/60 w-full flex flex-col gap-2 z-40 sticky bottom-0 bg-[#f9f9f9]">
+           <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors font-medium text-black" title="User Profile">
                <div class="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px]">V</div>
-               <span *ngIf="!isCollapsed()" class="truncate">Vikramaditya</span>
+               <span class="truncate">Vikramaditya</span>
            </a>
        </div>
     </aside>

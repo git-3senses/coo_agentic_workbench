@@ -12,6 +12,7 @@ import { MlPredictionResultComponent } from '../../../components/npa/agent-resul
 import { MonitoringAlertsComponent } from '../../../components/npa/agent-results/monitoring-alerts.component';
 import { DocCompletenessComponent } from '../../../components/npa/agent-results/doc-completeness.component';
 import { DifyService } from '../../../services/dify/dify.service';
+import { OrchestratorChatComponent } from '../../../components/npa/ideation-chat/ideation-chat.component';
 import { RiskAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult } from '../../../lib/agent-interfaces';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
@@ -22,7 +23,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
    imports: [
       CommonModule, LucideAngularModule, NpaTemplateEditorComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent,
       RiskAssessmentResultComponent, MlPredictionResultComponent,
-      MonitoringAlertsComponent, DocCompletenessComponent
+      MonitoringAlertsComponent, DocCompletenessComponent, OrchestratorChatComponent
    ],
    template: `
     <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false" (onSave)="onSave.emit($event)" [inputData]="npaContext"></app-npa-template-editor>
@@ -636,28 +637,15 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
                 </div>
 
-                <!-- 6. CHAT (Existing) -->
-                <div *ngIf="activeTab === 'CHAT'" class="h-[calc(100vh-280px)] flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-                   <div class="flex-1 p-6 space-y-6 overflow-y-auto bg-slate-50/50">
-                       <div class="flex items-start gap-4">
-                          <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm">
-                             <lucide-icon name="bot" class="w-4 h-4"></lucide-icon>
-                          </div>
-                          <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%] text-sm text-gray-700 leading-relaxed">
-                             <p>Hi Sarah! I noticed this is a $75M FX Option. Based on notional >$50M, Finance VP approval will be required.</p>
-                             <p class="mt-2 text-indigo-600 font-medium cursor-pointer hover:underline">Plot ROAE Sensitivity Analysis?</p>
-                          </div>
-                       </div>
-                   </div>
-                   <!-- Input -->
-                   <div class="p-4 bg-white border-t border-gray-100">
-                      <div class="relative">
-                         <input type="text" placeholder="Type a message..." class="w-full pl-4 pr-12 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm">
-                         <button class="absolute right-2 top-2 p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
-                            <lucide-icon name="send" class="w-4 h-4"></lucide-icon>
-                         </button>
-                      </div>
-                   </div>
+                <!-- 6. CHAT (Live Agent — continues from ideation conversation) -->
+                <div *ngIf="activeTab === 'CHAT'" class="h-[calc(100vh-280px)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <app-orchestrator-chat
+                        [initialConversationId]="npaContext?.conversationId"
+                        [initialSessionId]="npaContext?.sessionId"
+                        [defaultAgent]="'NPA_ORCHESTRATOR'"
+                        [contextLabel]="'NPA: ' + (projectData?.title || npaContext?.title || 'Draft')"
+                        class="flex-1">
+                    </app-orchestrator-chat>
                 </div>
 
              </div>
@@ -705,6 +693,12 @@ export class NpaDetailComponent implements OnInit {
    ngOnInit() {
       if (this.autoOpenEditor) {
          this.showTemplateEditor = true;
+      }
+
+      // If npaContext was passed via @Input (from CTA card click), use its npaId
+      if (this.npaContext?.npaId) {
+         this.projectId = this.npaContext.npaId;
+         this.loadProjectDetails(this.projectId!);
       }
 
       this.route.queryParams.subscribe(params => {

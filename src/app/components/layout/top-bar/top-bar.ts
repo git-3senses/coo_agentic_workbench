@@ -1,27 +1,31 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule } from 'lucide-angular';
+import { SharedIconsModule } from '../../../shared/icons/shared-icons.module';
 import { LayoutService } from '../../../services/layout.service';
 import { UserService, UserRole } from '../../../services/user.service';
 
 @Component({
   selector: 'app-top-bar',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, SharedIconsModule],
   template: `
     <header class="h-16 w-full bg-[#172733] text-white flex items-center px-0 transition-all duration-300">
       
       <!-- Left: Branding & Toggle Container -->
-      <div class="h-full flex items-center border-r border-[#2a3b4d] transition-all duration-300 px-4"
-           [ngClass]="{'w-64 justify-between': !isCollapsed(), 'w-[70px] justify-center': isCollapsed()}">
-           
-         <!-- Logo -->
-         <div class="flex items-center justify-center select-none overflow-hidden h-full py-3" [class.w-full]="isCollapsed()">
-             <img *ngIf="!isCollapsed()" src="assets/logos/Expanded_Logo.svg" alt="Mistral AI" class="h-8 max-w-[180px] object-contain">
-             <img *ngIf="isCollapsed()" src="assets/logos/Collapsed_Logo.svg" alt="Mistral AI" class="h-8 w-8 object-contain">
-        </div>
+      <div class="h-full flex items-center border-r border-[#2a3b4d] transition-all duration-300"
+           [ngClass]="{'w-64 justify-between px-4': !isCollapsed(), 'w-[52px] justify-center': isCollapsed()}">
 
-         <!-- Menu Toggle -->
+         <!-- Hamburger (collapsed = only this is visible) -->
+         <button *ngIf="isCollapsed()" (click)="toggleSidebar()" class="p-2 hover:bg-white/10 rounded-md transition-colors text-gray-400 hover:text-white" title="Expand Sidebar">
+             <lucide-icon name="menu" class="w-5 h-5"></lucide-icon>
+         </button>
+
+         <!-- Logo (expanded only) -->
+         <div *ngIf="!isCollapsed()" class="flex items-center select-none overflow-hidden h-full py-3">
+             <img src="assets/logos/Expanded_Logo.svg" alt="Mistral AI" class="h-8 max-w-[180px] object-contain">
+         </div>
+
+         <!-- Menu Toggle (visible when expanded) -->
          <button *ngIf="!isCollapsed()" (click)="toggleSidebar()" class="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white fade-in flex-none" title="Collapse Sidebar">
              <lucide-icon name="panel-left" class="w-5 h-5"></lucide-icon>
          </button>
@@ -29,9 +33,63 @@ import { UserService, UserRole } from '../../../services/user.service';
 
       <!-- Right Side -->
       <div class="flex-1 flex items-center justify-between px-4">
-          
-          <!-- Role Switcher -->
-          <div class="hidden md:flex items-center gap-4 text-sm relative">
+
+          <!-- ═══ CHAT MODE: Show chat controls in header ═══ -->
+          <div *ngIf="chatMode()" class="flex items-center gap-3 flex-1">
+             <!-- Back Button -->
+             <button (click)="chatMode()?.onBack?.()" class="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white" title="Back">
+                 <lucide-icon name="arrow-left" class="w-5 h-5"></lucide-icon>
+             </button>
+             <div class="h-5 w-px bg-gray-600"></div>
+             <!-- Agent Identity -->
+             <div class="flex items-center gap-2.5">
+                 <div class="w-7 h-7 rounded-lg bg-violet-500/20 border border-violet-400/30 flex items-center justify-center">
+                     <lucide-icon name="brain-circuit" class="w-3.5 h-3.5 text-violet-300"></lucide-icon>
+                 </div>
+                 <div>
+                    <h2 class="text-xs font-bold text-gray-100 leading-none">{{ chatMode()?.title }}</h2>
+                    <p class="text-[10px] font-mono text-green-400 leading-none mt-0.5">{{ chatMode()?.subtitle }}</p>
+                 </div>
+             </div>
+          </div>
+
+          <!-- ═══ CHAT MODE: Center tabs ═══ -->
+          <div *ngIf="chatMode()" class="flex items-center gap-1 bg-white/10 p-1 rounded-lg">
+             <button (click)="chatMode()?.onTabChange?.('TEMPLATES')"
+                     class="px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5"
+                     [ngClass]="chatMode()?.activeTab === 'TEMPLATES' ? 'bg-white/20 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'">
+                 <lucide-icon name="layout-template" class="w-3 h-3"></lucide-icon>
+                 Templates
+             </button>
+             <button (click)="chatMode()?.onTabChange?.('CHAT')"
+                     class="px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5"
+                     [ngClass]="chatMode()?.activeTab === 'CHAT' ? 'bg-white/20 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'">
+                 <lucide-icon name="message-square" class="w-3 h-3"></lucide-icon>
+                 Chat
+             </button>
+          </div>
+
+          <!-- ═══ CHAT MODE: Right actions ═══ -->
+          <div *ngIf="chatMode()" class="flex items-center gap-2">
+             <button (click)="chatMode()?.onNewChat?.()" title="New Conversation"
+                     class="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white">
+                 <lucide-icon name="plus" class="w-4 h-4"></lucide-icon>
+             </button>
+             <button (click)="chatMode()?.onResetChat?.()" title="Reset current chat"
+                     class="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-red-400">
+                 <lucide-icon name="rotate-ccw" class="w-4 h-4"></lucide-icon>
+             </button>
+             <div class="h-5 w-px bg-gray-600 mx-1"></div>
+             <span class="text-[10px] text-green-400 font-medium flex items-center gap-1.5 bg-green-500/10 px-2 py-1 rounded border border-green-500/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> Online
+             </span>
+             <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-500/20 border border-indigo-400 ml-2">
+                 {{ currentUser().name.charAt(0) }}
+             </div>
+          </div>
+
+          <!-- ═══ NORMAL MODE: Role Switcher ═══ -->
+          <div *ngIf="!chatMode()" class="hidden md:flex items-center gap-4 text-sm relative">
              
              <!-- Role Trigger -->
              <div (click)="toggleRoleMenu()" class="flex items-center gap-2 text-gray-400 hover:text-white cursor-pointer transition-colors px-3 py-1.5 rounded hover:bg-white/5 border border-transparent hover:border-gray-700 select-none">
@@ -145,7 +203,7 @@ import { UserService, UserRole } from '../../../services/user.service';
              </div>
           </div>
           
-          <div class="flex items-center gap-3">
+          <div *ngIf="!chatMode()" class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-500/20 border border-indigo-400">
                   {{ currentUser().name.charAt(0) }}
               </div>
@@ -161,6 +219,7 @@ export class TopBarComponent {
   private userService = inject(UserService);
 
   isCollapsed = this.layoutService.isSidebarCollapsed;
+  chatMode = this.layoutService.chatMode;
   currentUser = this.userService.currentUser;
   isRoleMenuOpen = false;
 
