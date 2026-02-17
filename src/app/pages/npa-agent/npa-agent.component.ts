@@ -68,7 +68,10 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
             this.goToCreate();
          } else if (params['mode'] === 'detail') {
             this.npaContext = { npaId: params['npaId'] || null };
-            this.goToDraft();
+            // Go to detail view without auto-opening the editor overlay
+            this.viewMode = 'WORK_ITEM';
+            this.autoOpenEditor = false;
+            this.layoutService.setSidebarVisible(false);
          }
       });
    }

@@ -205,17 +205,17 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
           <div class="lg:col-span-8 flex flex-col h-full bg-slate-50/50 overflow-hidden relative">
              
              <!-- Tabs Header -->
-             <div class="flex-none flex items-center px-6 border-b border-gray-200 bg-white gap-6 overflow-x-auto no-scrollbar shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-                <button 
+             <div class="flex-none flex items-center px-3 border-b border-gray-200 bg-white gap-1 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <button
                   *ngFor="let tab of tabs"
                   (click)="activeTab = tab.id"
-                  [class]="activeTab === tab.id ? 
-                    'border-blue-600 text-blue-700 font-semibold' : 
+                  [class]="activeTab === tab.id ?
+                    'border-blue-600 text-blue-700 font-semibold' :
                     'border-transparent text-gray-500 hover:text-gray-800 font-medium hover:bg-gray-50'"
-                  class="flex items-center gap-2 py-4 border-b-2 text-sm transition-all whitespace-nowrap px-2">
-                   <lucide-icon [name]="tab.icon" [class]="activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'" class="w-4 h-4"></lucide-icon>
+                  class="flex items-center gap-1.5 py-3 border-b-2 text-xs transition-all whitespace-nowrap px-2 rounded-t">
+                   <lucide-icon [name]="tab.icon" [class]="activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'" class="w-3.5 h-3.5"></lucide-icon>
                    {{ tab.label }}
-                   <span *ngIf="tab.badge" [class]="getBadgeColor(tab.id)" class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-gray-100 text-gray-600 font-bold border border-gray-200/50">
+                   <span *ngIf="tab.badge" [class]="getBadgeColor(tab.id)" class="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-gray-100 text-gray-600 font-bold border border-gray-200/50">
                      {{ tab.badge }}
                    </span>
                 </button>
@@ -697,7 +697,7 @@ export class NpaDetailComponent implements OnInit {
       // Load real form sections from API
       this.npaService.getFormSections(id).subscribe({
          next: (sections) => {
-            this.sections = sections.map((s: any) => ({
+            this.sections = (sections || []).map((s: any) => ({
                id: s.section_id,
                title: s.title,
                description: s.description,
@@ -785,13 +785,13 @@ export class NpaDetailComponent implements OnInit {
    }
 
    tabs: { id: DetailTab, label: string, icon: string, badge?: string }[] = [
-      { id: 'PRODUCT_SPECS', label: 'NPA Proposal', icon: 'clipboard-list' },
-      { id: 'DOCUMENTS', label: 'Documents', icon: 'folder-check', badge: '2 Missing' },
-      { id: 'ANALYSIS', label: 'Analysis & Predictions', icon: 'brain-circuit', badge: '78%' },
-      { id: 'APPROVALS', label: 'Sign-Off Status', icon: 'users', badge: '6' },
+      { id: 'PRODUCT_SPECS', label: 'Proposal', icon: 'clipboard-list' },
+      { id: 'DOCUMENTS', label: 'Docs', icon: 'folder-check', badge: '2' },
+      { id: 'ANALYSIS', label: 'Analysis', icon: 'brain-circuit', badge: '78%' },
+      { id: 'APPROVALS', label: 'Sign-Off', icon: 'users', badge: '6' },
       { id: 'WORKFLOW', label: 'Workflow', icon: 'git-branch' },
-      { id: 'MONITORING', label: 'Monitoring', icon: 'activity', badge: '2' },
-      { id: 'CHAT', label: 'Assistant', icon: 'message-square' },
+      { id: 'MONITORING', label: 'Monitor', icon: 'activity', badge: '2' },
+      { id: 'CHAT', label: 'Chat', icon: 'message-square' },
    ];
 
    productAttributes: any[] = [];
@@ -829,22 +829,25 @@ export class NpaDetailComponent implements OnInit {
          const field = (d.formData || []).find((f: any) => f.field_key === key);
          return field?.field_value ?? fallback;
       };
+      const productDesc = d.description || d.title || fieldValue('product_description', 'NPA Product');
       return {
          project_id: d.id || this.projectId || '',
-         product_description: d.description || d.title || fieldValue('product_description', 'NPA Product'),
+         product_description: productDesc,
          product_category: fieldValue('product_category', d.npa_type || ''),
          underlying_asset: fieldValue('underlying_asset', ''),
-         notional_amount: parseFloat(fieldValue('notional_amount', '0')) || 0,
+         notional_amount: String(parseFloat(fieldValue('notional_amount', '0')) || 0),
          currency: fieldValue('currency', 'USD'),
          customer_segment: fieldValue('customer_segment', ''),
          booking_location: fieldValue('booking_location', 'Singapore'),
          counterparty_location: fieldValue('counterparty_location', ''),
-         is_cross_border: d.is_cross_border ?? false,
+         is_cross_border: String(d.is_cross_border ?? false),
          classification_type: d.classification_type || d.scorecard?.calculated_tier || 'Variation',
          approval_track: d.approval_track || 'FULL_NPA',
          current_stage: d.current_stage || 'INITIATION',
          counterparty_rating: fieldValue('counterparty_rating', 'A-'),
-         use_case: fieldValue('use_case', 'Hedging')
+         use_case: fieldValue('use_case', 'Hedging'),
+         // Some Dify workflows use 'input_text' as their primary input variable
+         input_text: productDesc
       };
    }
 

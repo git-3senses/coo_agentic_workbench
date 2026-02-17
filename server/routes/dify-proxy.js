@@ -653,8 +653,24 @@ router.post('/workflow', async (req, res) => {
         });
     }
 
+    // Some Dify workflow apps define 'query' and 'agent_id' as input variables in their start node.
+    // Ensure they're always present in inputs to avoid "X is required in input form" errors.
+    const safeInputs = {
+        ...inputs,
+        query: inputs.query || inputs.product_description || inputs.project_id || `Run ${agent_id} workflow`,
+        agent_id: inputs.agent_id || agent_id
+    };
+
+    // Dify text-input fields require string values. Convert all input values to strings
+    // to prevent "must be a string" errors for booleans, numbers, etc.
+    Object.keys(safeInputs).forEach(k => {
+        if (safeInputs[k] !== null && safeInputs[k] !== undefined && typeof safeInputs[k] !== 'string') {
+            safeInputs[k] = String(safeInputs[k]);
+        }
+    });
+
     const difyPayload = {
-        inputs,
+        inputs: safeInputs,
         user,
         response_mode
     };
@@ -743,7 +759,10 @@ router.post('/workflow', async (req, res) => {
             });
         }
     } catch (err) {
-        console.error('Dify workflow proxy error:', err.response?.data || err.message);
+        const errorBody = await readStreamError(err);
+        const errorMsg = typeof errorBody === 'object' ? (errorBody.message || JSON.stringify(errorBody)) : errorBody;
+        console.error(`[WORKFLOW ERROR] agent=${agent_id}, status=${err.response?.status || 'N/A'}, error:`, errorMsg);
+
         const status = err.response?.status || 500;
         res.status(status).json({
             workflow_run_id: null,
@@ -753,7 +772,7 @@ router.post('/workflow', async (req, res) => {
                 agent_id,
                 'DIFY_API_ERROR',
                 'Dify workflow request failed',
-                err.response?.data?.message || err.message
+                errorMsg
             )
         });
     }
