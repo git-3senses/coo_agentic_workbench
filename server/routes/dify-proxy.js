@@ -296,6 +296,101 @@ function collectSSEStream(stream) {
     });
 }
 
+// ─── Workflow SSE Stream Collector ────────────────────────────────────────────
+
+/**
+ * Collect SSE stream from Dify Workflow run into a complete response.
+ * Workflow SSE event types differ from Chat:
+ *   - workflow_started: initial event with task_id, workflow_run_id
+ *   - node_started / node_finished: per-node progress (optional)
+ *   - text_chunk: incremental text from LLM nodes
+ *   - workflow_finished: final event with data.outputs, data.status
+ *   - error: error events
+ */
+function collectWorkflowSSEStream(stream) {
+    return new Promise((resolve, reject) => {
+        let outputs = {};
+        let workflowRunId = null;
+        let taskId = null;
+        let status = 'unknown';
+        let buffer = '';
+        let streamError = null;
+        let textChunks = ''; // Collect text_chunk events for LLM output
+
+        stream.on('data', (chunk) => {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.startsWith('data:')) continue;
+                const jsonStr = line.slice(5).trim();
+                if (!jsonStr) continue;
+
+                try {
+                    const evt = JSON.parse(jsonStr);
+
+                    if (evt.event === 'workflow_started') {
+                        workflowRunId = evt.workflow_run_id || workflowRunId;
+                        taskId = evt.task_id || taskId;
+                    } else if (evt.event === 'workflow_finished') {
+                        workflowRunId = evt.workflow_run_id || workflowRunId;
+                        taskId = evt.task_id || taskId;
+                        outputs = evt.data?.outputs || {};
+                        status = evt.data?.status || 'succeeded';
+                    } else if (evt.event === 'text_chunk') {
+                        textChunks += (evt.data?.text || '');
+                    } else if (evt.event === 'node_finished') {
+                        // Capture outputs from individual nodes as fallback
+                        if (evt.data?.outputs && !Object.keys(outputs).length) {
+                            // Only use node outputs if we haven't gotten workflow_finished yet
+                        }
+                    } else if (evt.event === 'error') {
+                        streamError = {
+                            code: evt.code || 'DIFY_WORKFLOW_STREAM_ERROR',
+                            message: evt.message || 'Dify workflow stream error',
+                            status: evt.status || 500
+                        };
+                        status = 'failed';
+                        console.warn(`[WF SSE] Dify error event: ${evt.code} — ${evt.message}`);
+                    }
+
+                    // Capture IDs from any event
+                    if (evt.workflow_run_id) workflowRunId = evt.workflow_run_id;
+                    if (evt.task_id) taskId = evt.task_id;
+                } catch { /* skip malformed SSE lines */ }
+            }
+        });
+
+        stream.on('end', () => {
+            // Process remaining buffer
+            if (buffer.startsWith('data:')) {
+                const jsonStr = buffer.slice(5).trim();
+                try {
+                    const evt = JSON.parse(jsonStr);
+                    if (evt.event === 'workflow_finished') {
+                        outputs = evt.data?.outputs || outputs;
+                        status = evt.data?.status || status;
+                    }
+                    if (evt.workflow_run_id) workflowRunId = evt.workflow_run_id;
+                    if (evt.task_id) taskId = evt.task_id;
+                } catch { /* ignore */ }
+            }
+
+            // If we collected text chunks but outputs.result is missing, use text chunks
+            if (textChunks && !outputs.result) {
+                outputs.result = textChunks;
+            }
+
+            resolve({ outputs, workflowRunId, taskId, status, streamError });
+        });
+
+        stream.on('error', (err) => {
+            reject(err);
+        });
+    });
+}
+
 // ─── Helper: Read stream error body ──────────────────────────────────────────
 
 /**
@@ -337,7 +432,8 @@ async function collectBlockingChat(agent, difyPayload, agentId) {
                 'Authorization': `Bearer ${agent.key}`,
                 'Content-Type': 'application/json'
             },
-            responseType: 'stream'
+            responseType: 'stream',
+            timeout: 120000 // 2 minutes — prevent indefinite hangs on Dify calls
         }
     );
 
@@ -432,7 +528,8 @@ router.post('/chat', async (req, res) => {
                         'Authorization': `Bearer ${agent.key}`,
                         'Content-Type': 'application/json'
                     },
-                    responseType: 'stream'
+                    responseType: 'stream',
+                    timeout: 120000 // 2 minutes
                 }
             );
 
@@ -450,7 +547,7 @@ router.post('/chat', async (req, res) => {
             // when the LLM calls session_create. Since whether Dify calls the tool is
             // non-deterministic, retrying often succeeds. We retry up to MAX_RETRIES
             // times, alternating between fresh conversation and original conversation_id.
-            const MAX_RETRIES = 3;
+            const MAX_RETRIES = 1;
             let lastCollected = null;
 
             for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -556,8 +653,24 @@ router.post('/workflow', async (req, res) => {
         });
     }
 
+    // Some Dify workflow apps define 'query' and 'agent_id' as input variables in their start node.
+    // Ensure they're always present in inputs to avoid "X is required in input form" errors.
+    const safeInputs = {
+        ...inputs,
+        query: inputs.query || inputs.product_description || inputs.project_id || `Run ${agent_id} workflow`,
+        agent_id: inputs.agent_id || agent_id
+    };
+
+    // Dify text-input fields require string values. Convert all input values to strings
+    // to prevent "must be a string" errors for booleans, numbers, etc.
+    Object.keys(safeInputs).forEach(k => {
+        if (safeInputs[k] !== null && safeInputs[k] !== undefined && typeof safeInputs[k] !== 'string') {
+            safeInputs[k] = String(safeInputs[k]);
+        }
+    });
+
     const difyPayload = {
-        inputs,
+        inputs: safeInputs,
         user,
         response_mode
     };
@@ -587,41 +700,57 @@ router.post('/workflow', async (req, res) => {
                 res.end();
             });
         } else {
+            // Use streaming + server-side collection to avoid Dify Cloud 504 gateway timeout.
+            // Same pattern as chat: call Dify with response_mode='streaming', collect SSE,
+            // then return assembled JSON to Angular.
+            console.log(`[${agent_id}] Workflow blocking call via streaming+collection`);
+
+            const streamPayload = { ...difyPayload, response_mode: 'streaming' };
+
             const response = await axios.post(
                 `${DIFY_BASE_URL}/workflows/run`,
-                difyPayload,
+                streamPayload,
                 {
                     headers: {
                         'Authorization': `Bearer ${agent.key}`,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    responseType: 'stream',
+                    timeout: 180000 // 3 minutes for network-level timeout
                 }
             );
 
-            const difyData = response.data;
-            const outputs = difyData.data?.outputs || {};
-            const workflowStatus = difyData.data?.status || 'unknown';
+            const { outputs, workflowRunId, taskId, status: workflowStatus, streamError } =
+                await collectWorkflowSSEStream(response.data);
+
+            console.log(`[${agent_id}] Workflow collected: status=${workflowStatus}, outputs=${Object.keys(outputs).length} keys${streamError ? `, error: ${streamError.message}` : ''}`);
 
             // Handle workflow failure
             if (workflowStatus === 'failed') {
                 return res.json({
-                    workflow_run_id: difyData.workflow_run_id,
-                    task_id: difyData.task_id,
-                    data: difyData.data,
+                    workflow_run_id: workflowRunId,
+                    task_id: taskId,
+                    data: { outputs, status: 'failed' },
                     metadata: makeError(
                         agent_id,
                         'WORKFLOW_FAILURE',
-                        difyData.data?.error || 'Workflow execution failed',
-                        difyData.data?.error
+                        streamError?.message || 'Workflow execution failed',
+                        streamError?.message
                     )
                 });
             }
 
             const metadata = extractWorkflowMeta(outputs, agent_id);
 
+            // If stream had errors but we still got outputs, attach warning
+            if (streamError) {
+                if (!metadata.trace) metadata.trace = {};
+                metadata.trace.stream_warning = streamError.message;
+            }
+
             res.json({
-                workflow_run_id: difyData.workflow_run_id,
-                task_id: difyData.task_id,
+                workflow_run_id: workflowRunId,
+                task_id: taskId,
                 data: {
                     outputs,
                     status: workflowStatus
@@ -630,7 +759,10 @@ router.post('/workflow', async (req, res) => {
             });
         }
     } catch (err) {
-        console.error('Dify workflow proxy error:', err.response?.data || err.message);
+        const errorBody = await readStreamError(err);
+        const errorMsg = typeof errorBody === 'object' ? (errorBody.message || JSON.stringify(errorBody)) : errorBody;
+        console.error(`[WORKFLOW ERROR] agent=${agent_id}, status=${err.response?.status || 'N/A'}, error:`, errorMsg);
+
         const status = err.response?.status || 500;
         res.status(status).json({
             workflow_run_id: null,
@@ -640,7 +772,7 @@ router.post('/workflow', async (req, res) => {
                 agent_id,
                 'DIFY_API_ERROR',
                 'Dify workflow request failed',
-                err.response?.data?.message || err.message
+                errorMsg
             )
         });
     }

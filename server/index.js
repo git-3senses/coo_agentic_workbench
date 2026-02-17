@@ -11,6 +11,20 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// ─── Request timeout: abort any API request that takes longer than 30s ───────
+// Dify workflow/chat routes are exempt — they use server-side SSE streaming
+// which can take 30-120s depending on the agent.
+app.use('/api', (req, res, next) => {
+    const isDifyRoute = req.path.startsWith('/dify/');
+    const timeout = isDifyRoute ? 180000 : 30000; // 3 min for Dify, 30s for others
+    req.setTimeout(timeout, () => {
+        if (!res.headersSent) {
+            res.status(504).json({ error: 'Request timeout — server took too long to respond' });
+        }
+    });
+    next();
+});
+
 // Import Routes
 const governanceRoutes = require('./routes/governance');
 const npasRoutes = require('./routes/npas');
@@ -82,4 +96,13 @@ process.on('unhandledRejection', (reason, promise) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+
+    // ─── DB keepalive ping: every 60s, run SELECT 1 to detect stale connections ──
+    setInterval(async () => {
+        try {
+            await db.query('SELECT 1');
+        } catch (err) {
+            console.warn('[DB KEEPALIVE] Ping failed:', err.message);
+        }
+    }, 60_000);
 });

@@ -12,7 +12,12 @@ import { MlPredictionResultComponent } from '../../../components/npa/agent-resul
 import { MonitoringAlertsComponent } from '../../../components/npa/agent-results/monitoring-alerts.component';
 import { DocCompletenessComponent } from '../../../components/npa/agent-results/doc-completeness.component';
 import { DifyService } from '../../../services/dify/dify.service';
-import { RiskAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult } from '../../../lib/agent-interfaces';
+import { OrchestratorChatComponent } from '../../../components/npa/ideation-chat/ideation-chat.component';
+import { RiskAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, AutoFillSummary } from '../../../lib/agent-interfaces';
+import { AutofillSummaryComponent } from '../../../components/npa/agent-results/autofill-summary.component';
+import { GovernanceStatusComponent } from '../../../components/npa/agent-results/governance-status.component';
+import { ClassificationResultComponent } from '../../../components/npa/agent-results/classification-result.component';
+import { catchError, of } from 'rxjs';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
@@ -22,7 +27,8 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
    imports: [
       CommonModule, LucideAngularModule, NpaTemplateEditorComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent,
       RiskAssessmentResultComponent, MlPredictionResultComponent,
-      MonitoringAlertsComponent, DocCompletenessComponent
+      MonitoringAlertsComponent, DocCompletenessComponent, OrchestratorChatComponent,
+      AutofillSummaryComponent, GovernanceStatusComponent, ClassificationResultComponent
    ],
    template: `
     <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false" (onSave)="onSave.emit($event)" [inputData]="npaContext"></app-npa-template-editor>
@@ -199,17 +205,17 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
           <div class="lg:col-span-8 flex flex-col h-full bg-slate-50/50 overflow-hidden relative">
              
              <!-- Tabs Header -->
-             <div class="flex-none flex items-center px-6 border-b border-gray-200 bg-white gap-6 overflow-x-auto no-scrollbar shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-                <button 
+             <div class="flex-none flex items-center px-3 border-b border-gray-200 bg-white gap-1 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <button
                   *ngFor="let tab of tabs"
                   (click)="activeTab = tab.id"
-                  [class]="activeTab === tab.id ? 
-                    'border-blue-600 text-blue-700 font-semibold' : 
+                  [class]="activeTab === tab.id ?
+                    'border-blue-600 text-blue-700 font-semibold' :
                     'border-transparent text-gray-500 hover:text-gray-800 font-medium hover:bg-gray-50'"
-                  class="flex items-center gap-2 py-4 border-b-2 text-sm transition-all whitespace-nowrap px-2">
-                   <lucide-icon [name]="tab.icon" [class]="activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'" class="w-4 h-4"></lucide-icon>
+                  class="flex items-center gap-1.5 py-3 border-b-2 text-xs transition-all whitespace-nowrap px-2 rounded-t">
+                   <lucide-icon [name]="tab.icon" [class]="activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'" class="w-3.5 h-3.5"></lucide-icon>
                    {{ tab.label }}
-                   <span *ngIf="tab.badge" [class]="getBadgeColor(tab.id)" class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-gray-100 text-gray-600 font-bold border border-gray-200/50">
+                   <span *ngIf="tab.badge" [class]="getBadgeColor(tab.id)" class="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-gray-100 text-gray-600 font-bold border border-gray-200/50">
                      {{ tab.badge }}
                    </span>
                 </button>
@@ -262,42 +268,41 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                       </div>
                    </div>
 
-                   <!-- NPA Template Status -->
-                   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <!-- AutoFill Agent Results (replaces hardcoded Template Completion + KB Source Match) -->
+                   <div *ngIf="autoFillSummary" class="mt-6 pt-6 border-t border-gray-200">
+                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                         <lucide-icon name="file-edit" class="w-4 h-4 text-blue-500"></lucide-icon>
+                         Template AutoFill Agent
+                      </h4>
+                      <app-autofill-summary [result]="autoFillSummary"></app-autofill-summary>
+                   </div>
+
+                   <!-- Loading State: AutoFill agent running -->
+                   <div *ngIf="!autoFillSummary" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div (click)="showTemplateEditor = true" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
-                         <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <lucide-icon name="external-link" class="w-4 h-4 text-blue-500"></lucide-icon>
-                         </div>
                          <h3 class="text-sm font-bold text-gray-900 mb-4 group-hover:text-blue-700">Template Completion</h3>
-                         <div class="relative w-40 h-40 mx-auto">
-                            <!-- Circular Progress Mock -->
-                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                               <path class="text-gray-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3.5" />
-                               <path class="text-blue-600" stroke-dasharray="78, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3.5" />
-                            </svg>
-                            <div class="absolute inset-0 flex flex-col items-center justify-center">
-                               <span class="text-3xl font-bold text-gray-900">37</span>
-                               <span class="text-xs text-gray-500 font-medium uppercase">of 47 Fields</span>
-                            </div>
+                         <div *ngIf="agentLoading['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
+                            <lucide-icon name="loader-2" class="w-8 h-8 text-blue-400 animate-spin"></lucide-icon>
+                            <p class="mt-4 text-center text-sm text-gray-500">AutoFill agent running...</p>
                          </div>
-                         <div class="mt-4 text-center">
-                            <p class="text-sm text-gray-600">Saved approx. <span class="font-bold text-gray-900">45 minutes</span> of manual entry.</p>
+                         <div *ngIf="agentErrors['AUTOFILL']" class="text-center py-6">
+                            <lucide-icon name="alert-circle" class="w-6 h-6 mx-auto mb-2 text-red-400"></lucide-icon>
+                            <p class="text-sm text-red-600">{{ agentErrors['AUTOFILL'] }}</p>
+                            <button (click)="retryAgent('AUTOFILL'); $event.stopPropagation()" class="mt-2 text-xs text-red-700 bg-red-100 px-3 py-1 rounded-lg hover:bg-red-200">Retry</button>
+                         </div>
+                         <div *ngIf="!agentLoading['AUTOFILL'] && !agentErrors['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
+                            <lucide-icon name="file-edit" class="w-8 h-8 text-gray-300"></lucide-icon>
+                            <p class="mt-3 text-sm text-gray-400">AutoFill results will appear here</p>
                          </div>
                       </div>
-
-                      <div class="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100 p-6">
-                         <h3 class="text-sm font-bold text-blue-900 mb-2">KB Source Match</h3>
-                         <p class="text-sm text-blue-800/80 mb-4">
-                            Data auto-filled based on 94% match with historical NPA:
-                         </p>
-                         <div class="bg-white rounded-lg p-3 border border-blue-100 shadow-sm flex items-start gap-3">
-                            <div class="p-2 bg-blue-100 rounded text-blue-600">
-                               <lucide-icon name="database" class="w-5 h-5"></lucide-icon>
-                            </div>
-                            <div>
-                               <p class="text-sm font-bold text-gray-900">TSG1917 - FX Option EUR/USD</p>
-                               <p class="text-xs text-gray-500 mt-0.5">Approved: Dec 04, 2024 • Validity: Active</p>
-                            </div>
+                      <div class="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100 p-6 flex items-center justify-center">
+                         <div *ngIf="agentLoading['AUTOFILL']" class="text-center">
+                            <lucide-icon name="loader-2" class="w-6 h-6 mx-auto text-blue-400 animate-spin"></lucide-icon>
+                            <p class="text-xs text-blue-600 mt-2">Searching knowledge base...</p>
+                         </div>
+                         <div *ngIf="!agentLoading['AUTOFILL']" class="text-center text-gray-400">
+                            <lucide-icon name="database" class="w-6 h-6 mx-auto"></lucide-icon>
+                            <p class="text-xs mt-2">KB Source Match</p>
                          </div>
                       </div>
                    </div>
@@ -358,6 +363,25 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                                </ng-container>
                            </div>
                        </div>
+                   </div>
+
+                   <!-- Classification Agent Result -->
+                   <div *ngIf="classificationResult" class="mt-8 pt-8 border-t border-gray-200">
+                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                         <lucide-icon name="git-branch" class="w-4 h-4 text-purple-500"></lucide-icon>
+                         Classification Agent
+                      </h4>
+                      <app-classification-result [result]="classificationResult"></app-classification-result>
+                   </div>
+                   <div *ngIf="!classificationResult && agentLoading['CLASSIFIER']" class="mt-8 pt-8 border-t border-gray-200">
+                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                         <lucide-icon name="git-branch" class="w-4 h-4 text-purple-500"></lucide-icon>
+                         Classification Agent
+                      </h4>
+                      <div class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center">
+                         <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-400 animate-spin"></lucide-icon>
+                         <p class="text-sm font-medium text-gray-500">Classification agent analyzing product type...</p>
+                      </div>
                    </div>
                 </div>
 
@@ -460,86 +484,42 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
                 </div>
 
-                <!-- 3. APPROVALS (New Tab) -->
+                <!-- 3. APPROVALS (Agent-Driven) -->
                 <div *ngIf="activeTab === 'APPROVALS'" class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
-                   
-                   <!-- Summary Header -->
-                   <div class="bg-gray-900 text-white rounded-xl p-6 shadow-lg flex items-center justify-between">
-                      <div>
-                         <h3 class="text-lg font-bold">Sign-Off Status</h3>
-                         <p class="text-gray-400 text-sm mt-1">Pending 6 Approvals • SLA Expires in 22 Hours</p>
-                      </div>
-                      <div class="flex items-center gap-3">
-                         <div class="text-right">
-                             <div class="text-2xl font-bold">0/6</div>
-                             <div class="text-xs text-gray-400">Completed</div>
-                         </div>
-                         <div class="w-12 h-12 rounded-full border-4 border-gray-700 flex items-center justify-center">
-                            <div class="w-10 h-10 rounded-full border-4 border-transparent border-t-blue-500 animate-spin"></div>
-                         </div>
-                      </div>
+
+                   <!-- Governance Agent Results -->
+                   <div *ngIf="governanceState">
+                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                         <lucide-icon name="workflow" class="w-4 h-4 text-slate-500"></lucide-icon>
+                         Governance Agent — Sign-Off Status
+                      </h4>
+                      <app-governance-status [result]="governanceState"></app-governance-status>
                    </div>
 
-                   <!-- Approvers List -->
-                   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                      <div class="grid grid-cols-12 bg-gray-50 border-b border-gray-200 px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                         <div class="col-span-4">Department / Approver</div>
-                         <div class="col-span-3">Status</div>
-                         <div class="col-span-3">Time Elapsed</div>
-                         <div class="col-span-2 text-right">Action</div>
-                      </div>
-                      
-                      <div class="divide-y divide-gray-100">
-                         <!-- Approver 1: Credit -->
-                         <div class="grid grid-cols-12 px-6 py-4 items-center hover:bg-gray-50 transition-colors">
-                            <div class="col-span-4">
-                               <p class="font-bold text-gray-900">RMG-Credit</p>
-                               <p class="text-sm text-gray-500">Jane Tan</p>
-                            </div>
-                            <div class="col-span-3">
-                               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  Pending Review
-                               </span>
-                            </div>
-                            <div class="col-span-3 text-sm text-gray-600 font-mono">2h 15m</div>
-                            <div class="col-span-2 text-right">
-                               <button class="text-blue-600 hover:text-blue-800 text-xs font-bold">Nudge</button>
-                            </div>
-                         </div>
+                   <!-- Loading State -->
+                   <div *ngIf="!governanceState && agentLoading['GOVERNANCE']" class="bg-gray-50 rounded-xl border border-gray-200 p-12 text-center">
+                      <lucide-icon name="loader-2" class="w-8 h-8 mx-auto mb-3 text-gray-400 animate-spin"></lucide-icon>
+                      <p class="text-sm font-medium text-gray-500">Governance agent is analyzing sign-off requirements...</p>
+                      <p class="text-xs text-gray-400 mt-1">This may take 30-60 seconds</p>
+                   </div>
 
-                         <!-- Approver 2: Finance -->
-                         <div class="grid grid-cols-12 px-6 py-4 items-center hover:bg-gray-50 transition-colors bg-blue-50/20">
-                            <div class="col-span-4 relative">
-                               <div class="absolute -left-6 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r"></div>
-                               <p class="font-bold text-gray-900">Finance (Product Control)</p>
-                               <p class="text-sm text-gray-500">Mark Lee</p>
-                            </div>
-                            <div class="col-span-3">
-                               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 animate-pulse">
-                                  Viewing Now
-                               </span>
-                            </div>
-                            <div class="col-span-3 text-sm text-gray-600 font-mono">2h 12m</div>
-                            <div class="col-span-2 text-right">
-                               <button class="text-gray-400 hover:text-gray-600 text-xs font-bold" disabled>--</button>
-                            </div>
-                         </div>
-                         
-                         <!-- Approver 3: Finance VP -->
-                         <div class="grid grid-cols-12 px-6 py-4 items-center hover:bg-gray-50 transition-colors opacity-60">
-                            <div class="col-span-4">
-                               <p class="font-bold text-gray-900">Finance VP</p>
-                               <p class="text-sm text-gray-500">Waiting for Finance...</p>
-                            </div>
-                            <div class="col-span-3">
-                               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                                  Locked
-                               </span>
-                            </div>
-                            <div class="col-span-3 text-sm text-gray-400 font-mono">--</div>
-                            <div class="col-span-2 text-right"></div>
-                         </div>
-                      </div>
+                   <!-- Error State -->
+                   <div *ngIf="!governanceState && !agentLoading['GOVERNANCE'] && agentErrors['GOVERNANCE']"
+                        class="bg-red-50 rounded-xl border border-red-200 p-8 text-center">
+                      <lucide-icon name="alert-circle" class="w-8 h-8 mx-auto mb-3 text-red-400"></lucide-icon>
+                      <p class="text-sm font-medium text-red-600">Governance agent encountered an error</p>
+                      <p class="text-xs text-red-500 mt-1">{{ agentErrors['GOVERNANCE'] }}</p>
+                      <button (click)="retryAgent('GOVERNANCE')"
+                              class="mt-3 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors">
+                         Retry
+                      </button>
+                   </div>
+
+                   <!-- Fallback: Not yet run -->
+                   <div *ngIf="!governanceState && !agentLoading['GOVERNANCE'] && !agentErrors['GOVERNANCE']"
+                        class="bg-gray-50 rounded-xl border border-gray-200 p-12 text-center text-gray-500">
+                      <lucide-icon name="workflow" class="w-8 h-8 mx-auto mb-3 text-gray-300"></lucide-icon>
+                      <p class="text-sm font-medium">Governance analysis has not yet run for this NPA.</p>
                    </div>
                 </div>
 
@@ -551,73 +531,51 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
                 </div>
 
-                <!-- 5. MONITORING (Post-NPA) -->
+                <!-- 5. MONITORING (Agent-Driven) -->
                 <div *ngIf="activeTab === 'MONITORING'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-4xl mx-auto">
 
-                   <!-- Breach Alerts -->
-                   <div>
-                      <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                         <lucide-icon name="alert-triangle" class="w-4 h-4 text-rose-500"></lucide-icon>
-                         Active Breach Alerts ({{ breaches.length }})
-                      </h3>
-                      <div class="space-y-4">
-                         <div *ngFor="let breach of breaches" class="rounded-xl border p-5 transition-all"
-                              [ngClass]="breach.severity === 'critical' ? 'bg-rose-50/40 border-rose-200' : 'bg-amber-50/40 border-amber-200'">
-                            <div class="flex items-start justify-between mb-3">
-                               <div class="flex items-center gap-3">
-                                  <div class="p-2 rounded-lg bg-white shadow-sm border"
-                                       [ngClass]="breach.severity === 'critical' ? 'border-rose-100 text-rose-600' : 'border-amber-100 text-amber-600'">
-                                     <lucide-icon [name]="breach.severity === 'critical' ? 'shield-alert' : 'alert-triangle'" class="w-5 h-5"></lucide-icon>
-                                  </div>
-                                  <div>
-                                     <h4 class="font-bold text-gray-900">{{ breach.title }}</h4>
-                                     <p class="text-xs text-gray-500 font-mono mt-0.5">{{ breach.id }} • {{ breach.triggeredAt }}</p>
+                   <!-- Monitoring Agent Results (takes priority) -->
+                   <div *ngIf="monitoringResult">
+                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                         <lucide-icon name="activity" class="w-4 h-4 text-emerald-500"></lucide-icon>
+                         Post-Launch Monitoring Agent
+                      </h4>
+                      <app-monitoring-alerts [result]="monitoringResult"></app-monitoring-alerts>
+                   </div>
+
+                   <!-- Loading State -->
+                   <div *ngIf="!monitoringResult && agentLoading['MONITORING']" class="bg-gray-50 rounded-xl border border-gray-200 p-12 text-center">
+                      <lucide-icon name="loader-2" class="w-8 h-8 mx-auto mb-3 text-gray-400 animate-spin"></lucide-icon>
+                      <p class="text-sm font-medium text-gray-500">Monitoring agent analyzing post-launch metrics...</p>
+                   </div>
+
+                   <!-- Error State -->
+                   <div *ngIf="!monitoringResult && !agentLoading['MONITORING'] && agentErrors['MONITORING']"
+                        class="bg-red-50 rounded-xl border border-red-200 p-8 text-center">
+                      <lucide-icon name="alert-circle" class="w-8 h-8 mx-auto mb-3 text-red-400"></lucide-icon>
+                      <p class="text-sm font-medium text-red-600">{{ agentErrors['MONITORING'] }}</p>
+                      <button (click)="retryAgent('MONITORING')" class="mt-3 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200">Retry</button>
+                   </div>
+
+                   <!-- Fallback: Static metrics when agent hasn't returned -->
+                   <div *ngIf="!monitoringResult && !agentLoading['MONITORING'] && !agentErrors['MONITORING']">
+                      <div>
+                         <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <lucide-icon name="bar-chart-2" class="w-4 h-4 text-blue-500"></lucide-icon>
+                            Performance Metrics
+                         </h3>
+                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div *ngFor="let metric of monitoringMetrics" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
+                               <div class="flex items-center justify-between mb-3">
+                                  <div class="p-1.5 rounded-lg" [ngClass]="'bg-' + metric.color + '-50 text-' + metric.color + '-600'">
+                                     <lucide-icon [name]="metric.icon" class="w-4 h-4"></lucide-icon>
                                   </div>
                                </div>
-                               <span class="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded"
-                                     [ngClass]="breach.severity === 'critical' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'">
-                                  {{ breach.severity }}
-                               </span>
-                            </div>
-                            <p class="text-sm text-gray-600 leading-relaxed mb-3">{{ breach.description }}</p>
-                            <div class="flex items-center justify-between text-xs text-gray-500 pt-3 border-t" [ngClass]="breach.severity === 'critical' ? 'border-rose-100' : 'border-amber-100'">
-                               <span>Escalated to: <span class="font-semibold text-gray-700">{{ breach.escalatedTo }}</span></span>
-                               <span>SLA: {{ breach.slaHours }}h resolution window</span>
+                               <div class="text-2xl font-bold text-gray-900 mb-1">{{ metric.value }}</div>
+                               <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{{ metric.label }}</div>
                             </div>
                          </div>
                       </div>
-                   </div>
-
-                   <!-- Performance Metrics Grid -->
-                   <div>
-                      <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                         <lucide-icon name="bar-chart-2" class="w-4 h-4 text-blue-500"></lucide-icon>
-                         Performance Metrics
-                      </h3>
-                      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                         <div *ngFor="let metric of monitoringMetrics" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
-                            <div class="flex items-center justify-between mb-3">
-                               <div class="p-1.5 rounded-lg" [ngClass]="'bg-' + metric.color + '-50 text-' + metric.color + '-600'">
-                                  <lucide-icon [name]="metric.icon" class="w-4 h-4"></lucide-icon>
-                               </div>
-                            </div>
-                            <div class="text-2xl font-bold text-gray-900 mb-1">{{ metric.value }}</div>
-                            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{{ metric.label }}</div>
-                         </div>
-                      </div>
-                   </div>
-
-                   <!-- Monitoring Agent Results -->
-                   <div class="mt-2 pt-6 border-t border-gray-200">
-                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                           <lucide-icon name="activity" class="w-4 h-4 text-emerald-500"></lucide-icon>
-                           Post-Launch Monitoring Agent
-                       </h4>
-                       <app-monitoring-alerts *ngIf="monitoringResult" [result]="monitoringResult"></app-monitoring-alerts>
-                       <div *ngIf="!monitoringResult" class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center text-gray-500">
-                           <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-400 animate-spin"></lucide-icon>
-                           <p class="text-sm font-medium">Monitoring agent results will appear here once the agent runs.</p>
-                       </div>
                    </div>
 
                    <!-- Conversational Analytics -->
@@ -636,28 +594,15 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
                 </div>
 
-                <!-- 6. CHAT (Existing) -->
-                <div *ngIf="activeTab === 'CHAT'" class="h-[calc(100vh-280px)] flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-                   <div class="flex-1 p-6 space-y-6 overflow-y-auto bg-slate-50/50">
-                       <div class="flex items-start gap-4">
-                          <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm">
-                             <lucide-icon name="bot" class="w-4 h-4"></lucide-icon>
-                          </div>
-                          <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%] text-sm text-gray-700 leading-relaxed">
-                             <p>Hi Sarah! I noticed this is a $75M FX Option. Based on notional >$50M, Finance VP approval will be required.</p>
-                             <p class="mt-2 text-indigo-600 font-medium cursor-pointer hover:underline">Plot ROAE Sensitivity Analysis?</p>
-                          </div>
-                       </div>
-                   </div>
-                   <!-- Input -->
-                   <div class="p-4 bg-white border-t border-gray-100">
-                      <div class="relative">
-                         <input type="text" placeholder="Type a message..." class="w-full pl-4 pr-12 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm">
-                         <button class="absolute right-2 top-2 p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
-                            <lucide-icon name="send" class="w-4 h-4"></lucide-icon>
-                         </button>
-                      </div>
-                   </div>
+                <!-- 6. CHAT (Live Agent — continues from ideation conversation) -->
+                <div *ngIf="activeTab === 'CHAT'" class="h-[calc(100vh-280px)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <app-orchestrator-chat
+                        [initialConversationId]="npaContext?.conversationId"
+                        [initialSessionId]="npaContext?.sessionId"
+                        [defaultAgent]="'NPA_ORCHESTRATOR'"
+                        [contextLabel]="'NPA: ' + (projectData?.title || npaContext?.title || 'Draft')"
+                        class="flex-1">
+                    </app-orchestrator-chat>
                 </div>
 
              </div>
@@ -695,6 +640,12 @@ export class NpaDetailComponent implements OnInit {
    monitoringResult: MonitoringResult | null = null;
    governanceState: GovernanceState | null = null;
    docCompleteness: DocCompletenessResult | null = null;
+   classificationResult: ClassificationResult | null = null;
+   autoFillSummary: AutoFillSummary | null = null;
+
+   // Agent loading/error states
+   agentLoading: Record<string, boolean> = {};
+   agentErrors: Record<string, string> = {};
 
    constructor(
       private route: ActivatedRoute,
@@ -705,6 +656,12 @@ export class NpaDetailComponent implements OnInit {
    ngOnInit() {
       if (this.autoOpenEditor) {
          this.showTemplateEditor = true;
+      }
+
+      // If npaContext was passed via @Input (from CTA card click), use its npaId
+      if (this.npaContext?.npaId) {
+         this.projectId = this.npaContext.npaId;
+         this.loadProjectDetails(this.projectId!);
       }
 
       this.route.queryParams.subscribe(params => {
@@ -732,6 +689,7 @@ export class NpaDetailComponent implements OnInit {
             this.projectData = data;
             this.currentStage = data.current_stage;
             this.mapBackendDataToView(data);
+            this.runAgentAnalysis();
          },
          error: (err) => console.error('Failed to load project details', err)
       });
@@ -739,7 +697,7 @@ export class NpaDetailComponent implements OnInit {
       // Load real form sections from API
       this.npaService.getFormSections(id).subscribe({
          next: (sections) => {
-            this.sections = sections.map((s: any) => ({
+            this.sections = (sections || []).map((s: any) => ({
                id: s.section_id,
                title: s.title,
                description: s.description,
@@ -827,13 +785,13 @@ export class NpaDetailComponent implements OnInit {
    }
 
    tabs: { id: DetailTab, label: string, icon: string, badge?: string }[] = [
-      { id: 'PRODUCT_SPECS', label: 'NPA Proposal', icon: 'clipboard-list' },
-      { id: 'DOCUMENTS', label: 'Documents', icon: 'folder-check', badge: '2 Missing' },
-      { id: 'ANALYSIS', label: 'Analysis & Predictions', icon: 'brain-circuit', badge: '78%' },
-      { id: 'APPROVALS', label: 'Sign-Off Status', icon: 'users', badge: '6' },
+      { id: 'PRODUCT_SPECS', label: 'Proposal', icon: 'clipboard-list' },
+      { id: 'DOCUMENTS', label: 'Docs', icon: 'folder-check', badge: '2' },
+      { id: 'ANALYSIS', label: 'Analysis', icon: 'brain-circuit', badge: '78%' },
+      { id: 'APPROVALS', label: 'Sign-Off', icon: 'users', badge: '6' },
       { id: 'WORKFLOW', label: 'Workflow', icon: 'git-branch' },
-      { id: 'MONITORING', label: 'Monitoring', icon: 'activity', badge: '2' },
-      { id: 'CHAT', label: 'Assistant', icon: 'message-square' },
+      { id: 'MONITORING', label: 'Monitor', icon: 'activity', badge: '2' },
+      { id: 'CHAT', label: 'Chat', icon: 'message-square' },
    ];
 
    productAttributes: any[] = [];
@@ -861,4 +819,354 @@ export class NpaDetailComponent implements OnInit {
    }
 
    showTemplateEditor = false;
+
+   // ─── Agent Analysis Engine ──────────────────────────────────────
+
+   private buildWorkflowInputs(): Record<string, any> {
+      const d = this.projectData;
+      if (!d) return {};
+      const fieldValue = (key: string, fallback = '') => {
+         const field = (d.formData || []).find((f: any) => f.field_key === key);
+         return field?.field_value ?? fallback;
+      };
+      const productDesc = d.description || d.title || fieldValue('product_description', 'NPA Product');
+      return {
+         project_id: d.id || this.projectId || '',
+         product_description: productDesc,
+         product_category: fieldValue('product_category', d.npa_type || ''),
+         underlying_asset: fieldValue('underlying_asset', ''),
+         notional_amount: String(parseFloat(fieldValue('notional_amount', '0')) || 0),
+         currency: fieldValue('currency', 'USD'),
+         customer_segment: fieldValue('customer_segment', ''),
+         booking_location: fieldValue('booking_location', 'Singapore'),
+         counterparty_location: fieldValue('counterparty_location', ''),
+         is_cross_border: String(d.is_cross_border ?? false),
+         classification_type: d.classification_type || d.scorecard?.calculated_tier || 'Variation',
+         approval_track: d.approval_track || 'FULL_NPA',
+         current_stage: d.current_stage || 'INITIATION',
+         counterparty_rating: fieldValue('counterparty_rating', 'A-'),
+         use_case: fieldValue('use_case', 'Hedging'),
+         // Some Dify workflows use 'input_text' as their primary input variable
+         input_text: productDesc
+      };
+   }
+
+   private runAgentAnalysis(): void {
+      const inputs = this.buildWorkflowInputs();
+      if (!inputs['project_id']) return;
+
+      const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'AUTOFILL', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
+      agents.forEach(a => this.agentLoading[a] = true);
+
+      // CLASSIFIER
+      this.difyService.runWorkflow('CLASSIFIER', inputs).pipe(
+         catchError(err => { this.agentErrors['CLASSIFIER'] = err.message || 'Classification failed'; return of(null); })
+      ).subscribe(res => {
+         this.agentLoading['CLASSIFIER'] = false;
+         if (res?.data?.status === 'succeeded') {
+            this.classificationResult = this.mapClassificationResult(res.data.outputs);
+            this.updateTabBadge('ANALYSIS', null);
+         }
+      });
+
+      // ML_PREDICT
+      this.difyService.runWorkflow('ML_PREDICT', inputs).pipe(
+         catchError(err => { this.agentErrors['ML_PREDICT'] = err.message || 'Prediction failed'; return of(null); })
+      ).subscribe(res => {
+         this.agentLoading['ML_PREDICT'] = false;
+         if (res?.data?.status === 'succeeded') {
+            this.mlPrediction = this.mapMlPrediction(res.data.outputs);
+            this.updateTabBadge('ANALYSIS', null);
+         }
+      });
+
+      // RISK
+      this.difyService.runWorkflow('RISK', inputs).pipe(
+         catchError(err => { this.agentErrors['RISK'] = err.message || 'Risk assessment failed'; return of(null); })
+      ).subscribe(res => {
+         this.agentLoading['RISK'] = false;
+         if (res?.data?.status === 'succeeded') {
+            this.riskAssessmentResult = this.mapRiskAssessment(res.data.outputs);
+         }
+      });
+
+      // AUTOFILL
+      this.difyService.runWorkflow('AUTOFILL', inputs).pipe(
+         catchError(err => { this.agentErrors['AUTOFILL'] = err.message || 'AutoFill failed'; return of(null); })
+      ).subscribe(res => {
+         this.agentLoading['AUTOFILL'] = false;
+         if (res?.data?.status === 'succeeded') {
+            this.autoFillSummary = this.mapAutoFillSummary(res.data.outputs);
+            this.updateTabBadge('PRODUCT_SPECS', null);
+         }
+      });
+
+      // GOVERNANCE
+      this.difyService.runWorkflow('GOVERNANCE', { ...inputs, agent_mode: 'GOVERNANCE' }).pipe(
+         catchError(err => { this.agentErrors['GOVERNANCE'] = err.message || 'Governance failed'; return of(null); })
+      ).subscribe(res => {
+         this.agentLoading['GOVERNANCE'] = false;
+         if (res?.data?.status === 'succeeded') {
+            this.governanceState = this.mapGovernanceState(res.data.outputs);
+            this.updateTabBadge('APPROVALS', null);
+         }
+      });
+
+      // DOC_LIFECYCLE
+      this.difyService.runWorkflow('DOC_LIFECYCLE', { ...inputs, agent_mode: 'DOC_LIFECYCLE' }).pipe(
+         catchError(err => { this.agentErrors['DOC_LIFECYCLE'] = err.message || 'Doc analysis failed'; return of(null); })
+      ).subscribe(res => {
+         this.agentLoading['DOC_LIFECYCLE'] = false;
+         if (res?.data?.status === 'succeeded') {
+            this.docCompleteness = this.mapDocCompleteness(res.data.outputs);
+            this.updateTabBadge('DOCUMENTS', null);
+         }
+      });
+
+      // MONITORING
+      this.difyService.runWorkflow('MONITORING', { ...inputs, agent_mode: 'MONITORING' }).pipe(
+         catchError(err => { this.agentErrors['MONITORING'] = err.message || 'Monitoring failed'; return of(null); })
+      ).subscribe(res => {
+         this.agentLoading['MONITORING'] = false;
+         if (res?.data?.status === 'succeeded') {
+            this.monitoringResult = this.mapMonitoringResult(res.data.outputs);
+            this.updateTabBadge('MONITORING', null);
+         }
+      });
+   }
+
+   // ─── Output Mapping Methods ─────────────────────────────────────
+
+   private parseJsonOutput(outputs: any): any {
+      if (outputs?.result && typeof outputs.result === 'string') {
+         try { return JSON.parse(outputs.result); } catch { /* fall through */ }
+      }
+      return outputs;
+   }
+
+   private mapClassificationResult(rawOutputs: any): ClassificationResult | null {
+      const o = this.parseJsonOutput(rawOutputs);
+      if (!o) return null;
+      const cr = o.classification_result || o;
+      return {
+         type: cr.type || cr.classification_type || 'Variation',
+         track: cr.track || cr.approval_track || 'NPA Lite',
+         scores: (cr.scorecard || cr.scores || []).map((s: any) => ({
+            criterion: s.criterion || s.name || '',
+            score: s.score ?? 0,
+            maxScore: s.maxScore || s.max_score || 10,
+            reasoning: s.reasoning || s.description || ''
+         })),
+         overallConfidence: cr.overallConfidence || cr.overall_confidence || cr.confidence || 0,
+         prohibitedMatch: cr.prohibitedMatch || cr.prohibited_match || { matched: false },
+         mandatorySignOffs: cr.mandatorySignOffs || cr.mandatory_signoffs || []
+      } as ClassificationResult;
+   }
+
+   private mapMlPrediction(rawOutputs: any): MLPrediction | null {
+      const o = this.parseJsonOutput(rawOutputs);
+      if (!o) return null;
+      const p = o.ml_prediction || o.prediction || o;
+      return {
+         approvalLikelihood: p.approvalLikelihood || p.approval_likelihood || 0,
+         timelineDays: p.timelineDays || p.timeline_days || 0,
+         bottleneckDept: p.bottleneckDept || p.bottleneck_dept || 'Unknown',
+         riskScore: p.riskScore || p.risk_score || 0,
+         features: (p.features || []).map((f: any) => ({
+            name: f.name, importance: f.importance || 0, value: f.value || ''
+         })),
+         comparisonInsights: p.comparisonInsights || p.comparison_insights || []
+      } as MLPrediction;
+   }
+
+   private mapRiskAssessment(rawOutputs: any): RiskAssessment | null {
+      const o = this.parseJsonOutput(rawOutputs);
+      if (!o) return null;
+      const r = o.risk_assessment || o;
+      return {
+         layers: (o.layer_results || r.layers || []).map((l: any) => ({
+            name: l.layer || l.name || '',
+            status: l.status || 'PASS',
+            details: Array.isArray(l.findings) ? l.findings.join('; ') : (l.details || ''),
+            checks: (l.checks || l.flags || []).map((c: any) =>
+               typeof c === 'string'
+                  ? { name: c, status: 'WARNING' as const, detail: c }
+                  : { name: c.name, status: c.status || 'PASS', detail: c.detail || c.description || '' }
+            )
+         })),
+         overallScore: r.overall_score || r.overallScore || 0,
+         hardStop: r.hardStop || r.hard_stop || false,
+         hardStopReason: r.hardStopReason || r.hard_stop_reason || undefined,
+         prerequisites: (o.prerequisite_validation?.pending_items || r.prerequisites || []).map((p: any) =>
+            typeof p === 'string'
+               ? { name: p, status: 'FAIL' as const, category: 'Pending' }
+               : { name: p.name, status: p.status || 'PASS', category: p.category || '' }
+         )
+      } as RiskAssessment;
+   }
+
+   private mapAutoFillSummary(rawOutputs: any): AutoFillSummary | null {
+      const o = this.parseJsonOutput(rawOutputs);
+      if (!o) return null;
+      const ar = o.autofill_result || o.coverage || o;
+      const filledFields = o.filled_fields || o.fields || [];
+      return {
+         fieldsFilled: ar.auto_filled || ar.fieldsFilled || filledFields.filter((f: any) => f.lineage === 'AUTO').length,
+         fieldsAdapted: ar.adapted || ar.fieldsAdapted || filledFields.filter((f: any) => f.lineage === 'ADAPTED').length,
+         fieldsManual: ar.manual_required || ar.fieldsManual || 0,
+         totalFields: ar.total_fields || ar.totalFields || 47,
+         coveragePct: ar.coverage_pct || ar.coveragePct || 0,
+         timeSavedMinutes: o.time_savings?.estimated_manual_minutes
+            ? (o.time_savings.estimated_manual_minutes - (o.time_savings.estimated_with_autofill_minutes || 0))
+            : (ar.timeSavedMinutes || 0),
+         fields: filledFields.map((f: any) => ({
+            fieldName: f.field_key || f.fieldName || '',
+            value: f.value || '',
+            lineage: f.lineage || 'AUTO',
+            source: f.source,
+            confidence: f.confidence ? f.confidence / 100 : undefined
+         }))
+      } as AutoFillSummary;
+   }
+
+   private mapGovernanceState(rawOutputs: any): GovernanceState | null {
+      const o = this.parseJsonOutput(rawOutputs);
+      if (!o) return null;
+      const ss = o.signoff_status || o;
+      const ls = o.loopback_status || {};
+      const signoffs = (o.signoffs || ss.signoffs || []).map((s: any) => ({
+         department: s.department,
+         status: s.status || 'PENDING',
+         assignee: s.assignee || s.approver,
+         slaDeadline: s.sla_deadline || s.slaDeadline,
+         slaBreached: s.sla_breached || s.slaBreached || false,
+         decidedAt: s.decided_at || s.decidedAt
+      }));
+      const finalSignoffs = signoffs.length > 0 ? signoffs :
+         (ss.blocking_parties || []).map((dept: string) => ({
+            department: dept, status: 'PENDING' as const
+         }));
+      return {
+         signoffs: finalSignoffs,
+         slaStatus: ss.sla_breached > 0 ? 'breached' : (ss.completion_pct > 50 ? 'on_track' : 'at_risk'),
+         loopBackCount: ls.total || 0,
+         circuitBreaker: ls.circuit_breaker_triggered || false,
+         circuitBreakerThreshold: 3
+      } as GovernanceState;
+   }
+
+   private mapDocCompleteness(rawOutputs: any): DocCompletenessResult | null {
+      const o = this.parseJsonOutput(rawOutputs);
+      if (!o) return null;
+      const c = o.completeness || o;
+      return {
+         completenessPercent: c.completion_pct || c.completenessPercent || 0,
+         totalRequired: c.total_required || c.totalRequired || 0,
+         totalPresent: c.present || c.totalPresent || 0,
+         totalValid: c.totalValid || c.present || 0,
+         missingDocs: (o.missing_documents || c.missingDocs || []).map((d: any) => ({
+            docType: d.doc_name || d.docType || '',
+            reason: d.reason || `Required by ${d.required_by || 'sign-off'}`,
+            priority: d.criticality === 'CRITICAL' ? 'BLOCKING' : 'WARNING'
+         })),
+         invalidDocs: c.invalidDocs || [],
+         conditionalRules: c.conditionalRules || [],
+         expiringDocs: c.expiringDocs || [],
+         stageGateStatus: c.is_complete ? 'CLEAR' : (c.critical_missing > 0 ? 'BLOCKED' : 'WARNING')
+      } as DocCompletenessResult;
+   }
+
+   private mapMonitoringResult(rawOutputs: any): MonitoringResult | null {
+      const o = this.parseJsonOutput(rawOutputs);
+      if (!o) return null;
+      return {
+         productHealth: o.health_status || o.productHealth || 'HEALTHY',
+         metrics: (o.metrics || []).map((m: any) => ({
+            name: m.name || m.metric || '',
+            value: m.value || m.actual || 0,
+            unit: m.unit || '',
+            threshold: m.threshold || m.warning,
+            trend: m.trend || 'stable'
+         })),
+         breaches: (o.breaches || []).map((b: any) => ({
+            metric: b.metric || '',
+            threshold: b.threshold || b.warning || b.critical || 0,
+            actual: b.actual || 0,
+            severity: b.severity || 'WARNING',
+            message: b.message || `${b.metric} exceeds threshold`,
+            firstDetected: b.firstDetected || b.first_detected || new Date().toISOString(),
+            trend: b.trend || 'stable'
+         })),
+         conditions: (o.conditions?.items || o.post_launch_conditions || []).map((c: any) => ({
+            type: c.type || '',
+            description: c.description || '',
+            deadline: c.deadline || '',
+            status: c.status || 'PENDING',
+            daysRemaining: c.daysRemaining || c.days_remaining || 0
+         })),
+         pirStatus: o.pir_status || o.pirStatus || 'Not Scheduled',
+         pirDueDate: o.pir_due_date || o.pirDueDate
+      } as MonitoringResult;
+   }
+
+   // ─── Retry & Badge Update ───────────────────────────────────────
+
+   /** Public — used in template error states */
+   retryAgent(agentId: string): void {
+      delete this.agentErrors[agentId];
+      this.agentLoading[agentId] = true;
+      const inputs = this.buildWorkflowInputs();
+      const modeMap: Record<string, string> = {
+         GOVERNANCE: 'GOVERNANCE', DOC_LIFECYCLE: 'DOC_LIFECYCLE', MONITORING: 'MONITORING'
+      };
+      const finalInputs = modeMap[agentId] ? { ...inputs, agent_mode: modeMap[agentId] } : inputs;
+
+      this.difyService.runWorkflow(agentId, finalInputs).pipe(
+         catchError(err => { this.agentErrors[agentId] = err.message || `${agentId} failed`; return of(null); })
+      ).subscribe((res: any) => {
+         this.agentLoading[agentId] = false;
+         if (res?.data?.status === 'succeeded') {
+            switch (agentId) {
+               case 'CLASSIFIER': this.classificationResult = this.mapClassificationResult(res.data.outputs); break;
+               case 'ML_PREDICT': this.mlPrediction = this.mapMlPrediction(res.data.outputs); break;
+               case 'RISK': this.riskAssessmentResult = this.mapRiskAssessment(res.data.outputs); break;
+               case 'AUTOFILL': this.autoFillSummary = this.mapAutoFillSummary(res.data.outputs); break;
+               case 'GOVERNANCE': this.governanceState = this.mapGovernanceState(res.data.outputs); break;
+               case 'DOC_LIFECYCLE': this.docCompleteness = this.mapDocCompleteness(res.data.outputs); break;
+               case 'MONITORING': this.monitoringResult = this.mapMonitoringResult(res.data.outputs); break;
+            }
+         }
+      });
+   }
+
+   private updateTabBadge(tabId: DetailTab, _data: any): void {
+      const tab = this.tabs.find(t => t.id === tabId);
+      if (!tab) return;
+      switch (tabId) {
+         case 'PRODUCT_SPECS':
+            if (this.autoFillSummary) tab.badge = `${this.autoFillSummary.coveragePct}%`;
+            break;
+         case 'DOCUMENTS':
+            if (this.docCompleteness) {
+               const missing = this.docCompleteness.missingDocs?.length || 0;
+               tab.badge = missing > 0 ? `${missing} Missing` : 'Complete';
+            }
+            break;
+         case 'ANALYSIS':
+            if (this.mlPrediction) tab.badge = `${this.mlPrediction.approvalLikelihood}%`;
+            break;
+         case 'APPROVALS':
+            if (this.governanceState) {
+               const pending = this.governanceState.signoffs?.filter(s => s.status === 'PENDING').length || 0;
+               tab.badge = `${pending}`;
+            }
+            break;
+         case 'MONITORING':
+            if (this.monitoringResult) {
+               tab.badge = this.monitoringResult.breaches?.length > 0
+                  ? `${this.monitoringResult.breaches.length}` : '0';
+            }
+            break;
+      }
+   }
 }

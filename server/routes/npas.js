@@ -125,16 +125,25 @@ router.get('/:id/form-sections', async (req, res) => {
 
 // POST /api/npas — Create new NPA
 router.post('/', async (req, res) => {
-    const { title, description, submitted_by } = req.body;
+    console.log('[NPA CREATE] Received:', JSON.stringify(req.body));
+    const { title, description, submitted_by, npa_type } = req.body;
     const id = 'NPA-2026-' + String(Date.now()).slice(-3);
     try {
-        await db.query(
-            `INSERT INTO npa_projects (id, title, description, submitted_by, current_stage, status)
-             VALUES (?, ?, ?, ?, 'INITIATION', 'On Track')`,
-            [id, title, description, submitted_by || 'system']
-        );
-        res.json({ id, status: 'CREATED' });
+        const conn = await db.getConnection();
+        try {
+            await conn.query(`SET sql_mode = ''`);
+            await conn.query(
+                `INSERT INTO npa_projects (id, title, description, submitted_by, npa_type, current_stage, status, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, 'INITIATION', 'On Track', NOW(), NOW())`,
+                [id, title, description, submitted_by || 'system', npa_type || 'STANDARD']
+            );
+            console.log('[NPA CREATE] Success:', id);
+            res.json({ id, status: 'CREATED' });
+        } finally {
+            conn.release();
+        }
     } catch (err) {
+        console.error('[NPA CREATE] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

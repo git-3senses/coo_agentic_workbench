@@ -1,11 +1,17 @@
-import { Component, EventEmitter, Output, OnInit, ViewChild, ElementRef, AfterViewChecked, inject, OnDestroy } from '@angular/core';
+import { Component, EventEmitter, Output, Input, OnInit, ViewChild, ElementRef, AfterViewChecked, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { DifyService, DifyAgentResponse } from '../../../services/dify/dify.service';
+import { ChatSessionService } from '../../../services/chat-session.service';
 import { MarkdownModule } from 'ngx-markdown';
 import { AGENT_REGISTRY, AgentDefinition, AgentAction, AgentActivityUpdate, ClassificationResult, ClassificationScore } from '../../../lib/agent-interfaces';
 import { ClassificationResultComponent } from '../agent-results/classification-result.component';
+import { AutofillSummaryComponent } from '../agent-results/autofill-summary.component';
+import { RiskAssessmentResultComponent } from '../agent-results/risk-assessment-result.component';
+import { GovernanceStatusComponent } from '../agent-results/governance-status.component';
+import { DocCompletenessComponent } from '../agent-results/doc-completeness.component';
+import { MonitoringAlertsComponent } from '../agent-results/monitoring-alerts.component';
 import { Subscription } from 'rxjs';
 
 interface ChatMessage {
@@ -13,7 +19,7 @@ interface ChatMessage {
     content: string;
     timestamp: Date;
     agentIdentity?: AgentIdentity;
-    cardType?: 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION' | 'DELEGATION';
+    cardType?: 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION' | 'DELEGATION' | 'AUTOFILL' | 'GOVERNANCE' | 'DOC_STATUS' | 'MONITORING';
     cardData?: any;
     agentAction?: AgentAction;
 }
@@ -29,7 +35,9 @@ interface AgentIdentity {
 @Component({
     selector: 'app-orchestrator-chat',
     standalone: true,
-    imports: [CommonModule, FormsModule, LucideAngularModule, MarkdownModule, ClassificationResultComponent],
+    imports: [CommonModule, FormsModule, LucideAngularModule, MarkdownModule,
+             ClassificationResultComponent, AutofillSummaryComponent, RiskAssessmentResultComponent,
+             GovernanceStatusComponent, DocCompletenessComponent, MonitoringAlertsComponent],
     template: `
     <div class="flex flex-col h-full bg-white relative">
       <!-- TOAST NOTIFICATION -->
@@ -113,16 +121,57 @@ interface AgentIdentity {
                     </div>
                 </div>
 
+                <!-- CARD: AUTOFILL SUMMARY -->
+                <app-autofill-summary *ngIf="msg.cardType === 'AUTOFILL' && msg.cardData"
+                                      [result]="msg.cardData"
+                                      class="w-full animate-fade-in">
+                </app-autofill-summary>
+
+                <!-- CARD: RISK ASSESSMENT -->
+                <app-risk-assessment-result *ngIf="msg.cardType === 'RISK' && msg.cardData"
+                                            [result]="msg.cardData"
+                                            class="w-full animate-fade-in">
+                </app-risk-assessment-result>
+
+                <!-- CARD: GOVERNANCE STATUS -->
+                <app-governance-status *ngIf="msg.cardType === 'GOVERNANCE' && msg.cardData"
+                                       [result]="msg.cardData"
+                                       class="w-full animate-fade-in">
+                </app-governance-status>
+
+                <!-- CARD: DOCUMENT COMPLETENESS -->
+                <app-doc-completeness *ngIf="msg.cardType === 'DOC_STATUS' && msg.cardData"
+                                      [result]="msg.cardData"
+                                      class="w-full animate-fade-in">
+                </app-doc-completeness>
+
+                <!-- CARD: MONITORING ALERTS -->
+                <app-monitoring-alerts *ngIf="msg.cardType === 'MONITORING' && msg.cardData"
+                                       [result]="msg.cardData"
+                                       class="w-full animate-fade-in">
+                </app-monitoring-alerts>
+
             </div>
          </div>
 
-         <!-- Thinking Indicator -->
-         <div *ngIf="isThinking" class="flex gap-4 animate-pulse">
-             <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center">
-                 <lucide-icon name="loader-2" class="w-3 h-3 text-indigo-600 animate-spin"></lucide-icon>
+         <!-- Thinking Indicator (enhanced with timer + rotating sub-messages) -->
+         <div *ngIf="isThinking" class="flex gap-3 items-start">
+             <div class="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center flex-none mt-0.5">
+                 <lucide-icon name="loader-2" class="w-4 h-4 text-indigo-600 animate-spin"></lucide-icon>
              </div>
-             <div class="text-xs text-gray-400 flex items-center gap-2 py-2">
-                 <span>{{ thinkingMessage }}</span>
+             <div class="flex-1 bg-gradient-to-r from-indigo-50/80 to-violet-50/60 border border-indigo-100 rounded-xl px-4 py-3">
+                 <div class="flex items-center justify-between mb-1.5">
+                     <span class="text-xs font-semibold text-indigo-700">{{ thinkingMessage }}</span>
+                     <span class="text-[10px] font-mono text-indigo-400 bg-indigo-100/60 px-2 py-0.5 rounded-full">{{ thinkingElapsed }}</span>
+                 </div>
+                 <div class="flex items-center gap-2">
+                     <div class="flex gap-0.5">
+                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 0ms"></span>
+                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 150ms"></span>
+                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 300ms"></span>
+                     </div>
+                     <span class="text-[11px] text-indigo-500 italic">{{ thinkingSubMessage }}</span>
+                 </div>
              </div>
          </div>
       </div>
@@ -208,7 +257,17 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
     @Output() onComplete = new EventEmitter<any>();
     @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
 
+    /** Optional: Resume from an existing Dify conversation */
+    @Input() initialConversationId?: string;
+    /** Optional: Load messages from a saved session */
+    @Input() initialSessionId?: string;
+    /** Optional: Which agent to start with (default: NPA_ORCHESTRATOR for lifecycle context) */
+    @Input() defaultAgent?: string;
+    /** Optional: Context label for the chat header */
+    @Input() contextLabel?: string;
+
     private difyService = inject(DifyService);
+    private chatSessionService = inject(ChatSessionService);
     private activitySub?: Subscription;
     private agentChangeSub?: Subscription;
     private currentSubscription?: Subscription;
@@ -216,6 +275,12 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
     userInput = '';
     isThinking = false;
     thinkingMessage = 'Processing request...';
+    thinkingSubMessage = '';
+    thinkingElapsed = '0s';
+    private thinkingStartTime = 0;
+    private thinkingTimerInterval: any = null;
+    private thinkingSubMessageInterval: any = null;
+    private thinkingSubMessageIndex = 0;
     isDraftReady = false;
     showToast = false;
     messages: ChatMessage[] = [];
@@ -245,7 +310,12 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
     }
 
     ngOnInit() {
-        this.startConversation();
+        // If resuming from a saved session, load messages + set Dify conversation
+        if (this.initialSessionId) {
+            this.resumeSession();
+        } else {
+            this.startConversation();
+        }
 
         // Subscribe to real-time agent activity updates
         this.activitySub = this.difyService.getAgentActivity().subscribe(update => {
@@ -261,6 +331,46 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         });
     }
 
+    /** Resume from a saved session — load messages and restore Dify conversation state */
+    private async resumeSession() {
+        const session = await this.chatSessionService.fetchSessionWithMessages(this.initialSessionId!);
+        if (!session) {
+            // Fallback: start fresh if session not found
+            this.startConversation();
+            return;
+        }
+
+        // Restore messages
+        this.messages = session.messages.map((m: any) => ({
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.timestamp || m.created_at),
+            agentIdentity: m.agentIdentityId ? this.AGENTS[m.agentIdentityId] : undefined,
+            cardType: m.cardType || undefined,
+            cardData: m.cardData || undefined,
+            agentAction: m.agentAction || undefined,
+        }));
+
+        // Restore Dify conversation state
+        if (this.initialConversationId) {
+            // Set the active agent to NPA_ORCHESTRATOR (or the provided default)
+            const targetAgent = this.defaultAgent || session.activeAgentId || 'NPA_ORCHESTRATOR';
+            this.difyService.setActiveAgent(targetAgent);
+            this.difyService.restoreConversation(targetAgent, this.initialConversationId);
+            this.currentAgent = this.AGENTS[targetAgent] || this.AGENTS['MASTER_COO'];
+        }
+
+        this.chatSessionService.setActiveSession(session.id);
+
+        // Add a context message to indicate continuation
+        this.messages.push({
+            role: 'agent',
+            content: `Continuing your conversation on **${this.contextLabel || 'this NPA'}**. I can help you amend the draft, run governance checks, review documents, or answer questions about the proposal.`,
+            timestamp: new Date(),
+            agentIdentity: this.AGENTS[this.defaultAgent || 'NPA_ORCHESTRATOR'] || this.AGENTS['MASTER_COO']
+        });
+    }
+
     ngAfterViewChecked() {
         this.scrollToBottom();
     }
@@ -269,6 +379,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.activitySub?.unsubscribe();
         this.agentChangeSub?.unsubscribe();
         this.currentSubscription?.unsubscribe();
+        this.stopThinkingTimer();
     }
 
     startConversation() {
@@ -283,6 +394,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
                 agentIdentity: this.AGENTS['MASTER_COO']
             });
             this.isThinking = false;
+            this.stopThinkingTimer();
         });
     }
 
@@ -295,6 +407,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.currentSubscription?.unsubscribe();
         this.currentSubscription = undefined;
         this.isThinking = false;
+        this.stopThinkingTimer();
         this.messages.push({
             role: 'agent',
             content: '*Request cancelled by user.*',
@@ -319,11 +432,77 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.processUserMessage(text);
     }
 
+    // ─── Thinking Indicator Helpers ─────────────────────────────
+
+    private readonly AGENT_THINKING_MESSAGES: Record<string, string[]> = {
+        IDEATION: [
+            'Gathering product information...',
+            'Searching for similar historical NPAs...',
+            'Checking prohibited products list...',
+            'Analyzing product structure...',
+            'Evaluating regulatory requirements...',
+            'Building NPA draft...',
+        ],
+        CLASSIFIER: [
+            'Running classification model...',
+            'Comparing against product taxonomy...',
+            'Scoring product complexity...',
+        ],
+        RISK: [
+            'Evaluating risk factors...',
+            'Running risk scoring model...',
+            'Analyzing market exposure...',
+        ],
+        DEFAULT: [
+            'Processing your request...',
+            'Analyzing data...',
+            'Preparing response...',
+        ]
+    };
+
+    private startThinkingTimer(agentId: string) {
+        this.thinkingStartTime = Date.now();
+        this.thinkingElapsed = '0s';
+        this.thinkingSubMessageIndex = 0;
+
+        const messages = this.AGENT_THINKING_MESSAGES[agentId] || this.AGENT_THINKING_MESSAGES['DEFAULT'];
+        this.thinkingSubMessage = messages[0];
+
+        this.thinkingTimerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - this.thinkingStartTime) / 1000);
+            if (elapsed < 60) {
+                this.thinkingElapsed = `${elapsed}s`;
+            } else {
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                this.thinkingElapsed = `${mins}m ${secs}s`;
+            }
+        }, 1000);
+
+        this.thinkingSubMessageInterval = setInterval(() => {
+            this.thinkingSubMessageIndex = (this.thinkingSubMessageIndex + 1) % messages.length;
+            this.thinkingSubMessage = messages[this.thinkingSubMessageIndex];
+        }, 4000);
+    }
+
+    private stopThinkingTimer() {
+        if (this.thinkingTimerInterval) {
+            clearInterval(this.thinkingTimerInterval);
+            this.thinkingTimerInterval = null;
+        }
+        if (this.thinkingSubMessageInterval) {
+            clearInterval(this.thinkingSubMessageInterval);
+            this.thinkingSubMessageInterval = null;
+        }
+    }
+
     private processUserMessage(content: string) {
         this.messages.push({ role: 'user', content, timestamp: new Date() });
         this.userInput = '';
         this.isThinking = true;
-        this.thinkingMessage = `${this.currentAgent?.name || 'Agent'} processing...`;
+        const agentId = this.difyService.activeAgentId || 'IDEATION';
+        this.thinkingMessage = `${this.currentAgent?.name || 'Agent'} is working`;
+        this.startThinkingTimer(agentId);
 
         // Send to the currently active agent (resolved by DifyService)
         // DifyService.activeAgentId tracks which agent we're talking to,
@@ -342,12 +521,15 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
                     agentIdentity: this.AGENTS[currentId] || this.AGENTS['MASTER_COO']
                 });
                 this.isThinking = false;
+                this.stopThinkingTimer();
             }
         });
     }
 
     private handleDifyResponse(res: DifyAgentResponse) {
-        const agentId = res.metadata?.agent_id || this.difyService.activeAgentId;
+        // Prefer DifyService.activeAgentId over metadata.agent_id because multiple
+        // logical agents (e.g. IDEATION, NPA_ORCHESTRATOR) may share the same Dify app.
+        const agentId = this.difyService.activeAgentId || res.metadata?.agent_id || 'MASTER_COO';
         const identity = this.AGENTS[agentId] || this.AGENTS['MASTER_COO'];
         const action = res.metadata?.agent_action;
 
@@ -370,6 +552,21 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         } else if (action === 'SHOW_PREDICTION' && res.metadata?.payload) {
             cardType = 'PREDICTION';
             cardData = res.metadata.payload;
+        } else if (action === 'SHOW_AUTOFILL' && res.metadata?.payload) {
+            cardType = 'AUTOFILL';
+            cardData = res.metadata.payload;
+        } else if (action === 'SHOW_RISK' && res.metadata?.payload) {
+            cardType = 'RISK';
+            cardData = res.metadata.payload;
+        } else if (action === 'SHOW_GOVERNANCE' && res.metadata?.payload) {
+            cardType = 'GOVERNANCE';
+            cardData = res.metadata.payload;
+        } else if (action === 'SHOW_DOC_STATUS' && res.metadata?.payload) {
+            cardType = 'DOC_STATUS';
+            cardData = res.metadata.payload;
+        } else if (action === 'SHOW_MONITORING' && res.metadata?.payload) {
+            cardType = 'MONITORING';
+            cardData = res.metadata.payload;
         } else if (action === 'DELEGATE_AGENT' && res.metadata?.payload) {
             cardType = 'DELEGATION';
             cardData = res.metadata.payload;
@@ -387,8 +584,10 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             agentAction: action as AgentAction
         });
 
-        // ─── AUTO-GREETING: When agent switches, auto-send greeting to new agent ───
-        // This fires the new agent's introduction so the user doesn't have to type.
+        // ─── INSTANT AGENT SWITCH: Show local greeting immediately (no Dify round-trip) ───
+        // Previously this fired a full sendMessage() to the new agent for a greeting,
+        // which took 60+ seconds. Now we show an instant local greeting and let the
+        // user's first real message be the actual API call.
         if (routing?.shouldSwitch && routing.targetAgent) {
             const targetId = routing.targetAgent;
             const targetAgent = this.AGENTS[targetId];
@@ -396,44 +595,28 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
                 || res.metadata?.payload?.data?.intent
                 || '';
 
-            // Build context message that carries the user's original intent
-            const contextMsg = intent
-                ? `The user wants to: ${intent}. Please introduce yourself and guide them.`
-                : '';
-
-            // Keep thinking indicator active with updated agent name
-            this.isThinking = true;
-            this.thinkingMessage = `Connecting to ${targetAgent?.name || targetId}...`;
-
             // Update currentAgent immediately so UI label reflects the new agent
             if (targetAgent) {
                 this.currentAgent = targetAgent;
             }
 
-            this.currentSubscription = this.difyService.sendMessage(contextMsg, {}, targetId).subscribe({
-                next: (greeting) => {
-                    const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
-                    this.messages.push({
-                        role: 'agent',
-                        content: greeting.answer,
-                        timestamp: new Date(),
-                        agentIdentity: greetIdentity
-                    });
-                    this.isThinking = false;
-                },
-                error: () => {
-                    // Even on error, show a fallback greeting so user knows what happened
-                    this.messages.push({
-                        role: 'agent',
-                        content: `You're now connected to **${targetAgent?.name || targetId}**. How can I help you?`,
-                        timestamp: new Date(),
-                        agentIdentity: targetAgent || this.AGENTS['MASTER_COO']
-                    });
-                    this.isThinking = false;
-                }
+            // Build an instant local greeting — no API call needed
+            const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
+            const agentName = targetAgent?.name || targetId;
+            const intentLine = intent ? `\n\nI understand you'd like to **${intent}**. ` : '\n\n';
+            const localGreeting = `👋 **${agentName}** is ready.${intentLine}Go ahead and describe your product idea or requirement — I'll guide you through the process step by step.`;
+
+            this.messages.push({
+                role: 'agent',
+                content: localGreeting,
+                timestamp: new Date(),
+                agentIdentity: greetIdentity
             });
+            this.isThinking = false;
+            this.stopThinkingTimer();
         } else {
             this.isThinking = false;
+            this.stopThinkingTimer();
         }
     }
 

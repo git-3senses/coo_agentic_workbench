@@ -68,7 +68,10 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
             this.goToCreate();
          } else if (params['mode'] === 'detail') {
             this.npaContext = { npaId: params['npaId'] || null };
-            this.goToDraft();
+            // Go to detail view without auto-opening the editor overlay
+            this.viewMode = 'WORK_ITEM';
+            this.autoOpenEditor = false;
+            this.layoutService.setSidebarVisible(false);
          }
       });
    }
@@ -84,8 +87,7 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
       // MODE 1: Agent-First (Conversational)
       // Directly enter the Chat Interface. The Agent will handle Readiness checks.
       this.viewMode = 'IDEATION';
-      this.layoutService.setSidebarVisible(true);
-      this.layoutService.setSidebarState(true); // Collapse sidebar
+      this.layoutService.setSidebarVisible(false); // Hide main sidenav in chat mode
    }
 
    goToDraft() {
@@ -93,14 +95,20 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
       // User goes straight to the Editor. GovernanceService is available via "Check" button.
       this.viewMode = 'WORK_ITEM';
       this.autoOpenEditor = true;
-      this.layoutService.setSidebarVisible(true);
-      this.layoutService.setSidebarState(true); // Collapse sidebar
+      this.layoutService.setSidebarVisible(false); // Hide main sidenav in work item mode
    }
 
    goToDraftWithData(payload: any) {
       // Transition from Chat -> Draft with pre-filled data
       this.npaContext = payload;
-      this.goToDraft();
+      // If payload has an npaId (from CTA card), go directly to detail view (no editor overlay)
+      if (payload?.npaId) {
+         this.viewMode = 'WORK_ITEM';
+         this.autoOpenEditor = false;
+         this.layoutService.setSidebarVisible(false);
+      } else {
+         this.goToDraft();
+      }
    }
 
    goToDetail(npaId: string) {
