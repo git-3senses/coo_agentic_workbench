@@ -1128,7 +1128,7 @@ export class NpaDetailComponent implements OnInit {
          fieldsFilled: cov.auto_filled || ar.auto_filled || ar.fieldsFilled || filledFields.filter((f: any) => f.lineage === 'AUTO').length,
          fieldsAdapted: cov.adapted || ar.adapted || ar.fieldsAdapted || filledFields.filter((f: any) => f.lineage === 'ADAPTED').length,
          fieldsManual: cov.manual_required || ar.manual_required || ar.fieldsManual || 0,
-         totalFields: cov.total_fields || ar.total_fields || ar.totalFields || 47,
+         totalFields: cov.total_fields || ar.total_fields || ar.totalFields || 72,  // STD_NPA_V2 has 72 fields
          coveragePct: cov.coverage_pct || ar.coverage_pct || ar.coveragePct || 0,
          timeSavedMinutes: o.time_savings?.estimated_manual_minutes
             ? (o.time_savings.estimated_manual_minutes - (o.time_savings.estimated_with_autofill_minutes || 0))

@@ -14,15 +14,15 @@ from db import execute, query
 GET_TEMPLATE_FIELDS_SCHEMA = {
     "type": "object",
     "properties": {
-        "template_id": {"type": "string", "description": "Template ID to retrieve (defaults to full NPA template)", "default": "npa-full-template"},
-        "section_id": {"type": "string", "description": "Filter to a specific section"},
+        "template_id": {"type": "string", "description": "Template ID to retrieve. Valid values: 'FULL_NPA_V1' (30 fields, 8 sections — Basic Info, Sign-off, Customers, Commercialization, BCP, FinCrime, Risk Data, Trading) or 'STD_NPA_V2' (72 fields, 10 sections — Product, Risk, Ops, Pricing, Data, Regulatory, Entity, Sign-Off, Legal, Docs). Defaults to STD_NPA_V2.", "default": "STD_NPA_V2"},
+        "section_id": {"type": "string", "description": "Filter to a specific section (e.g. 'SEC_PROD', 'SEC_RISK', 'SEC_BASIC')"},
     },
     "required": [],
 }
 
 
 async def autofill_get_template_fields_handler(inp: dict) -> ToolResult:
-    template_id = inp.get("template_id", "npa-full-template")
+    template_id = inp.get("template_id", "STD_NPA_V2")
     section_sql = "SELECT s.id, s.title, s.description, s.order_index FROM ref_npa_sections s WHERE s.template_id = %s"
     section_params: list = [template_id]
 
@@ -180,7 +180,17 @@ async def autofill_get_form_data_handler(inp: dict) -> ToolResult:
 
     form_data = await query(sql, params)
 
-    total_fields = await query("SELECT COUNT(*) as cnt FROM ref_npa_fields", [])
+    # Get total field count for the relevant template (determined by project's approval_track)
+    # FULL_NPA → FULL_NPA_V1, everything else → STD_NPA_V2
+    project_row = await query("SELECT approval_track FROM npa_projects WHERE id = %s", [inp["project_id"]])
+    approval_track = project_row[0].get("approval_track", "STD") if project_row else "STD"
+    tpl_id = "FULL_NPA_V1" if approval_track == "FULL_NPA" else "STD_NPA_V2"
+    total_fields = await query(
+        """SELECT COUNT(*) as cnt FROM ref_npa_fields f
+           JOIN ref_npa_sections s ON s.id = f.section_id
+           WHERE s.template_id = %s""",
+        [tpl_id],
+    )
     total_count = total_fields[0].get("cnt", 0) if total_fields else 0
     filled_count = len(form_data)
     auto_count = sum(1 for f in form_data if f.get("lineage") == "AUTO")
@@ -228,7 +238,7 @@ async def autofill_get_field_options_handler(inp: dict) -> ToolResult:
 
 # ── Register ──────────────────────────────────────────────────────
 registry.register_all([
-    ToolDefinition(name="autofill_get_template_fields", description="Get all sections and fields for an NPA template. Returns the complete form structure with field types, requirements, and tooltips.", category="autofill", input_schema=GET_TEMPLATE_FIELDS_SCHEMA, handler=autofill_get_template_fields_handler),
+    ToolDefinition(name="autofill_get_template_fields", description="Get all sections and fields for an NPA template. Valid template_ids: 'STD_NPA_V2' (72 fields, 10 sections, default) or 'FULL_NPA_V1' (30 fields, 8 sections). Returns complete form structure with field types, requirements, and tooltips.", category="autofill", input_schema=GET_TEMPLATE_FIELDS_SCHEMA, handler=autofill_get_template_fields_handler),
     ToolDefinition(name="autofill_populate_field", description="Fill a single template field with lineage tracking. Uses UPSERT to update existing values.", category="autofill", input_schema=POPULATE_FIELD_SCHEMA, handler=autofill_populate_field_handler),
     ToolDefinition(name="autofill_populate_batch", description="Fill multiple template fields at once with lineage tracking. Efficient batch operation for auto-filling entire sections.", category="autofill", input_schema=POPULATE_BATCH_SCHEMA, handler=autofill_populate_batch_handler),
     ToolDefinition(name="autofill_get_form_data", description="Get current form state for an NPA. Returns all filled fields with their values, lineage, and confidence scores.", category="autofill", input_schema=GET_FORM_DATA_SCHEMA, handler=autofill_get_form_data_handler),
