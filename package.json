@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build --configuration production && cd server && npm ci --omit=dev",
+    "postinstall": "node scripts/railway-build.js",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
