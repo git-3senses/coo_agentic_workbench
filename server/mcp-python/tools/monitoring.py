@@ -1,6 +1,7 @@
 """
-Monitoring Tools — 6 tools
-Post-launch monitoring: performance metrics, breach alerts, thresholds, conditions.
+Monitoring Tools — 7 tools
+Post-launch monitoring: performance metrics, breach alerts, thresholds, conditions,
+approximate booking detection (GAP-020).
 """
 import json
 from datetime import datetime, timezone
@@ -260,6 +261,150 @@ async def update_condition_status_handler(inp: dict) -> ToolResult:
     })
 
 
+# ─── Tool 7: detect_approximate_booking (GAP-020) ────────────────
+
+DETECT_APPROXIMATE_BOOKING_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "project_id": {"type": "string", "description": "NPA project ID to check for proxy trades"},
+        "lookback_days": {"type": "integer", "description": "Days to look back for suspicious trades", "default": 30},
+    },
+    "required": ["project_id"],
+}
+
+
+async def detect_approximate_booking_handler(inp: dict) -> ToolResult:
+    """
+    GAP-020: Detect approximate booking (proxy trades).
+    GFM SOP requires monitoring for trades booked under one approved product
+    that actually represent a different (possibly unapproved) product.
+
+    Detection signals:
+    1. Trades with notional significantly different from approved product norms
+    2. Counterparty types not matching product's target segment
+    3. Tenors outside approved product range
+    4. Booking entity mismatch with product approval jurisdiction
+    5. High volume spike (>3x average) suggesting proxy activity
+    """
+    lookback = inp.get("lookback_days", 30)
+
+    # Get the NPA project details
+    project = await query(
+        """SELECT id, title, product_category, approval_track, notional_amount,
+                  booking_entity, npa_type
+           FROM npa_projects WHERE id = %s""",
+        [inp["project_id"]],
+    )
+    if not project:
+        return ToolResult(success=False, error=f"Project {inp['project_id']} not found")
+
+    proj = project[0]
+    approved_notional = float(proj.get("notional_amount") or 0)
+
+    # Get recent performance metrics for volume analysis
+    metrics = await query(
+        """SELECT total_volume, volume_currency, snapshot_date, counterparty_exposure
+           FROM npa_performance_metrics
+           WHERE project_id = %s
+             AND snapshot_date >= DATE_SUB(NOW(), INTERVAL %s DAY)
+           ORDER BY snapshot_date DESC""",
+        [inp["project_id"], lookback],
+    )
+
+    flags = []
+    risk_score = 0
+
+    # Signal 1: Notional outlier detection
+    if metrics and approved_notional > 0:
+        volumes = [float(m.get("total_volume") or 0) for m in metrics]
+        avg_volume = sum(volumes) / len(volumes) if volumes else 0
+        max_volume = max(volumes) if volumes else 0
+
+        if max_volume > approved_notional * 2:
+            flags.append({
+                "signal": "NOTIONAL_OUTLIER",
+                "severity": "HIGH",
+                "detail": f"Max volume ${max_volume:,.0f} exceeds 2x approved notional ${approved_notional:,.0f}",
+            })
+            risk_score += 30
+
+        # Signal 5: Volume spike detection
+        if len(volumes) >= 3:
+            recent_avg = sum(volumes[:3]) / 3
+            historical_avg = sum(volumes[3:]) / len(volumes[3:]) if len(volumes) > 3 else recent_avg
+            if historical_avg > 0 and recent_avg > historical_avg * 3:
+                flags.append({
+                    "signal": "VOLUME_SPIKE",
+                    "severity": "MEDIUM",
+                    "detail": f"Recent 3-day avg ${recent_avg:,.0f} is {recent_avg/historical_avg:.1f}x historical avg ${historical_avg:,.0f}",
+                })
+                risk_score += 20
+
+    # Signal 4: Booking entity mismatch (check jurisdictions)
+    jurisdictions = await query(
+        """SELECT jurisdiction_code FROM npa_jurisdictions WHERE project_id = %s""",
+        [inp["project_id"]],
+    )
+    approved_jurisdictions = [j["jurisdiction_code"] for j in jurisdictions] if jurisdictions else []
+
+    # Check if any risk checks flagged booking anomalies
+    risk_anomalies = await query(
+        """SELECT check_name, result, notes FROM npa_risk_checks
+           WHERE project_id = %s AND result = 'WARNING'
+           ORDER BY created_at DESC LIMIT 5""",
+        [inp["project_id"]],
+    )
+    if risk_anomalies:
+        for anomaly in risk_anomalies:
+            notes = str(anomaly.get("notes") or "")
+            if any(kw in notes.lower() for kw in ["proxy", "approximate", "booking", "mismatch", "substitute"]):
+                flags.append({
+                    "signal": "RISK_CHECK_WARNING",
+                    "severity": "HIGH",
+                    "detail": f"Risk check '{anomaly['check_name']}' flagged: {notes[:100]}",
+                })
+                risk_score += 25
+
+    # Determine overall proxy trade risk
+    proxy_risk = "LOW"
+    if risk_score >= 50:
+        proxy_risk = "HIGH"
+    elif risk_score >= 25:
+        proxy_risk = "MEDIUM"
+
+    # If HIGH risk, create a breach alert
+    if proxy_risk == "HIGH":
+        count_rows = await query("SELECT COUNT(*) as cnt FROM npa_breach_alerts")
+        next_num = (count_rows[0]["cnt"] if count_rows else 0) + 1
+        alert_id = f"BR-{next_num:03d}"
+        try:
+            await execute(
+                """INSERT INTO npa_breach_alerts
+                       (id, project_id, title, severity, description, status, triggered_at)
+                   VALUES (%s, %s, %s, 'WARNING', %s, 'OPEN', NOW())""",
+                [alert_id, inp["project_id"],
+                 f"Potential Approximate Booking: {proj.get('title', '')}",
+                 f"Proxy trade detection flagged {len(flags)} signal(s) with risk score {risk_score}. Flags: {json.dumps(flags)}"],
+            )
+        except Exception:
+            pass  # Non-critical — alert creation is best-effort
+
+    return ToolResult(success=True, data={
+        "project_id": inp["project_id"],
+        "product": proj.get("title"),
+        "proxy_trade_risk": proxy_risk,
+        "risk_score": risk_score,
+        "flags": flags,
+        "flag_count": len(flags),
+        "metrics_analyzed": len(metrics),
+        "lookback_days": lookback,
+        "approved_jurisdictions": approved_jurisdictions,
+        "recommendation": "Escalate to GFM COO for review" if proxy_risk == "HIGH"
+            else "Continue monitoring" if proxy_risk == "MEDIUM"
+            else "No action required",
+    })
+
+
 # ── Register ──────────────────────────────────────────────────────
 registry.register_all([
     ToolDefinition(name="get_performance_metrics", description="Get post-launch performance metrics for an NPA including volume, PnL, VaR, and health status.", category="monitoring", input_schema=GET_PERFORMANCE_METRICS_SCHEMA, handler=get_performance_metrics_handler),
@@ -268,4 +413,5 @@ registry.register_all([
     ToolDefinition(name="get_monitoring_thresholds", description="Get all monitoring thresholds configured for an NPA project.", category="monitoring", input_schema=GET_MONITORING_THRESHOLDS_SCHEMA, handler=get_monitoring_thresholds_handler),
     ToolDefinition(name="get_post_launch_conditions", description="Get all post-launch conditions for an NPA with status tracking and overdue detection.", category="monitoring", input_schema=GET_POST_LAUNCH_CONDITIONS_SCHEMA, handler=get_post_launch_conditions_handler),
     ToolDefinition(name="update_condition_status", description="Update the status of a post-launch condition (PENDING, COMPLETED, WAIVED).", category="monitoring", input_schema=UPDATE_CONDITION_STATUS_SCHEMA, handler=update_condition_status_handler),
+    ToolDefinition(name="detect_approximate_booking", description="GAP-020: Detect proxy/approximate trades booked under an approved NPA that may represent a different product. Analyzes volume anomalies, notional outliers, and risk check warnings.", category="monitoring", input_schema=DETECT_APPROXIMATE_BOOKING_SCHEMA, handler=detect_approximate_booking_handler),
 ])

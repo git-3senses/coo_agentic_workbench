@@ -110,4 +110,62 @@ export class ApprovalService {
     makeDecision(npaId: string, party: string, decision: { decision: string; comments?: string; conditions_imposed?: string }): Observable<any> {
         return this.http.post(`${this.apiUrl}/npas/${npaId}/signoffs/${encodeURIComponent(party)}/decide`, decision);
     }
+
+    // ============================================================
+    // SPRINT 1: Server-Side Transition Endpoints (GAP-013)
+    // These replace local state mutations in approval-dashboard
+    // ============================================================
+    private transitionsUrl = '/api/transitions';
+
+    submitNpa(npaId: string, actorName: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/submit`, { actor_name: actorName });
+    }
+
+    resubmitNpa(npaId: string, actorName: string, changesMade?: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/resubmit`, { actor_name: actorName, changes_made: changesMade });
+    }
+
+    checkerApprove(npaId: string, actorName: string, comments?: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/checker-approve`, { actor_name: actorName, comments });
+    }
+
+    checkerReturn(npaId: string, actorName: string, reason: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/checker-return`, { actor_name: actorName, reason });
+    }
+
+    requestRework(npaId: string, actorName: string, party: string, reason: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/request-rework`, { actor_name: actorName, party, reason });
+    }
+
+    finalApprove(npaId: string, actorName: string, comments?: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/final-approve`, { actor_name: actorName, comments });
+    }
+
+    rejectNpa(npaId: string, actorName: string, reason: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/reject`, { actor_name: actorName, reason });
+    }
+
+    withdrawNpa(npaId: string, actorName: string, reason?: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/withdraw`, { actor_name: actorName, reason });
+    }
+
+    launchNpa(npaId: string, actorName: string): Observable<any> {
+        return this.http.post(`${this.transitionsUrl}/${npaId}/launch`, { actor_name: actorName });
+    }
+
+    // ============================================================
+    // SPRINT 4: Conditional Approval (GAP-015)
+    // ============================================================
+
+    approveConditional(npaId: string, party: string, payload: { actor_name: string; conditions: Array<{ condition_text: string; due_date?: string }> }): Observable<any> {
+        return this.http.post(`${this.apiUrl}/npas/${npaId}/signoffs/${encodeURIComponent(party)}/approve-conditional`, payload);
+    }
+
+    getConditions(npaId: string): Observable<any[]> {
+        return this.http.get<any[]>(`${this.apiUrl}/npas/${npaId}/conditions`);
+    }
+
+    updateCondition(npaId: string, condId: number, payload: { status: string; met_date?: string }): Observable<any> {
+        return this.http.put(`${this.apiUrl}/npas/${npaId}/conditions/${condId}`, payload);
+    }
 }

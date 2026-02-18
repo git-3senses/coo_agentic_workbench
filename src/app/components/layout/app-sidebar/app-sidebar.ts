@@ -62,6 +62,26 @@ import { LayoutService } from '../../../services/layout.service';
                     <lucide-icon name="file-check" class="w-4 h-4 flex-none"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">New Product Approval</span>
                 </a>
+                <a routerLink="/functions/escalations" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                    <lucide-icon name="alert-triangle" class="w-4 h-4 flex-none text-rose-500"></lucide-icon>
+                    <span *ngIf="!isCollapsed()" class="truncate">Escalation Queue</span>
+                </a>
+                <a routerLink="/functions/pir" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                    <lucide-icon name="clipboard-check" class="w-4 h-4 flex-none text-purple-500"></lucide-icon>
+                    <span *ngIf="!isCollapsed()" class="truncate">Post-Implementation Review</span>
+                </a>
+                <a routerLink="/functions/evergreen" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                    <lucide-icon name="refresh-cw" class="w-4 h-4 flex-none text-emerald-500"></lucide-icon>
+                    <span *ngIf="!isCollapsed()" class="truncate">Evergreen Products</span>
+                </a>
+                <a routerLink="/functions/bundling" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                    <lucide-icon name="package" class="w-4 h-4 flex-none text-blue-500"></lucide-icon>
+                    <span *ngIf="!isCollapsed()" class="truncate">Bundling Assessment</span>
+                </a>
+                <a routerLink="/functions/documents" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                    <lucide-icon name="file-stack" class="w-4 h-4 flex-none text-blue-500"></lucide-icon>
+                    <span *ngIf="!isCollapsed()" class="truncate">Document Manager</span>
+                </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="users" class="w-4 h-4 flex-none"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">DCE Client Services</span>

@@ -408,22 +408,22 @@ if stage1_classification == "Existing" AND original_status == "Expired":
     approval_track = "Full NPA"
 ```
 
-**Branch 8: Bundling Detected → Conditional**
+**Branch 8: Bundling Detected → Eligibility Check**
 ```
 if bundling_detected:
-  bundling_conditions_met = check_bundling_conditions()  # 8 conditions
+  # Run 8-condition eligibility assessment (MCP: bundling_assess)
+  eligibility = bundling_assess(child_id, parent_id)
 
-  if ALL(bundling_conditions_met):
+  if eligibility.conditions_passed == 8:
     approval_track = "Bundling Approval"
     approver = "Arbitration Team"
-    reasoning = "All bundling conditions satisfied"
+    reasoning = "All 8 bundling eligibility conditions satisfied"
+  elif eligibility.conditions_passed >= 6:
+    approval_track = "NPA Lite"
+    reasoning = f"{eligibility.conditions_passed}/8 conditions met — minor differences"
   else:
-    # Route based on highest risk component
-    highest_risk = max(component.risk for component in bundle_components)
-    if highest_risk == "NTG":
-      approval_track = "Full NPA"
-    elif highest_risk == "Variation":
-      approval_track = "NPA Lite"
+    approval_track = "Full NPA"
+    reasoning = f"Only {eligibility.conditions_passed}/8 conditions met — significant differences"
 ```
 
 **Branch 9: Prohibited → HARD STOP**
@@ -572,11 +572,12 @@ if prohibited_list_check IN ["Internal Policy", "Regulatory", "Sanctions"]:
   display_message = f"❌ HARD STOP: {prohibition_reason}. Contact Compliance."
 ```
 
-### Override 3: Bundling Detection
+### Override 3: Bundling Detection & Eligibility
 
-**8 Bundling Conditions**:
+**Step 1 — Bundling Detection (8 Signals)**:
+If ANY of these signals are detected, flag the product for bundling assessment:
 ```
-bundling_conditions = {
+bundling_detection_signals = {
   1: "Product references >1 underlying",
   2: "User mentions 'package', 'suite', 'bundle', 'combined'",
   3: "Multiple product types mentioned",
@@ -587,10 +588,55 @@ bundling_conditions = {
   8: "Reference to bundled NPA (e.g., 'similar to NPA12345' where NPA12345 was bundled)"
 }
 
-if ANY(bundling_conditions):
+if ANY(bundling_detection_signals):
   bundling_flag = TRUE
-  approval_track = "Bundling Submission"
-  special_handling = "Arbitration Team reviews"
+  # Proceed to Step 2: Eligibility Assessment
+```
+
+**Step 2 — Bundling Eligibility Assessment (8 Conditions)**:
+ALL 8 conditions must PASS for the Bundling track. Use MCP tool `bundling_assess` with `parent_id`:
+```
+bundling_eligibility = {
+  1: "approved_parent":       Parent NPA exists AND status = 'Approved' or 'Active',
+  2: "same_category":         Child product_category == Parent product_category,
+  3: "no_new_risk":           No new risk types detected vs parent risk checks,
+  4: "within_notional_limit": Child notional <= Parent notional * 1.5 (150% cap),
+  5: "same_booking_entity":   Child booking_entity == Parent booking_entity,
+  6: "same_jurisdictions":    Child jurisdictions are SUBSET of parent jurisdictions,
+  7: "no_new_counterparty":   No new counterparty types vs parent,
+  8: "operational_capacity":  Current active NPAs for entity < 50 (ops threshold)
+}
+
+if ALL(bundling_eligibility):
+  approval_track = "Bundling Approval"
+  recommendation = "BUNDLING"
+  approver = "Arbitration Team reviews"
+elif conditions_passed >= 6:
+  recommendation = "NPA_LITE"
+  reasoning = "Most conditions met; minor differences — NPA Lite sufficient"
+else:
+  recommendation = "FULL_NPA"
+  reasoning = "Significant differences from parent — Full NPA required"
+```
+
+**Bundling Assessment Output Format**:
+```json
+{
+  "eligible": true,
+  "conditions": [
+    {"condition": "approved_parent", "passed": true, "detail": "Parent TSG1917 status: Active"},
+    {"condition": "same_category", "passed": true, "detail": "Both: FX Derivatives"},
+    {"condition": "no_new_risk", "passed": true, "detail": "0 new risk types"},
+    {"condition": "within_notional_limit", "passed": true, "detail": "$30M vs $50M parent (60%)"},
+    {"condition": "same_booking_entity", "passed": true, "detail": "Both: DBS Singapore"},
+    {"condition": "same_jurisdictions", "passed": true, "detail": "SG subset of SG,HK"},
+    {"condition": "no_new_counterparty", "passed": true, "detail": "Same counterparty type"},
+    {"condition": "operational_capacity", "passed": true, "detail": "12 active < 50 limit"}
+  ],
+  "recommendation": "BUNDLING",
+  "conditions_passed": 8,
+  "conditions_total": 8
+}
 ```
 
 ### Override 4: Evergreen Limits
@@ -868,9 +914,9 @@ WHERE id = 'TSG1917';
 | Existing | Dormant <3Y | Fast-Track (48h) |
 | Existing | Expired | NPA Lite - Reactivation |
 
-### Bundling Conditions (8 Rules)
-| # | Condition | Example |
-|---|-----------|---------|
+### Bundling Detection Signals (8 Triggers)
+| # | Signal | Example |
+|---|--------|---------|
 | 1 | >1 underlying | "Basket option on 5 stocks" |
 | 2 | Package keywords | "suite", "bundle", "combined" |
 | 3 | Multiple product types | "Swap + Option" |
@@ -879,6 +925,18 @@ WHERE id = 'TSG1917';
 | 6 | Multiple booking desks | "Singapore desk + London desk" |
 | 7 | Phased rollout | "Phase 1 SG, Phase 2 HK" |
 | 8 | Reference to bundled NPA | "Similar to NPA12345" (where NPA12345 was bundled) |
+
+### Bundling Eligibility Assessment (8 Conditions — ALL Must Pass)
+| # | Condition | Check Logic |
+|---|-----------|-------------|
+| 1 | Approved parent exists | Parent NPA status = Approved/Active |
+| 2 | Same product category | Child category matches parent |
+| 3 | No new risk types | No risk types absent from parent |
+| 4 | Within notional limit | Child notional <= 150% of parent |
+| 5 | Same booking entity | Booking entity unchanged |
+| 6 | Same jurisdictions | Child jurisdictions subset of parent |
+| 7 | No new counterparty type | Counterparty types unchanged |
+| 8 | Operational capacity | Active NPA count < 50 per entity |
 
 ---
 

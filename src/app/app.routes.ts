@@ -5,6 +5,10 @@ import { PlaceholderComponent } from './components/placeholder/placeholder.compo
 
 export const routes: Routes = [
     {
+        path: 'login',
+        loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent)
+    },
+    {
         path: '',
         component: MainLayoutComponent,
         children: [
@@ -50,6 +54,28 @@ export const routes: Routes = [
 
             // Work Items
             { path: 'work-items', component: PlaceholderComponent },
+
+            // Sprint 4+5: New functional pages
+            {
+                path: 'functions/escalations',
+                loadComponent: () => import('./pages/escalation-queue/escalation-queue.component').then(m => m.EscalationQueueComponent)
+            },
+            {
+                path: 'functions/pir',
+                loadComponent: () => import('./pages/pir-management/pir-management.component').then(m => m.PirManagementComponent)
+            },
+            {
+                path: 'functions/evergreen',
+                loadComponent: () => import('./pages/evergreen-dashboard/evergreen-dashboard.component').then(m => m.EvergreenDashboardComponent)
+            },
+            {
+                path: 'functions/bundling',
+                loadComponent: () => import('./pages/bundling-assessment/bundling-assessment.component').then(m => m.BundlingAssessmentComponent)
+            },
+            {
+                path: 'functions/documents',
+                loadComponent: () => import('./pages/document-manager/document-manager.component').then(m => m.DocumentManagerComponent)
+            },
 
             // COO Functions
             { path: 'functions/desk-support', component: PlaceholderComponent },

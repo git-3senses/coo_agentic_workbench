@@ -142,28 +142,60 @@ router.post('/projects', async (req, res) => {
 });
 
 // Save Classification Result
+// SPRINT 0 (GAP-003): NTG products are ALWAYS forced to FULL_NPA track regardless of classifier output
 router.post('/classification', async (req, res) => {
-    const { projectId, totalScore, calculatedTier, breakdown, overrideReason } = req.body;
+    const { projectId, totalScore, calculatedTier, breakdown, overrideReason, approvalTrack } = req.body;
     try {
         const [result] = await db.query(
-            `INSERT INTO npa_classification_scorecards 
-            (project_id, total_score, calculated_tier, breakdown, override_reason) 
+            `INSERT INTO npa_classification_scorecards
+            (project_id, total_score, calculated_tier, breakdown, override_reason)
             VALUES (?, ?, ?, ?, ?)`,
             [projectId, totalScore, calculatedTier, JSON.stringify(breakdown), overrideReason]
         );
 
-        // Also update the main project npa_type
+        // Sprint 0 (GAP-003): Determine approval track with NTG→FULL_NPA enforcement
+        let finalApprovalTrack = approvalTrack || null;
+        let trackOverrideReason = null;
+
+        if (calculatedTier === 'New-to-Group') {
+            // NTG MUST use Full NPA — no exceptions per Standard §2.1.1
+            if (finalApprovalTrack && finalApprovalTrack !== 'FULL_NPA') {
+                trackOverrideReason = `NTG auto-override: classifier suggested ${finalApprovalTrack}, forced to FULL_NPA per Standard §2.1.1`;
+                console.warn(`[GAP-003] NTG override for project ${projectId}: ${finalApprovalTrack} → FULL_NPA`);
+            }
+            finalApprovalTrack = 'FULL_NPA';
+        }
+
+        // Also update the main project npa_type and approval_track
         await db.query(
-            'UPDATE npa_projects SET npa_type = ?, is_cross_border = ?, risk_level = ? WHERE id = ?',
+            `UPDATE npa_projects
+             SET npa_type = ?, is_cross_border = ?, risk_level = ?, approval_track = ?
+             WHERE id = ?`,
             [
                 calculatedTier,
-                JSON.stringify(breakdown).includes('cross-border') || JSON.stringify(breakdown).includes('international'), // Heuristic
+                JSON.stringify(breakdown).includes('cross-border') || JSON.stringify(breakdown).includes('international'),
                 calculatedTier === 'New-to-Group' ? 'HIGH' : calculatedTier === 'Variation' ? 'MEDIUM' : 'LOW',
+                finalApprovalTrack,
                 projectId
             ]
         );
 
-        res.json({ id: result.insertId, status: 'SAVED' });
+        // Log the override to audit trail if it happened
+        if (trackOverrideReason) {
+            await db.query(
+                `INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action)
+                 VALUES (?, 'SYSTEM', 'NTG_TRACK_OVERRIDE', ?, 0)`,
+                [projectId, trackOverrideReason]
+            );
+        }
+
+        res.json({
+            id: result.insertId,
+            status: 'SAVED',
+            approval_track: finalApprovalTrack,
+            track_overridden: !!trackOverrideReason,
+            override_reason: trackOverrideReason
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

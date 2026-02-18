@@ -125,6 +125,7 @@ DETERMINE_TRACK_SCHEMA = {
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
         "approval_track": {"type": "string", "enum": ["FULL_NPA", "NPA_LITE", "BUNDLING", "EVERGREEN", "PROHIBITED"], "description": "Determined approval track"},
+        "approval_track_subtype": {"type": "string", "enum": ["B1", "B2", "B3", "B4"], "description": "NPA Lite sub-type (B1=2 SOPs, B2=3, B3=4, B4=full). Only applicable when track is NPA_LITE."},
         "reasoning": {"type": "string", "description": "Explanation for the track determination"},
     },
     "required": ["project_id", "approval_track", "reasoning"],
@@ -132,22 +133,58 @@ DETERMINE_TRACK_SCHEMA = {
 
 
 async def classify_determine_track_handler(inp: dict) -> ToolResult:
-    await execute(
-        "UPDATE npa_projects SET approval_track = %s WHERE id = %s",
-        [inp["approval_track"], inp["project_id"]],
-    )
+    track = inp["approval_track"]
+    ntg_override = False
 
-    if inp["approval_track"] == "PROHIBITED":
+    # GAP-003 belt-and-suspenders: NTG products MUST go through FULL_NPA per Standard §2.1.1
+    project = await query("SELECT npa_type FROM npa_projects WHERE id = %s", [inp["project_id"]])
+    if project and project[0].get("npa_type") == "New-to-Group" and track != "FULL_NPA":
+        track = "FULL_NPA"
+        ntg_override = True
+
+    # GAP-014: Persist sub-type for NPA Lite (B1-B4)
+    subtype = inp.get("approval_track_subtype")
+    if track == "NPA_LITE" and subtype in ("B1", "B2", "B3", "B4"):
+        try:
+            await execute(
+                "UPDATE npa_projects SET approval_track = %s, approval_track_subtype = %s WHERE id = %s",
+                [track, subtype, inp["project_id"]],
+            )
+        except Exception:
+            # Graceful fallback if column not yet migrated
+            await execute(
+                "UPDATE npa_projects SET approval_track = %s WHERE id = %s",
+                [track, inp["project_id"]],
+            )
+    else:
+        await execute(
+            "UPDATE npa_projects SET approval_track = %s WHERE id = %s",
+            [track, inp["project_id"]],
+        )
+
+    if track == "PROHIBITED":
         await execute(
             "UPDATE npa_projects SET status = 'STOPPED', current_stage = 'PROHIBITED' WHERE id = %s",
             [inp["project_id"]],
         )
 
+    if ntg_override:
+        await execute(
+            """INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action, agent_name)
+               VALUES (%s, 'SYSTEM', 'NTG_TRACK_OVERRIDE', %s, 1, 'CLASSIFICATION_AGENT')""",
+            [inp["project_id"],
+             json.dumps({"original_track": inp["approval_track"], "forced_track": "FULL_NPA",
+                          "reason": "Standard §2.1.1: New-to-Group products require FULL_NPA"})],
+        )
+
     return ToolResult(success=True, data={
         "project_id": inp["project_id"],
-        "approval_track": inp["approval_track"],
+        "approval_track": track,
+        "approval_track_subtype": subtype if track == "NPA_LITE" else None,
+        "original_track": inp["approval_track"] if ntg_override else None,
+        "ntg_override_applied": ntg_override,
         "reasoning": inp["reasoning"],
-        "is_prohibited": inp["approval_track"] == "PROHIBITED",
+        "is_prohibited": track == "PROHIBITED",
     })
 
 

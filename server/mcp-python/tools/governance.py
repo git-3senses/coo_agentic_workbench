@@ -82,6 +82,8 @@ CREATE_SIGNOFF_MATRIX_SCHEMA = {
 
 async def governance_create_signoff_matrix_handler(inp: dict) -> ToolResult:
     results = []
+    parties_added = set()
+
     for signoff in inp["signoffs"]:
         sla_hours = signoff.get("sla_hours", 72)
         sla_deadline = datetime.now(timezone.utc) + timedelta(hours=sla_hours)
@@ -93,6 +95,7 @@ async def governance_create_signoff_matrix_handler(inp: dict) -> ToolResult:
             [inp["project_id"], signoff["party"], signoff["department"],
              signoff["approver_name"], signoff.get("approver_email"), sla_str],
         )
+        parties_added.add(signoff["party"])
         results.append({
             "id": row_id,
             "party": signoff["party"],
@@ -100,10 +103,43 @@ async def governance_create_signoff_matrix_handler(inp: dict) -> ToolResult:
             "sla_deadline": sla_deadline.isoformat(),
         })
 
+    # GAP-012: Notional threshold-based additional signoffs
+    project = await query(
+        "SELECT notional_amount FROM npa_projects WHERE id = %s", [inp["project_id"]]
+    )
+    notional = float(project[0].get("notional_amount") or 0) if project else 0
+    threshold_additions = []
+    if notional > 20_000_000:
+        threshold_additions.append({"party": "ROAE Reviewer", "dept": "Finance", "sla": 72})
+    if notional > 50_000_000:
+        threshold_additions.append({"party": "Finance VP", "dept": "Finance", "sla": 72})
+    if notional > 100_000_000:
+        threshold_additions.append({"party": "CFO", "dept": "Finance", "sla": 96})
+
+    for ta in threshold_additions:
+        if ta["party"] not in parties_added:
+            sla_deadline = datetime.now(timezone.utc) + timedelta(hours=ta["sla"])
+            sla_str = sla_deadline.strftime("%Y-%m-%d %H:%M:%S")
+            row_id = await execute(
+                """INSERT INTO npa_signoffs (project_id, party, department, status, approver_name, sla_deadline, created_at)
+                   VALUES (%s, %s, %s, 'PENDING', %s, %s, NOW())""",
+                [inp["project_id"], ta["party"], ta["dept"], "TBD (Notional Threshold)", sla_str],
+            )
+            parties_added.add(ta["party"])
+            results.append({
+                "id": row_id,
+                "party": ta["party"],
+                "approver": "TBD (Notional Threshold)",
+                "sla_deadline": sla_deadline.isoformat(),
+                "added_by": "NOTIONAL_THRESHOLD",
+            })
+
     return ToolResult(success=True, data={
         "project_id": inp["project_id"],
         "signoffs_created": results,
         "count": len(results),
+        "notional_amount": notional,
+        "threshold_additions": len(threshold_additions),
     })
 
 

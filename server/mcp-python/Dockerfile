@@ -1,5 +1,5 @@
 # ─── NPA MCP Tools Server ─────────────────────────────────────
-# Python 3.12 server exposing 71 MCP tools via single port:
+# Python 3.12 server exposing 78 MCP tools via single port:
 #   - REST API + OpenAPI  at /tools, /openapi.json
 #   - MCP SSE transport   at /mcp/sse
 # ──────────────────────────────────────────────────────────────
@@ -26,12 +26,12 @@ COPY tools/ ./tools/
 RUN chown -R appuser:appuser /app
 USER appuser
 
-# Expose single port (REST + MCP SSE unified)
-EXPOSE 3002
+# Expose port (REST + MCP SSE unified) — Render sets PORT=10000
+EXPOSE 10000
 
-# Health check against REST API
+# Health check against REST API — uses PORT env var (defaults to 10000 for Render)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:3002/health')" || exit 1
+    CMD python3 -c "import os,urllib.request; urllib.request.urlopen(f'http://localhost:{os.getenv(\"PORT\",\"10000\")}/health')" || exit 1
 
 # Start both servers (MCP SSE + REST API)
 CMD ["python3", "start.py"]

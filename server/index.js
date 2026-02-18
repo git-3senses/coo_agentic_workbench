@@ -38,20 +38,47 @@ const riskChecksRoutes = require('./routes/risk-checks');
 const prerequisitesRoutes = require('./routes/prerequisites');
 const agentsRoutes = require('./routes/agents');
 const difyProxyRoutes = require('./routes/dify-proxy');
+const transitionsRoutes = require('./routes/transitions');
+const pirRoutes = require('./routes/pir');
+const bundlingRoutes = require('./routes/bundling');
+const evergreenRoutes = require('./routes/evergreen');
+const escalationsRoutes = require('./routes/escalations');
+const documentsRoutes = require('./routes/documents');
+const { startMonitor: startSlaMonitor } = require('./jobs/sla-monitor');
+const { startHealthMonitor, getHealthStatus } = require('./jobs/agent-health');
+const { auditMiddleware } = require('./middleware/audit');
+const { authMiddleware, router: authRoutes } = require('./middleware/auth');
 
-// Use Routes
-app.use('/api/governance', governanceRoutes);
-app.use('/api/npas', npasRoutes);
+// Global auth middleware — parses JWT and attaches req.user (non-blocking)
+app.use('/api', authMiddleware());
+
+// Auth routes (login, me) — must be before other routes
+app.use('/api/auth', authRoutes);
+
+// Use Routes — auditMiddleware auto-logs POST/PUT/PATCH/DELETE on success (GAP-017)
+app.use('/api/governance', auditMiddleware('GOV'), governanceRoutes);
+app.use('/api/npas', auditMiddleware('NPA'), npasRoutes);
 app.use('/api/users', usersRoutes);
-app.use('/api/approvals', approvalsRoutes);
+app.use('/api/approvals', auditMiddleware('APPROVAL'), approvalsRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/audit', auditRoutes);
-app.use('/api/classification', classificationRoutes);
-app.use('/api/risk-checks', riskChecksRoutes);
-app.use('/api/prerequisites', prerequisitesRoutes);
-app.use('/api/agents', agentsRoutes);
+app.use('/api/classification', auditMiddleware('CLASSIFY'), classificationRoutes);
+app.use('/api/risk-checks', auditMiddleware('RISK'), riskChecksRoutes);
+app.use('/api/prerequisites', auditMiddleware('PREREQ'), prerequisitesRoutes);
+app.use('/api/agents', auditMiddleware('AGENT'), agentsRoutes);
 app.use('/api/dify', difyProxyRoutes);
+app.use('/api/transitions', auditMiddleware('TRANSITION'), transitionsRoutes);
+app.use('/api/pir', auditMiddleware('PIR'), pirRoutes);
+app.use('/api/bundling', auditMiddleware('BUNDLING'), bundlingRoutes);
+app.use('/api/evergreen', auditMiddleware('EVERGREEN'), evergreenRoutes);
+app.use('/api/escalations', auditMiddleware('ESCALATION'), escalationsRoutes);
+app.use('/api/documents', auditMiddleware('DOCUMENT'), documentsRoutes);
+
+// GAP-022: Agent health endpoint — live Dify agent availability metrics
+app.get('/api/dify/agents/health', (req, res) => {
+    res.json(getHealthStatus());
+});
 
 // Health Check (always returns 200 so Railway healthcheck passes; DB status is informational)
 app.get('/api/health', async (req, res) => {
@@ -114,4 +141,10 @@ app.listen(PORT, '0.0.0.0', () => {
             console.warn('[DB KEEPALIVE] Ping failed:', err.message);
         }
     }, 60_000);
+
+    // ─── Sprint 3: SLA Monitor (GAP-006) — every 15 min ────────────────────────
+    startSlaMonitor(15 * 60 * 1000);
+
+    // ─── GAP-022: Agent Health Monitor — every 5 min ──────────────────────────
+    startHealthMonitor(5 * 60 * 1000);
 });

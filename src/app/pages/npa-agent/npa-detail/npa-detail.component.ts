@@ -17,7 +17,9 @@ import { RiskAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCom
 import { AutofillSummaryComponent } from '../../../components/npa/agent-results/autofill-summary.component';
 import { GovernanceStatusComponent } from '../../../components/npa/agent-results/governance-status.component';
 import { ClassificationResultComponent } from '../../../components/npa/agent-results/classification-result.component';
-import { catchError, of, timer } from 'rxjs';
+import { catchError, of, timer, forkJoin, Observable, EMPTY } from 'rxjs';
+import { concatMap, tap } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
@@ -67,6 +69,15 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                <span *ngIf="isCrossBorder" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
                 <lucide-icon name="globe" class="w-3 h-3 mr-1"></lucide-icon>
                 Cross-Border
+              </span>
+              <span *ngIf="isNtg" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border"
+                    [ngClass]="{
+                      'bg-green-50 text-green-700 border-green-200': pacStatus === 'Approved',
+                      'bg-amber-50 text-amber-700 border-amber-200': pacStatus === 'Pending' || pacStatus === 'N/A',
+                      'bg-red-50 text-red-700 border-red-200': pacStatus === 'Rejected'
+                    }">
+                <lucide-icon name="shield-check" class="w-3 h-3 mr-1"></lucide-icon>
+                PAC: {{ pacStatus }}
               </span>
             </div>
           </div>
@@ -630,6 +641,8 @@ export class NpaDetailComponent implements OnInit {
    }
 
    private npaService = inject(NpaService);
+   private http = inject(HttpClient);
+   private waveContext: Record<string, any> = {}; // Sprint 2: accumulated agent outputs between waves
 
    // Form sections loaded from API
    sections: any[] = [];
@@ -834,6 +847,18 @@ export class NpaDetailComponent implements OnInit {
       return type === 'NPA Lite' ? 'NPA Lite (Variation)' : (type === 'New-to-Group' ? 'New-to-Group (High Risk)' : 'Variation (Medium Risk)');
    }
 
+   get isNtg(): boolean {
+      return (this.projectData?.npa_type || this.npaContext?.track) === 'New-to-Group';
+   }
+
+   get pacStatus(): string {
+      return this.projectData?.pac_approval_status || 'N/A';
+   }
+
+   get pacBlocked(): boolean {
+      return this.isNtg && this.pacStatus !== 'Approved';
+   }
+
    tabs: { id: DetailTab, label: string, icon: string, badge?: string }[] = [
       { id: 'PRODUCT_SPECS', label: 'Proposal', icon: 'clipboard-list' },
       { id: 'DOCUMENTS', label: 'Docs', icon: 'folder-check', badge: '2' },
@@ -907,82 +932,143 @@ export class NpaDetailComponent implements OnInit {
       const inputs = this.buildWorkflowInputs();
       if (!inputs['project_id']) return;
       this._agentsLaunched = true;
+      this.waveContext = {};
 
       const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'AUTOFILL', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
       agents.forEach(a => this.agentLoading[a] = true);
 
-      // Helper to fire a single agent workflow
-      const fireAgent = (agentId: string, extraInputs: Record<string, any> = {}) => {
-         const agentInputs = { ...inputs, ...extraInputs };
+      // Sprint 2 (Obs 1+4): Wave dependency chain with inter-wave context passing
+      // W0: RISK (hard-stop check) → W1: CLASSIFIER + ML_PREDICT → W2: AUTOFILL + GOVERNANCE → W3: DOC_LIFECYCLE + MONITORING
+      // If RISK returns hard_stop=true, abort subsequent waves
+
+      const fireAgent = (agentId: string, extraInputs: Record<string, any> = {}): Observable<any> => {
+         const agentInputs = { ...inputs, ...this.waveContext, ...extraInputs };
          console.log(`[fireAgent] ${agentId} — sending request`);
-         this.difyService.runWorkflow(agentId, agentInputs).pipe(
+         return this.difyService.runWorkflow(agentId, agentInputs).pipe(
+            tap(res => {
+               this.agentLoading[agentId] = false;
+               console.log(`[fireAgent] ${agentId} — response status:`, res?.data?.status, 'outputs keys:', res?.data?.outputs ? Object.keys(res.data.outputs) : 'NONE');
+               if (res?.data?.status === 'succeeded') {
+                  this.handleAgentResult(agentId, res.data.outputs);
+                  // Accumulate outputs for next wave
+                  this.waveContext[`${agentId.toLowerCase()}_result`] = res.data.outputs;
+               } else {
+                  console.warn(`[fireAgent] ${agentId} — status not succeeded:`, res?.data?.status);
+               }
+            }),
             catchError(err => {
                console.error(`[fireAgent] ${agentId} — ERROR:`, err.status, err.message);
                this.agentErrors[agentId] = err.message || `${agentId} failed`;
+               this.agentLoading[agentId] = false;
                return of(null);
             })
-         ).subscribe(res => {
-            this.agentLoading[agentId] = false;
-            console.log(`[fireAgent] ${agentId} — response status:`, res?.data?.status, 'outputs keys:', res?.data?.outputs ? Object.keys(res.data.outputs) : 'NONE');
-            if (res?.data?.status === 'succeeded') {
-               this.handleAgentResult(agentId, res.data.outputs);
-            } else {
-               console.warn(`[fireAgent] ${agentId} — status not succeeded:`, res?.data?.status);
-            }
-         });
+         );
       };
 
-      // WAVE 1 — Core analysis (fire immediately): CLASSIFIER + ML_PREDICT + RISK
-      fireAgent('CLASSIFIER');
-      fireAgent('ML_PREDICT');
-
-      // WAVE 2 — 2s stagger: RISK + AUTOFILL
-      timer(2000).subscribe(() => {
-         fireAgent('RISK');
-         fireAgent('AUTOFILL');
-      });
-
-      // WAVE 3 — 4s stagger: GOVERNANCE + DOC_LIFECYCLE + MONITORING
-      // These 3 share the same Dify app (WF_NPA_Governance_Ops), so stagger them further
-      timer(4000).subscribe(() => {
-         fireAgent('GOVERNANCE', { agent_mode: 'GOVERNANCE' });
-      });
-      timer(5500).subscribe(() => {
-         fireAgent('DOC_LIFECYCLE', { agent_mode: 'DOC_LIFECYCLE' });
-      });
-      timer(7000).subscribe(() => {
-         fireAgent('MONITORING', { agent_mode: 'MONITORING' });
+      // W0: RISK first (hard-stop gate)
+      fireAgent('RISK').pipe(
+         concatMap(riskRes => {
+            // Check for hard stop from RISK agent
+            const riskOutputs = riskRes?.data?.outputs;
+            const hardStop = riskOutputs?.hard_stop === true || riskOutputs?.hardStop === true;
+            if (hardStop) {
+               console.warn('[WAVE] RISK hard-stop detected — aborting subsequent waves');
+               // Mark remaining agents as not loading
+               ['CLASSIFIER', 'ML_PREDICT', 'AUTOFILL', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING']
+                  .forEach(a => {
+                     this.agentLoading[a] = false;
+                     this.agentErrors[a] = 'Aborted: prohibited product detected by RISK agent';
+                  });
+               return EMPTY;
+            }
+            // W1: CLASSIFIER + ML_PREDICT (parallel)
+            return forkJoin([fireAgent('CLASSIFIER'), fireAgent('ML_PREDICT')]);
+         }),
+         concatMap(() => {
+            // W2: AUTOFILL + GOVERNANCE (parallel, with context from W1)
+            return forkJoin([
+               fireAgent('AUTOFILL'),
+               fireAgent('GOVERNANCE', { agent_mode: 'GOVERNANCE' })
+            ]);
+         }),
+         concatMap(() => {
+            // W3: DOC_LIFECYCLE + MONITORING (staggered because they share same Dify app)
+            return fireAgent('DOC_LIFECYCLE', { agent_mode: 'DOC_LIFECYCLE' }).pipe(
+               concatMap(() => fireAgent('MONITORING', { agent_mode: 'MONITORING' }))
+            );
+         })
+      ).subscribe({
+         complete: () => console.log('[WAVE] All agent waves completed'),
+         error: (err) => console.error('[WAVE] Wave pipeline error:', err)
       });
    }
 
    private handleAgentResult(agentId: string, outputs: any): void {
       console.log(`[handleAgentResult] ${agentId} — raw outputs keys:`, outputs ? Object.keys(outputs) : 'NULL');
+      const projectId = this.npaContext?.id;
       switch (agentId) {
          case 'CLASSIFIER':
             this.classificationResult = this.mapClassificationResult(outputs);
             console.log(`[handleAgentResult] CLASSIFIER mapped:`, this.classificationResult?.type, 'scores:', this.classificationResult?.scores?.length);
             this.updateTabBadge('ANALYSIS', null);
+            // Sprint 2: Persist classification result
+            if (projectId && this.classificationResult) {
+               this.persistAgentResult(projectId, 'classifier', {
+                  total_score: this.classificationResult.overallConfidence,
+                  calculated_tier: this.classificationResult.type,
+                  breakdown: this.classificationResult.scores,
+                  approval_track: this.classificationResult.track
+               });
+            }
             break;
          case 'ML_PREDICT':
             this.mlPrediction = this.mapMlPrediction(outputs);
             console.log(`[handleAgentResult] ML_PREDICT mapped: approval=${this.mlPrediction?.approvalLikelihood}, risk=${this.mlPrediction?.riskScore}`);
             this.updateTabBadge('ANALYSIS', null);
+            if (projectId && this.mlPrediction) {
+               this.persistAgentResult(projectId, 'ml-predict', {
+                  approval_likelihood: this.mlPrediction.approvalLikelihood,
+                  timeline_days: this.mlPrediction.timelineDays,
+                  bottleneck: this.mlPrediction.bottleneckDept,
+                  risk_score: this.mlPrediction.riskScore
+               });
+            }
             break;
          case 'RISK':
             this.riskAssessmentResult = this.mapRiskAssessment(outputs);
             console.log(`[handleAgentResult] RISK mapped:`, this.riskAssessmentResult ? `score=${this.riskAssessmentResult.overallScore}, layers=${this.riskAssessmentResult.layers?.length}` : 'NULL');
+            if (projectId && this.riskAssessmentResult) {
+               this.persistAgentResult(projectId, 'risk', {
+                  layers: this.riskAssessmentResult.layers?.map(l => ({
+                     check_layer: l.name, result: l.status, findings: l.checks
+                  })),
+                  overall_score: this.riskAssessmentResult.overallScore,
+                  hard_stop: this.riskAssessmentResult.hardStop
+               });
+            }
             break;
          case 'AUTOFILL':
             this.autoFillSummary = this.mapAutoFillSummary(outputs);
             this.updateTabBadge('PRODUCT_SPECS', null);
+            if (projectId && this.autoFillSummary?.fields?.length) {
+               this.persistAgentResult(projectId, 'autofill', {
+                  fields: this.autoFillSummary.fields.map(f => ({
+                     field_key: f.fieldName, value: f.value, confidence: f.confidence
+                  }))
+               });
+            }
             break;
          case 'GOVERNANCE': {
-            // Only overwrite DB-seeded data if agent returns meaningful signoffs
             const agentGov = this.mapGovernanceState(outputs);
             if (agentGov && agentGov.signoffs && agentGov.signoffs.length > 0) {
                this.governanceState = agentGov;
             }
             this.updateTabBadge('APPROVALS', null);
+            if (projectId && agentGov?.signoffs?.length) {
+               this.persistAgentResult(projectId, 'governance', {
+                  signoffs: agentGov.signoffs.map((s: any) => ({ party: s.party, department: s.department }))
+               });
+            }
             break;
          }
          case 'DOC_LIFECYCLE': {
@@ -991,6 +1077,13 @@ export class NpaDetailComponent implements OnInit {
                this.docCompleteness = agentDoc;
             }
             this.updateTabBadge('DOCUMENTS', null);
+            if (projectId && agentDoc) {
+               this.persistAgentResult(projectId, 'doc-lifecycle', {
+                  documents: agentDoc.missingDocs.map(d => ({
+                     document_name: d.docType, document_type: 'REQUIRED', status: 'PENDING', notes: d.reason
+                  }))
+               });
+            }
             break;
          }
          case 'MONITORING': {
@@ -999,9 +1092,24 @@ export class NpaDetailComponent implements OnInit {
                this.monitoringResult = agentMon;
             }
             this.updateTabBadge('MONITORING', null);
+            if (projectId && agentMon) {
+               this.persistAgentResult(projectId, 'monitoring', {
+                  thresholds: agentMon.metrics?.map(m => ({
+                     metric_name: m.name, warning_value: (m.threshold || 0) * 0.8, critical_value: m.threshold || 0
+                  }))
+               });
+            }
             break;
          }
       }
+   }
+
+   /** Sprint 2 (Obs 1): Fire-and-forget persist of agent results to DB */
+   private persistAgentResult(projectId: string, agentType: string, payload: any): void {
+      this.http.post(`/api/agents/npas/${projectId}/persist/${agentType}`, payload).subscribe({
+         next: () => console.log(`[persist] ${agentType} result saved`),
+         error: (err) => console.warn(`[persist] ${agentType} save failed:`, err.message || err.statusText)
+      });
    }
 
    // ─── Output Mapping Methods ─────────────────────────────────────

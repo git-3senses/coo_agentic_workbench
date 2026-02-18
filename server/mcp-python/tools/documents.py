@@ -224,10 +224,70 @@ async def validate_document_handler(inp: dict) -> ToolResult:
     })
 
 
+# ─── Tool 5: doc_lifecycle_validate ──────────────────────────────
+# Used by DOC_LIFECYCLE agent to run automated validation across all docs for an NPA
+
+DOC_LIFECYCLE_VALIDATE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "project_id": {"type": "string", "description": "NPA project ID"},
+        "validations": {
+            "type": "array",
+            "description": "Array of document validation results from the agent",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "Document ID"},
+                    "validation_status": {"type": "string", "enum": ["VALID", "INVALID", "WARNING"], "description": "Validation result"},
+                    "validation_stage": {"type": "string", "description": "Validation stage completed"},
+                    "validation_notes": {"type": "string", "description": "Notes / findings"},
+                },
+                "required": ["document_id", "validation_status"],
+            },
+        },
+    },
+    "required": ["project_id", "validations"],
+}
+
+
+async def doc_lifecycle_validate_handler(inp: dict) -> ToolResult:
+    results = []
+    for v in inp["validations"]:
+        docs = await query("SELECT id, document_name, validation_status FROM npa_documents WHERE id = %s AND project_id = %s",
+                           [v["document_id"], inp["project_id"]])
+        if not docs:
+            results.append({"document_id": v["document_id"], "error": "Not found"})
+            continue
+
+        await execute(
+            """UPDATE npa_documents
+               SET validation_status = %s, validation_stage = %s, validation_notes = %s
+               WHERE id = %s""",
+            [v["validation_status"], v.get("validation_stage"), v.get("validation_notes"), v["document_id"]],
+        )
+        results.append({
+            "document_id": v["document_id"],
+            "document_name": docs[0]["document_name"],
+            "previous_status": docs[0]["validation_status"],
+            "new_status": v["validation_status"],
+        })
+
+    # After validating all docs, check completeness
+    completeness = await check_document_completeness_handler({"project_id": inp["project_id"]})
+
+    return ToolResult(success=True, data={
+        "project_id": inp["project_id"],
+        "validations_applied": len([r for r in results if "error" not in r]),
+        "results": results,
+        "completeness": completeness.data if completeness.success else None,
+    })
+
+
 # ── Register ──────────────────────────────────────────────────────
 registry.register_all([
     ToolDefinition(name="upload_document_metadata", description="Record document metadata for an NPA (name, type, size, validation status). Does not handle file storage.", category="documents", input_schema=UPLOAD_DOCUMENT_METADATA_SCHEMA, handler=upload_document_metadata_handler),
     ToolDefinition(name="check_document_completeness", description="Check whether all required documents have been uploaded for an NPA, optionally filtered by stage.", category="documents", input_schema=CHECK_DOCUMENT_COMPLETENESS_SCHEMA, handler=check_document_completeness_handler),
     ToolDefinition(name="get_document_requirements", description="Get the master list of document requirements, optionally filtered by approval track and category.", category="documents", input_schema=GET_DOCUMENT_REQUIREMENTS_SCHEMA, handler=get_document_requirements_handler),
     ToolDefinition(name="validate_document", description="Validate a specific document and update its validation status and stage.", category="documents", input_schema=VALIDATE_DOCUMENT_SCHEMA, handler=validate_document_handler),
+    ToolDefinition(name="doc_lifecycle_validate", description="Batch-validate all documents for an NPA. Used by DOC_LIFECYCLE agent to run automated validation and check completeness.", category="documents", input_schema=DOC_LIFECYCLE_VALIDATE_SCHEMA, handler=doc_lifecycle_validate_handler),
 ])

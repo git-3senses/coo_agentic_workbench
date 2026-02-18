@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
 import { NpaProject, SignOffParty, SignOffDecision } from '../../lib/npa-interfaces';
 import { NpaService } from '../../services/npa.service';
+import { ApprovalService } from '../../services/approval.service';
 import { LucideAngularModule } from 'lucide-angular';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -153,6 +154,9 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
                                    <button (click)="approve(item)" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all mb-2 flex items-center justify-center gap-2">
                                        <lucide-icon name="check-circle" class="w-3.5 h-3.5"></lucide-icon> Sign Off
                                    </button>
+                                   <button (click)="approveWithConditions(item)" class="w-full px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all mb-2 flex items-center justify-center gap-2">
+                                       <lucide-icon name="list-checks" class="w-3.5 h-3.5"></lucide-icon> w/ Conditions
+                                   </button>
                                    <button (click)="requestRework(item)" class="w-full px-4 py-2 bg-white text-orange-600 border border-orange-200 hover:bg-orange-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
                                        <lucide-icon name="rotate-ccw" class="w-3.5 h-3.5"></lucide-icon> Rework
                                    </button>
@@ -229,6 +233,7 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
 export class ApprovalDashboardComponent {
    private userService = inject(UserService);
    private npaService = inject(NpaService);
+   private approvalService = inject(ApprovalService);
    private route = inject(ActivatedRoute);
 
    userRole = () => this.userService.currentUser().role;
@@ -297,6 +302,7 @@ export class ApprovalDashboardComponent {
    private mapStageToNpaStage(stage: string): any {
       const map: any = {
          'DRAFT': 'DRAFT',
+         'INITIATION': 'DRAFT',
          'PENDING_CHECKER': 'PENDING_CHECKER',
          'RETURNED_TO_MAKER': 'RETURNED_TO_MAKER',
          'PENDING_SIGN_OFFS': 'PENDING_SIGN_OFFS',
@@ -307,8 +313,13 @@ export class ApprovalDashboardComponent {
          'RISK_ASSESSMENT': 'PENDING_CHECKER',
          'DCE_REVIEW': 'PENDING_CHECKER',
          'LAUNCHED': 'APPROVED',
+         // Sprint 1 (GAP-007): New stages
+         'ESCALATED': 'ESCALATED',
+         'WITHDRAWN': 'WITHDRAWN',
+         'PIR_REQUIRED': 'PIR_REQUIRED',
+         'EXPIRED': 'EXPIRED',
       };
-      return map[stage] || 'DRAFT';
+      return map[stage] || stage;
    }
 
    private mapSignoffStatus(status: string): SignOffDecision {
@@ -455,44 +466,41 @@ export class ApprovalDashboardComponent {
       return true;
    }
 
-   // --- ACTIONS (Reuse logic) ---
+   // --- ACTIONS (Sprint 1: Now persisted via server-side transitions API) ---
 
    submit(item: NpaProject) {
-      if (item.stage === 'RETURNED_TO_MAKER') {
-         Object.keys(item.signOffMatrix).forEach(key => {
-            const k = key as SignOffParty;
-            if (item.signOffMatrix[k]?.status === 'REWORK_REQUIRED') {
-               item.signOffMatrix[k]!.status = 'PENDING';
-            }
-         });
-         item.stage = 'PENDING_SIGN_OFFS';
-      } else {
-         item.stage = 'PENDING_CHECKER';
-      }
-      this.updateFilteredItems(); // Force refresh
+      const actorName = item.submittedBy || 'Maker';
+      const call$ = item.stage === 'RETURNED_TO_MAKER'
+         ? this.approvalService.resubmitNpa(item.id, actorName)
+         : this.approvalService.submitNpa(item.id, actorName);
+
+      call$.subscribe({
+         next: () => this.reloadItems(),
+         error: (err) => alert(err.error?.error || 'Submit failed')
+      });
    }
 
    approve(item: NpaProject) {
       const role = this.userRole();
 
       if (role === 'CHECKER') {
-         item.stage = 'PENDING_SIGN_OFFS';
-         item.requiredSignOffs.forEach(p => {
-            if (!item.signOffMatrix[p]) {
-               item.signOffMatrix[p] = { party: p, status: 'PENDING', loopBackCount: 0 };
-            }
+         this.approvalService.checkerApprove(item.id, 'Checker').subscribe({
+            next: () => this.reloadItems(),
+            error: (err) => alert(err.error?.error || 'Checker approval failed')
          });
       }
       else if (this.isFunctionalApprover()) {
          const party = this.getPartyFromRole(role);
-         if (party && item.signOffMatrix[party]) {
-            item.signOffMatrix[party]!.status = 'APPROVED';
-            item.signOffMatrix[party]!.approvedDate = new Date();
-            item.signOffMatrix[party]!.approverName = 'You';
-            this.checkIfAllSignedOff(item);
+         if (party) {
+            this.approvalService.makeDecision(item.id, party, {
+               decision: 'APPROVED',
+               comments: 'Approved via dashboard'
+            }).subscribe({
+               next: () => this.reloadItems(),
+               error: (err) => alert(err.error?.error || 'Sign-off failed')
+            });
          }
       }
-      this.updateFilteredItems();
    }
 
    requestRework(item: NpaProject) {
@@ -500,30 +508,62 @@ export class ApprovalDashboardComponent {
       if (this.isFunctionalApprover()) {
          const party = this.getPartyFromRole(role);
          const comment = prompt('Enter Rework Comments (e.g. "Fix ROAE"):', 'Please clarify section 3.');
-         if (party && item.signOffMatrix[party] && comment) {
-            item.signOffMatrix[party]!.status = 'REWORK_REQUIRED';
-            item.signOffMatrix[party]!.comments = comment;
-            item.signOffMatrix[party]!.loopBackCount++;
-            item.stage = 'RETURNED_TO_MAKER';
+         if (party && comment) {
+            this.approvalService.requestRework(item.id, party, party, comment).subscribe({
+               next: (res) => {
+                  if (res.escalated) {
+                     alert(`Circuit breaker triggered! NPA escalated to ${res.escalation_level >= 3 ? 'Governance Forum' : 'Management'}.`);
+                  }
+                  this.reloadItems();
+               },
+               error: (err) => alert(err.error?.error || 'Rework request failed')
+            });
          }
       }
-      this.updateFilteredItems();
    }
 
    reject(item: NpaProject) {
-      if (confirm('Are you sure you want to completely REJECT this NPA?')) {
-         item.stage = 'REJECTED';
-         this.updateFilteredItems();
+      const reason = prompt('Enter rejection reason:');
+      if (reason) {
+         this.approvalService.rejectNpa(item.id, this.userRole(), reason).subscribe({
+            next: () => this.reloadItems(),
+            error: (err) => alert(err.error?.error || 'Rejection failed')
+         });
       }
+   }
+
+   approveWithConditions(item: NpaProject) {
+      const role = this.userRole();
+      const party = this.getPartyFromRole(role);
+      if (!party) return;
+      const conditionText = prompt('Enter condition (e.g. "Complete ROAE assessment within 30 days"):');
+      if (!conditionText) return;
+      const dueDateStr = prompt('Due date (YYYY-MM-DD, or leave empty):', '');
+      const conditions = [{ condition_text: conditionText, due_date: dueDateStr || undefined }];
+      this.approvalService.approveConditional(item.id, party, { actor_name: party, conditions }).subscribe({
+         next: () => this.reloadItems(),
+         error: (err) => alert(err.error?.error || 'Conditional approval failed')
+      });
    }
 
    finalApprove(item: NpaProject) {
       if (confirm('Grant Final Approval? Product will be LAUNCHED.')) {
-         item.stage = 'APPROVED';
-         item.finalApprover = 'COO';
-         item.finalApprovalDate = new Date();
-         this.updateFilteredItems();
+         this.approvalService.finalApprove(item.id, 'COO').subscribe({
+            next: () => this.reloadItems(),
+            error: (err) => alert(err.error?.error || 'Final approval failed')
+         });
       }
+   }
+
+   /** Reload all items from API after a transition */
+   private reloadItems() {
+      this.npaService.getAll().subscribe({
+         next: (npas) => {
+            this.items = npas.map(n => this.mapApiToNpaProject(n));
+            this.updateFilteredItems();
+         },
+         error: (err) => console.error('Failed to reload NPAs', err)
+      });
    }
 
    // --- HELPERS (Reuse) ---
@@ -553,15 +593,7 @@ export class ApprovalDashboardComponent {
       return !!(party && (item.signOffMatrix[party]?.status === 'PENDING' || item.signOffMatrix[party]?.status === 'REWORK_REQUIRED'));
    }
 
-   checkIfAllSignedOff(item: NpaProject) {
-      const allDone = item.requiredSignOffs.every(p => {
-         const status = item.signOffMatrix[p]?.status;
-         return status === 'APPROVED' || status === 'APPROVED_CONDITIONAL';
-      });
-      if (allDone) {
-         item.stage = 'PENDING_FINAL_APPROVAL';
-      }
-   }
+   // checkIfAllSignedOff is now handled server-side (transitions.js + approvals.js auto-advance)
 
    getBadgeClass(status: SignOffDecision) {
       switch (status) {
