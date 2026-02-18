@@ -1,6 +1,6 @@
 # ─── Render.com Blueprint ───────────────────────────────────────────────────
 # Deploys 2 web services from this monorepo:
-#   1. npa-workbench  — Angular 20 SPA + Express 5 API (Node 20)
+#   1. npa-workbench  — Angular 20 SPA + Express 5 API (Node 22)
 #   2. mcp-tools      — Python 3.12 MCP Tools Server (71 tools, FastAPI)
 #
 # Database: Railway MySQL (external) — already running with 42 tables.
@@ -18,7 +18,13 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: npm install && npm run build
+    # Build: install all deps (including devDeps for Angular CLI + TypeScript),
+    # then compile Angular SPA, then install server production deps.
+    # NOTE: Do NOT set NODE_ENV=production as an env var — Render reads it
+    # during `npm install` and skips devDependencies, causing `ng build` to
+    # fail with exit 127. Render automatically sets NODE_ENV=production at
+    # runtime without needing it in envVars.
+    buildCommand: npm install && npx ng build --configuration production && cd server && npm install --omit=dev
     startCommand: cd server && node index.js
     healthCheckPath: /api/health
     envVars:
@@ -50,9 +56,6 @@ services:
         sync: false
       - key: DIFY_KEY_DILIGENCE
         sync: false
-      # Node
-      - key: NODE_ENV
-        value: production
 
   # ── Service 2: MCP Tools Server (Python) ──────────────────────────────────
   - type: web
@@ -75,7 +78,9 @@ services:
         sync: false
       - key: DB_NAME
         sync: false
-      # Server config
+      # Server config — Render requires PORT=10000
+      - key: PORT
+        value: "10000"
       - key: REST_PORT
         value: "10000"
       - key: MCP_PORT
