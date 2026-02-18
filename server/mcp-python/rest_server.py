@@ -33,7 +33,8 @@ import tools  # noqa: E402, F401
 # Import the MCP server instance (already has all 71 tools registered)
 from main import mcp_server  # noqa: E402
 
-REST_PORT = int(os.getenv("REST_PORT", "3002"))
+# Render sets PORT=10000, Railway uses REST_PORT=3002
+REST_PORT = int(os.getenv("PORT", os.getenv("REST_PORT", "3002")))
 
 # ─── FastAPI REST app (with CORS middleware) ─────────────────────
 rest_app = FastAPI(
