@@ -90,8 +90,8 @@ export class NpaService {
      * GET NPA form data organized by sections (for template editor)
      */
     getFormSections(id: string): Observable<NpaFormSection[]> {
-        return this.http.get<{ sections: NpaFormSection[] }>(`${this.apiUrl}/${id}/form-sections`).pipe(
-            map(res => res.sections)
+        return this.http.get<any>(`${this.apiUrl}/${id}/form-sections`).pipe(
+            map(res => Array.isArray(res) ? res : (res.sections || []))
         );
     }
 
@@ -100,5 +100,13 @@ export class NpaService {
      */
     create(data: { title: string; description: string; npa_type?: string }): Observable<{ id: string }> {
         return this.http.post<{ id: string }>(this.apiUrl, data);
+    }
+
+    /**
+     * SEED a fully-equipped demo NPA with data across all 12 tables.
+     * This produces rich, non-zero results from all 7 Dify agents.
+     */
+    seedDemo(): Observable<{ id: string; status: string; message: string }> {
+        return this.http.post<{ id: string; status: string; message: string }>(`${this.apiUrl}/seed-demo`, {});
     }
 }

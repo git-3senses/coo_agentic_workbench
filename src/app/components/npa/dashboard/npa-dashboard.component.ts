@@ -10,6 +10,7 @@ import { AgentHealthPanelComponent } from './agent-health-panel.component';
 import { NpaPipelineTableComponent } from './npa-pipeline-table.component';
 import { UserService } from '../../../services/user.service';
 import { DashboardService } from '../../../services/dashboard.service';
+import { NpaService } from '../../../services/npa.service';
 import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
 
 @Component({
@@ -94,12 +95,16 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
                 <p class="text-sm font-semibold text-slate-500">You are in {{ userRole() }} mode.</p>
                 <p class="text-xs text-slate-400">Creation is disabled.</p>
              </div>
-             <div class="grid grid-cols-2 gap-2">
+             <div class="grid grid-cols-3 gap-2">
                 <button (click)="onContinueDraft()" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
                    <lucide-icon name="file-edit" class="w-3.5 h-3.5"></lucide-icon> Continue Draft
                 </button>
                 <button class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
                    <lucide-icon name="search" class="w-3.5 h-3.5"></lucide-icon> Search KB
+                </button>
+                <button (click)="onSeedDemo()" [disabled]="seedingDemo" class="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0 rounded-lg text-sm font-semibold hover:from-indigo-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-60">
+                   <lucide-icon [name]="seedingDemo ? 'loader-2' : 'sparkles'" class="w-3.5 h-3.5" [ngClass]="{'animate-spin': seedingDemo}"></lucide-icon>
+                   {{ seedingDemo ? 'Seeding...' : 'Demo NPA' }}
                 </button>
              </div>
           </div>
@@ -548,6 +553,7 @@ export class NpaDashboardComponent implements OnInit {
    private difyService = inject(DifyAgentService);
    private userService = inject(UserService);
    private dashboardService = inject(DashboardService);
+   private npaService = inject(NpaService);
 
    userRole = () => this.userService.currentUser().role;
 
@@ -556,6 +562,7 @@ export class NpaDashboardComponent implements OnInit {
    healthMetrics$ = this.difyService.getAgentHealth();
 
    expandedCardId: string | null = null;
+   seedingDemo = false;
 
    emptyMetrics: HealthMetrics = {
       status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0
@@ -605,6 +612,21 @@ export class NpaDashboardComponent implements OnInit {
 
    onContinueDraft() {
       this.navigateToDraft.emit();
+   }
+
+   onSeedDemo() {
+      this.seedingDemo = true;
+      this.npaService.seedDemo().subscribe({
+         next: (res) => {
+            this.seedingDemo = false;
+            console.log('[NpaDashboard] Demo NPA seeded:', res.id);
+            this.navigateToDetail.emit(res.id);
+         },
+         error: (err) => {
+            this.seedingDemo = false;
+            console.error('[NpaDashboard] Seed demo failed:', err);
+         }
+      });
    }
 
    onCardExpand(id: string) {

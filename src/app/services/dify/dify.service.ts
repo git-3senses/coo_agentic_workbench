@@ -1,6 +1,6 @@
 import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, delay, map, Subject, BehaviorSubject, catchError, retry, timer } from 'rxjs';
+import { Observable, of, delay, map, Subject, BehaviorSubject, catchError, retry, timer, retryWhen, mergeMap, throwError } from 'rxjs';
 import {
     AgentAction,
     AgentActivityUpdate,
@@ -553,6 +553,24 @@ export class DifyService {
             user: 'user-123',
             response_mode: 'blocking'
         }).pipe(
+            // Retry on transient errors: status 0 (socket hang up / abort),
+            // 502/503/504 (Dify rate limit / gateway errors)
+            retryWhen(errors => {
+                let attempt = 0;
+                const maxRetries = 3;
+                return errors.pipe(
+                    mergeMap(err => {
+                        attempt++;
+                        const retryable = err.status === 0 || err.status === 502 || err.status === 503 || err.status === 504;
+                        if (retryable && attempt <= maxRetries) {
+                            const delayMs = attempt * 3000; // 3s, 6s, 9s
+                            console.warn(`[DifyService] ${agentId} retry ${attempt}/${maxRetries} in ${delayMs}ms (status=${err.status})`);
+                            return timer(delayMs);
+                        }
+                        return throwError(() => err);
+                    })
+                );
+            }),
             map(res => {
                 this.agentActivity$.next({
                     agentId,
@@ -561,7 +579,8 @@ export class DifyService {
                 return res;
             }),
             catchError(err => {
-                console.error(`[DifyService] Workflow ${agentId} failed:`, err);
+                console.error(`[DifyService] Workflow ${agentId} failed after retries:`, err);
+                console.error(`[DifyService] ${agentId} error details — status: ${err.status}, statusText: ${err.statusText}, url: ${err.url}, message: ${err.message}`);
                 this.agentActivity$.next({ agentId, status: 'error' });
                 throw err;
             })

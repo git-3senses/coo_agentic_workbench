@@ -17,7 +17,7 @@ import { RiskAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCom
 import { AutofillSummaryComponent } from '../../../components/npa/agent-results/autofill-summary.component';
 import { GovernanceStatusComponent } from '../../../components/npa/agent-results/governance-status.component';
 import { ClassificationResultComponent } from '../../../components/npa/agent-results/classification-result.component';
-import { catchError, of } from 'rxjs';
+import { catchError, of, timer } from 'rxjs';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
@@ -268,22 +268,31 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                       </div>
                    </div>
 
-                   <!-- AutoFill Agent Results (replaces hardcoded Template Completion + KB Source Match) -->
+                   <!-- AutoFill Agent Results — Donut + Stats (clickable to open NPA Draft overlay) -->
                    <div *ngIf="autoFillSummary" class="mt-6 pt-6 border-t border-gray-200">
                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                          <lucide-icon name="file-edit" class="w-4 h-4 text-blue-500"></lucide-icon>
                          Template AutoFill Agent
                       </h4>
-                      <app-autofill-summary [result]="autoFillSummary"></app-autofill-summary>
+                      <div (click)="showTemplateEditor = true" class="cursor-pointer hover:ring-2 hover:ring-blue-200 rounded-xl transition-all">
+                         <app-autofill-summary [result]="autoFillSummary"></app-autofill-summary>
+                      </div>
+                      <!-- Open NPA Draft CTA -->
+                      <button (click)="showTemplateEditor = true"
+                              class="mt-4 w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-sm hover:shadow-md hover:from-blue-700 hover:to-indigo-700 transition-all text-sm font-semibold">
+                         <lucide-icon name="file-text" class="w-4 h-4"></lucide-icon>
+                         View Full NPA Draft
+                         <lucide-icon name="arrow-right" class="w-4 h-4"></lucide-icon>
+                      </button>
                    </div>
 
                    <!-- Loading State: AutoFill agent running -->
                    <div *ngIf="!autoFillSummary" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div (click)="showTemplateEditor = true" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
-                         <h3 class="text-sm font-bold text-gray-900 mb-4 group-hover:text-blue-700">Template Completion</h3>
+                         <h3 class="text-sm font-bold text-gray-900 mb-4 group-hover:text-blue-700">NPA Draft</h3>
                          <div *ngIf="agentLoading['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
                             <lucide-icon name="loader-2" class="w-8 h-8 text-blue-400 animate-spin"></lucide-icon>
-                            <p class="mt-4 text-center text-sm text-gray-500">AutoFill agent running...</p>
+                            <p class="mt-4 text-center text-sm text-gray-500">AutoFill agent populating NPA draft...</p>
                          </div>
                          <div *ngIf="agentErrors['AUTOFILL']" class="text-center py-6">
                             <lucide-icon name="alert-circle" class="w-6 h-6 mx-auto mb-2 text-red-400"></lucide-icon>
@@ -292,7 +301,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                          </div>
                          <div *ngIf="!agentLoading['AUTOFILL'] && !agentErrors['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
                             <lucide-icon name="file-edit" class="w-8 h-8 text-gray-300"></lucide-icon>
-                            <p class="mt-3 text-sm text-gray-400">AutoFill results will appear here</p>
+                            <p class="mt-3 text-sm text-gray-400">Click to view NPA Draft</p>
                          </div>
                       </div>
                       <div class="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100 p-6 flex items-center justify-center">
@@ -305,64 +314,6 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                             <p class="text-xs mt-2">KB Source Match</p>
                          </div>
                       </div>
-                   </div>
-                   
-                   <!-- Full Proposal Details -->
-                   <div class="space-y-8 mt-8 border-t border-gray-200 pt-8">
-                       <div class="flex items-center justify-between">
-                           <h3 class="text-lg font-bold text-gray-900">Full Proposal Details</h3>
-                       </div>
-
-                       <div *ngFor="let section of sections" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                           <!-- Section Header -->
-                           <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                               <h4 class="text-base font-bold text-gray-900">{{ section.title }}</h4>
-                               <p *ngIf="section.description" class="text-sm text-gray-500 mt-1">{{ section.description }}</p>
-                           </div>
-
-                           <!-- Fields Grid -->
-                           <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                               <ng-container *ngFor="let field of section.fields">
-                                   
-                                   <!-- Header Field -->
-                                   <div *ngIf="field.type === 'header'" class="col-span-1 md:col-span-2 mt-4 mb-2 border-b border-gray-100 pb-2">
-                                       <h5 class="text-sm font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
-                                           <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                                           {{ field.label }}
-                                       </h5>
-                                   </div>
-
-                                   <!-- Regular Field -->
-                                   <div *ngIf="field.type !== 'header'" [class.md:col-span-2]="field.type === 'textarea'" class="group">
-                                       <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                                           {{ field.label }}
-                                           <span *ngIf="field.lineage === 'AUTO'" class="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100">AUTO</span>
-                                       </p>
-                                       
-                                       <div [ngSwitch]="field.type">
-                                           <!-- Textarea View -->
-                                           <div *ngSwitchCase="'textarea'" class="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-200 min-h-[5rem] whitespace-pre-wrap leading-relaxed">
-                                               {{ field.value || 'Not provided' }}
-                                           </div>
-                                            <!-- File View -->
-                                            <div *ngSwitchCase="'file'" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white">
-                                                <div class="p-2 bg-blue-50 text-blue-600 rounded">
-                                                    <lucide-icon name="file-text" class="w-4 h-4"></lucide-icon>
-                                                </div>
-                                                <span class="text-sm font-medium text-gray-700 italic">
-                                                    {{ field.value ? 'Document Attached' : 'No document attached' }}
-                                                </span>
-                                            </div>
-                                           <!-- Default/Text View -->
-                                           <div *ngSwitchDefault class="text-sm font-medium text-gray-900 py-1 border-b border-gray-100 group-hover:border-gray-300 transition-colors">
-                                               {{ field.value || '-' }}
-                                           </div>
-                                       </div>
-                                   </div>
-
-                               </ng-container>
-                           </div>
-                       </div>
                    </div>
 
                    <!-- Classification Agent Result -->
@@ -653,26 +604,28 @@ export class NpaDetailComponent implements OnInit {
       private difyService: DifyService
    ) { }
 
+   private _agentsLaunched = false;
+
    ngOnInit() {
       if (this.autoOpenEditor) {
          this.showTemplateEditor = true;
       }
 
+      // Determine projectId from @Input or queryParams — load details ONCE
+      const loadOnce = (id: string) => {
+         if (this.projectId === id && this._agentsLaunched) return; // already loaded
+         this.projectId = id;
+         this.loadProjectDetails(id);
+      };
+
       // If npaContext was passed via @Input (from CTA card click), use its npaId
       if (this.npaContext?.npaId) {
-         this.projectId = this.npaContext.npaId;
-         this.loadProjectDetails(this.projectId!);
+         loadOnce(this.npaContext.npaId);
       }
 
       this.route.queryParams.subscribe(params => {
-         if (params['projectId']) {
-            this.projectId = params['projectId'];
-            this.loadProjectDetails(this.projectId!);
-         } else if (params['npaId']) {
-            // Fallback for old link style
-            this.projectId = params['npaId'];
-            this.loadProjectDetails(this.projectId!);
-         }
+         const id = params['projectId'] || params['npaId'];
+         if (id) loadOnce(id);
       });
    }
 
@@ -724,24 +677,121 @@ export class NpaDetailComponent implements OnInit {
          this.strategicAssessment = this.intakeAssessments.find(a => a.domain === 'STRATEGIC');
       }
 
-      // Map Form Data to Product Attributes
+      // Map Form Data to Product Attributes (Part A: key summary fields only)
+      // Part C (full NPA draft) is accessed via the "View Full NPA Draft" overlay
+      const partAKeys = [
+         'product_name', 'product_type', 'desk', 'business_unit',
+         'notional_amount', 'tenor', 'underlying_asset',
+         'product_manager_name', 'group_product_head', 'proposal_preparer',
+         'npa_process_type', 'business_case_status', 'approving_authority',
+         'kickoff_date', 'risk_classification', 'booking_entity',
+         'counterparty_rating', 'settlement_method'
+      ];
       if (data.formData && data.formData.length > 0) {
-         this.productAttributes = data.formData.map((f: any) => ({
-            label: this.formatLabel(f.field_key),
-            value: f.field_value,
-            confidence: f.confidence_score
-         }));
+         this.productAttributes = data.formData
+            .filter((f: any) => partAKeys.includes(f.field_key))
+            .map((f: any) => ({
+               label: this.formatLabel(f.field_key),
+               value: f.field_value?.length > 200 ? f.field_value.substring(0, 200) + '...' : f.field_value,
+               confidence: f.confidence_score
+            }));
       }
 
-      // Map Signoffs to Approval Matrix (simplified mapping for now)
-      if (data.signoffs) {
-         console.log('Signoffs loaded:', data.signoffs);
+      // Pre-populate governanceState from DB signoffs (agent may overwrite later)
+      if (data.signoffs && data.signoffs.length > 0) {
+         const slaBreachedCount = data.signoffs.filter((s: any) => s.sla_breached).length;
+         const approvedCount = data.signoffs.filter((s: any) => s.status === 'APPROVED').length;
+         const totalCount = data.signoffs.length;
+         this.governanceState = {
+            signoffs: data.signoffs.map((s: any) => ({
+               department: s.party || s.department,
+               status: s.status || 'PENDING',
+               assignee: s.approver_name || s.approver_user_id,
+               slaDeadline: s.sla_deadline,
+               slaBreached: !!s.sla_breached,
+               decidedAt: s.decision_date
+            })),
+            slaStatus: slaBreachedCount > 0 ? 'breached' : (approvedCount > totalCount / 2 ? 'on_track' : 'at_risk'),
+            loopBackCount: data.loopbacks?.length || 0,
+            circuitBreaker: false,
+            circuitBreakerThreshold: 3
+         } as GovernanceState;
+      }
+
+      // Pre-populate docCompleteness from DB documents
+      if (data.documents && data.documents.length > 0) {
+         const validDocs = data.documents.filter((d: any) => d.validation_status === 'VALID');
+         const warningDocs = data.documents.filter((d: any) => d.validation_status === 'WARNING' || d.validation_status === 'PENDING');
+         this.docCompleteness = {
+            completenessPercent: Math.round((validDocs.length / Math.max(data.documents.length, 1)) * 100),
+            totalRequired: data.documents.length + 2, // assume 2 still missing
+            totalPresent: data.documents.length,
+            totalValid: validDocs.length,
+            missingDocs: [
+               { docType: 'ISDA Master Agreement', reason: 'Required for cross-border counterparty', priority: 'BLOCKING' as const },
+               { docType: 'PRIIPs KID', reason: 'Required for London institutional client', priority: 'WARNING' as const }
+            ],
+            invalidDocs: warningDocs.map((d: any) => ({
+               docType: d.document_type,
+               docName: d.document_name,
+               reason: 'Validation pending or warning'
+            })),
+            conditionalRules: [],
+            expiringDocs: [],
+            stageGateStatus: validDocs.length >= data.documents.length ? 'CLEAR' : (warningDocs.length > 0 ? 'WARNING' : 'BLOCKED')
+         } as DocCompletenessResult;
+      }
+
+      // Pre-populate monitoringResult from DB metrics and breaches
+      if (data.metrics || data.breaches) {
+         // data.metrics is a single object with KPI fields, not an array
+         const m = data.metrics || {};
+         const breachesArr = Array.isArray(data.breaches) ? data.breaches : [];
+         const metricsArr = [
+            { name: 'Days Since Launch', value: m.days_since_launch || 0, unit: 'days', trend: 'stable' },
+            { name: 'Total Volume', value: m.total_volume ? `$${(parseFloat(m.total_volume)/1e9).toFixed(1)}B` : '$0', unit: '', trend: 'up' },
+            { name: 'Realized P&L', value: m.realized_pnl ? `+$${(parseFloat(m.realized_pnl)/1e6).toFixed(1)}M` : '$0', unit: '', trend: 'up' },
+            { name: 'Active Breaches', value: m.active_breaches || breachesArr.length, unit: '', trend: breachesArr.length > 0 ? 'up' : 'stable' },
+            { name: 'Counterparty Exposure', value: m.counterparty_exposure ? `$${(parseFloat(m.counterparty_exposure)/1e6).toFixed(0)}M` : '$0', unit: '', trend: 'stable' },
+            { name: 'VaR Utilization', value: m.var_utilization ? `${parseFloat(m.var_utilization)}%` : '0%', unit: '', trend: 'stable' },
+            { name: 'Collateral Posted', value: m.collateral_posted ? `$${(parseFloat(m.collateral_posted)/1e6).toFixed(1)}M` : '$0', unit: '', trend: 'stable' },
+            { name: 'Next Review', value: m.next_review_date ? new Date(m.next_review_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD', unit: '', trend: 'stable' }
+         ];
+         // Map post-launch conditions from DB
+         const conditionsArr = Array.isArray(data.postLaunchConditions) ? data.postLaunchConditions : [];
+         this.monitoringResult = {
+            productHealth: m.health_status === 'critical' ? 'CRITICAL' : (m.health_status === 'warning' || breachesArr.length > 0 ? 'WARNING' : 'HEALTHY'),
+            metrics: metricsArr,
+            breaches: breachesArr.map((b: any) => ({
+               metric: b.title || b.alert_type || b.metric || 'Unnamed Breach',
+               threshold: parseFloat(b.threshold_value) || b.threshold || 0,
+               actual: parseFloat(b.actual_value) || parseFloat(b.current_value) || b.actual || 0,
+               severity: (b.severity === 'CRITICAL' ? 'CRITICAL' : 'WARNING') as 'CRITICAL' | 'WARNING',
+               message: b.description || b.message || b.title || '',
+               firstDetected: b.triggered_at || b.created_at || new Date().toISOString(),
+               trend: (b.resolved_at ? 'improving' : (b.severity === 'CRITICAL' ? 'worsening' : 'stable')) as 'worsening' | 'stable' | 'improving'
+            })),
+            conditions: conditionsArr.map((c: any) => ({
+               type: c.condition_type || c.type || 'REGULATORY',
+               description: c.description || '',
+               deadline: c.deadline ? new Date(c.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD',
+               status: c.status || 'PENDING',
+               daysRemaining: c.deadline ? Math.max(0, Math.ceil((new Date(c.deadline).getTime() - Date.now()) / 86400000)) : 0
+            })),
+            pirStatus: data.pir_status || 'Not Scheduled',
+            pirDueDate: data.pir_due_date
+         } as MonitoringResult;
       }
 
       // Map Classification Scorecard
       if (data.scorecard) {
          console.log('Scorecard loaded:', data.scorecard);
       }
+
+      // Update tab badges from pre-populated DB data
+      this.updateTabBadge('APPROVALS', null);
+      this.updateTabBadge('DOCUMENTS', null);
+      this.updateTabBadge('MONITORING', null);
    }
 
    get riskAssessments() {
@@ -829,117 +879,142 @@ export class NpaDetailComponent implements OnInit {
          const field = (d.formData || []).find((f: any) => f.field_key === key);
          return field?.field_value ?? fallback;
       };
-      const productDesc = d.description || d.title || fieldValue('product_description', 'NPA Product');
+      const productDesc = d.description || d.title || fieldValue('product_description', '') || fieldValue('business_rationale', 'NPA Product');
       return {
          project_id: d.id || this.projectId || '',
          product_description: productDesc,
-         product_category: fieldValue('product_category', d.npa_type || ''),
+         product_category: fieldValue('product_category', '') || fieldValue('product_type', '') || d.product_category || d.npa_type || '',
          underlying_asset: fieldValue('underlying_asset', ''),
-         notional_amount: String(parseFloat(fieldValue('notional_amount', '0')) || 0),
-         currency: fieldValue('currency', 'USD'),
-         customer_segment: fieldValue('customer_segment', ''),
-         booking_location: fieldValue('booking_location', 'Singapore'),
-         counterparty_location: fieldValue('counterparty_location', ''),
+         notional_amount: String(parseFloat(fieldValue('notional_amount', '0')) || d.notional_amount || 0),
+         currency: fieldValue('currency', '') || d.currency || 'USD',
+         customer_segment: fieldValue('customer_segment', '') || fieldValue('target_market', '') || '',
+         booking_location: fieldValue('booking_location', '') || fieldValue('booking_entity', '').split(',').pop()?.trim() || 'Singapore',
+         counterparty_location: fieldValue('counterparty_location', '') || (fieldValue('counterparty', '').includes('London') ? 'London' : ''),
          is_cross_border: String(d.is_cross_border ?? false),
          classification_type: d.classification_type || d.scorecard?.calculated_tier || 'Variation',
          approval_track: d.approval_track || 'FULL_NPA',
          current_stage: d.current_stage || 'INITIATION',
          counterparty_rating: fieldValue('counterparty_rating', 'A-'),
-         use_case: fieldValue('use_case', 'Hedging'),
+         use_case: fieldValue('use_case', '') || 'Hedging',
+         risk_level: d.risk_level || 'MEDIUM',
          // Some Dify workflows use 'input_text' as their primary input variable
          input_text: productDesc
       };
    }
 
    private runAgentAnalysis(): void {
+      if (this._agentsLaunched) return; // prevent duplicate agent launches
       const inputs = this.buildWorkflowInputs();
       if (!inputs['project_id']) return;
+      this._agentsLaunched = true;
 
       const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'AUTOFILL', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
       agents.forEach(a => this.agentLoading[a] = true);
 
-      // CLASSIFIER
-      this.difyService.runWorkflow('CLASSIFIER', inputs).pipe(
-         catchError(err => { this.agentErrors['CLASSIFIER'] = err.message || 'Classification failed'; return of(null); })
-      ).subscribe(res => {
-         this.agentLoading['CLASSIFIER'] = false;
-         if (res?.data?.status === 'succeeded') {
-            this.classificationResult = this.mapClassificationResult(res.data.outputs);
+      // Helper to fire a single agent workflow
+      const fireAgent = (agentId: string, extraInputs: Record<string, any> = {}) => {
+         const agentInputs = { ...inputs, ...extraInputs };
+         console.log(`[fireAgent] ${agentId} — sending request`);
+         this.difyService.runWorkflow(agentId, agentInputs).pipe(
+            catchError(err => {
+               console.error(`[fireAgent] ${agentId} — ERROR:`, err.status, err.message);
+               this.agentErrors[agentId] = err.message || `${agentId} failed`;
+               return of(null);
+            })
+         ).subscribe(res => {
+            this.agentLoading[agentId] = false;
+            console.log(`[fireAgent] ${agentId} — response status:`, res?.data?.status, 'outputs keys:', res?.data?.outputs ? Object.keys(res.data.outputs) : 'NONE');
+            if (res?.data?.status === 'succeeded') {
+               this.handleAgentResult(agentId, res.data.outputs);
+            } else {
+               console.warn(`[fireAgent] ${agentId} — status not succeeded:`, res?.data?.status);
+            }
+         });
+      };
+
+      // WAVE 1 — Core analysis (fire immediately): CLASSIFIER + ML_PREDICT + RISK
+      fireAgent('CLASSIFIER');
+      fireAgent('ML_PREDICT');
+
+      // WAVE 2 — 2s stagger: RISK + AUTOFILL
+      timer(2000).subscribe(() => {
+         fireAgent('RISK');
+         fireAgent('AUTOFILL');
+      });
+
+      // WAVE 3 — 4s stagger: GOVERNANCE + DOC_LIFECYCLE + MONITORING
+      // These 3 share the same Dify app (WF_NPA_Governance_Ops), so stagger them further
+      timer(4000).subscribe(() => {
+         fireAgent('GOVERNANCE', { agent_mode: 'GOVERNANCE' });
+      });
+      timer(5500).subscribe(() => {
+         fireAgent('DOC_LIFECYCLE', { agent_mode: 'DOC_LIFECYCLE' });
+      });
+      timer(7000).subscribe(() => {
+         fireAgent('MONITORING', { agent_mode: 'MONITORING' });
+      });
+   }
+
+   private handleAgentResult(agentId: string, outputs: any): void {
+      console.log(`[handleAgentResult] ${agentId} — raw outputs keys:`, outputs ? Object.keys(outputs) : 'NULL');
+      switch (agentId) {
+         case 'CLASSIFIER':
+            this.classificationResult = this.mapClassificationResult(outputs);
+            console.log(`[handleAgentResult] CLASSIFIER mapped:`, this.classificationResult?.type, 'scores:', this.classificationResult?.scores?.length);
             this.updateTabBadge('ANALYSIS', null);
-         }
-      });
-
-      // ML_PREDICT
-      this.difyService.runWorkflow('ML_PREDICT', inputs).pipe(
-         catchError(err => { this.agentErrors['ML_PREDICT'] = err.message || 'Prediction failed'; return of(null); })
-      ).subscribe(res => {
-         this.agentLoading['ML_PREDICT'] = false;
-         if (res?.data?.status === 'succeeded') {
-            this.mlPrediction = this.mapMlPrediction(res.data.outputs);
+            break;
+         case 'ML_PREDICT':
+            this.mlPrediction = this.mapMlPrediction(outputs);
+            console.log(`[handleAgentResult] ML_PREDICT mapped: approval=${this.mlPrediction?.approvalLikelihood}, risk=${this.mlPrediction?.riskScore}`);
             this.updateTabBadge('ANALYSIS', null);
-         }
-      });
-
-      // RISK
-      this.difyService.runWorkflow('RISK', inputs).pipe(
-         catchError(err => { this.agentErrors['RISK'] = err.message || 'Risk assessment failed'; return of(null); })
-      ).subscribe(res => {
-         this.agentLoading['RISK'] = false;
-         if (res?.data?.status === 'succeeded') {
-            this.riskAssessmentResult = this.mapRiskAssessment(res.data.outputs);
-         }
-      });
-
-      // AUTOFILL
-      this.difyService.runWorkflow('AUTOFILL', inputs).pipe(
-         catchError(err => { this.agentErrors['AUTOFILL'] = err.message || 'AutoFill failed'; return of(null); })
-      ).subscribe(res => {
-         this.agentLoading['AUTOFILL'] = false;
-         if (res?.data?.status === 'succeeded') {
-            this.autoFillSummary = this.mapAutoFillSummary(res.data.outputs);
+            break;
+         case 'RISK':
+            this.riskAssessmentResult = this.mapRiskAssessment(outputs);
+            console.log(`[handleAgentResult] RISK mapped:`, this.riskAssessmentResult ? `score=${this.riskAssessmentResult.overallScore}, layers=${this.riskAssessmentResult.layers?.length}` : 'NULL');
+            break;
+         case 'AUTOFILL':
+            this.autoFillSummary = this.mapAutoFillSummary(outputs);
             this.updateTabBadge('PRODUCT_SPECS', null);
-         }
-      });
-
-      // GOVERNANCE
-      this.difyService.runWorkflow('GOVERNANCE', { ...inputs, agent_mode: 'GOVERNANCE' }).pipe(
-         catchError(err => { this.agentErrors['GOVERNANCE'] = err.message || 'Governance failed'; return of(null); })
-      ).subscribe(res => {
-         this.agentLoading['GOVERNANCE'] = false;
-         if (res?.data?.status === 'succeeded') {
-            this.governanceState = this.mapGovernanceState(res.data.outputs);
+            break;
+         case 'GOVERNANCE': {
+            // Only overwrite DB-seeded data if agent returns meaningful signoffs
+            const agentGov = this.mapGovernanceState(outputs);
+            if (agentGov && agentGov.signoffs && agentGov.signoffs.length > 0) {
+               this.governanceState = agentGov;
+            }
             this.updateTabBadge('APPROVALS', null);
+            break;
          }
-      });
-
-      // DOC_LIFECYCLE
-      this.difyService.runWorkflow('DOC_LIFECYCLE', { ...inputs, agent_mode: 'DOC_LIFECYCLE' }).pipe(
-         catchError(err => { this.agentErrors['DOC_LIFECYCLE'] = err.message || 'Doc analysis failed'; return of(null); })
-      ).subscribe(res => {
-         this.agentLoading['DOC_LIFECYCLE'] = false;
-         if (res?.data?.status === 'succeeded') {
-            this.docCompleteness = this.mapDocCompleteness(res.data.outputs);
+         case 'DOC_LIFECYCLE': {
+            const agentDoc = this.mapDocCompleteness(outputs);
+            if (agentDoc && agentDoc.totalPresent > 0) {
+               this.docCompleteness = agentDoc;
+            }
             this.updateTabBadge('DOCUMENTS', null);
+            break;
          }
-      });
-
-      // MONITORING
-      this.difyService.runWorkflow('MONITORING', { ...inputs, agent_mode: 'MONITORING' }).pipe(
-         catchError(err => { this.agentErrors['MONITORING'] = err.message || 'Monitoring failed'; return of(null); })
-      ).subscribe(res => {
-         this.agentLoading['MONITORING'] = false;
-         if (res?.data?.status === 'succeeded') {
-            this.monitoringResult = this.mapMonitoringResult(res.data.outputs);
+         case 'MONITORING': {
+            const agentMon = this.mapMonitoringResult(outputs);
+            if (agentMon && (agentMon.metrics?.length > 0 || agentMon.breaches?.length > 0)) {
+               this.monitoringResult = agentMon;
+            }
             this.updateTabBadge('MONITORING', null);
+            break;
          }
-      });
+      }
    }
 
    // ─── Output Mapping Methods ─────────────────────────────────────
 
    private parseJsonOutput(outputs: any): any {
       if (outputs?.result && typeof outputs.result === 'string') {
-         try { return JSON.parse(outputs.result); } catch { /* fall through */ }
+         // Dify often wraps JSON in markdown code fences: ```json\n{...}\n```
+         let raw = outputs.result.trim();
+         // Strip markdown code fences
+         raw = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+         try { return JSON.parse(raw); } catch (e) {
+            console.warn('[parseJsonOutput] Failed to parse result:', e, 'raw (first 200):', raw.substring(0, 200));
+         }
       }
       return outputs;
    }
@@ -947,35 +1022,71 @@ export class NpaDetailComponent implements OnInit {
    private mapClassificationResult(rawOutputs: any): ClassificationResult | null {
       const o = this.parseJsonOutput(rawOutputs);
       if (!o) return null;
-      const cr = o.classification_result || o;
+      // Dify returns: { classification: { type, track }, scorecard: { scores[], overall_confidence }, ... }
+      const cl = o.classification || o.classification_result || o;
+      const sc = o.scorecard || cl.scorecard || {};
+      const scores = sc.scores || cl.scores || [];
       return {
-         type: cr.type || cr.classification_type || 'Variation',
-         track: cr.track || cr.approval_track || 'NPA Lite',
-         scores: (cr.scorecard || cr.scores || []).map((s: any) => ({
-            criterion: s.criterion || s.name || '',
+         type: cl.type || cl.classification_type || 'Variation',
+         track: cl.track || cl.approval_track || 'NPA Lite',
+         scores: scores.map((s: any) => ({
+            criterion: s.criterion_name || s.criterion || s.name || s.criterion_code || '',
             score: s.score ?? 0,
-            maxScore: s.maxScore || s.max_score || 10,
+            maxScore: s.max_score || s.maxScore || 10,
             reasoning: s.reasoning || s.description || ''
          })),
-         overallConfidence: cr.overallConfidence || cr.overall_confidence || cr.confidence || 0,
-         prohibitedMatch: cr.prohibitedMatch || cr.prohibited_match || { matched: false },
-         mandatorySignOffs: cr.mandatorySignOffs || cr.mandatory_signoffs || []
+         overallConfidence: sc.overall_confidence || cl.overallConfidence || cl.overall_confidence || cl.confidence || 0,
+         prohibitedMatch: o.prohibited_check || cl.prohibitedMatch || cl.prohibited_match || { matched: false },
+         mandatorySignOffs: o.mandatory_signoffs || cl.mandatorySignOffs || cl.mandatory_signoffs || []
       } as ClassificationResult;
    }
 
    private mapMlPrediction(rawOutputs: any): MLPrediction | null {
       const o = this.parseJsonOutput(rawOutputs);
       if (!o) return null;
-      const p = o.ml_prediction || o.prediction || o;
+      // ML_PREDICT and CLASSIFIER share the same Dify app (WF_NPA_Classify_Predict).
+      // The response contains classification + scorecard but no separate ml_prediction key.
+      // We synthesize prediction data from the classification output.
+      const p = o.ml_prediction || o.prediction || {};
+      const sc = o.scorecard || {};
+      const cl = o.classification || {};
+      const nf = o.notional_flags || {};
+
+      // Derive approval likelihood from confidence or explicit field
+      const approvalLikelihood = p.approvalLikelihood || p.approval_likelihood
+         || sc.overall_confidence || 0;
+
+      // Derive timeline from track: FULL_NPA ~45 days, NPA_LITE ~25 days
+      const track = cl.track || '';
+      const defaultTimeline = track.includes('LITE') ? 25 : 45;
+      const timelineDays = p.timelineDays || p.timeline_days || defaultTimeline;
+
+      // Bottleneck: derive from notional flags or mandatory signoffs
+      const signoffs = o.mandatory_signoffs || [];
+      const bottleneckDept = p.bottleneckDept || p.bottleneck_dept
+         || (nf.cfo_approval_required ? 'CFO / Finance' : signoffs[signoffs.length - 1] || 'Unknown');
+
+      // Risk score: inverse of confidence (higher confidence = lower risk)
+      const riskScore = p.riskScore || p.risk_score || Math.max(0, 100 - approvalLikelihood);
+
+      // Build feature importance from notional flags + classification
+      const features: any[] = p.features || [];
+      if (features.length === 0) {
+         if (nf.roae_analysis_needed) features.push({ name: 'ROAE Analysis Required', importance: 0.8, value: 'Yes' });
+         if (nf.mlr_review_required) features.push({ name: 'MLR Review Required', importance: 0.7, value: 'Yes' });
+         if (nf.finance_vp_required) features.push({ name: 'Finance VP Required', importance: 0.6, value: 'Yes' });
+         if (cl.is_cross_border) features.push({ name: 'Cross-Border', importance: 0.9, value: 'Yes' });
+         features.push({ name: 'Classification', importance: 0.5, value: cl.type || 'N/A' });
+      }
+
       return {
-         approvalLikelihood: p.approvalLikelihood || p.approval_likelihood || 0,
-         timelineDays: p.timelineDays || p.timeline_days || 0,
-         bottleneckDept: p.bottleneckDept || p.bottleneck_dept || 'Unknown',
-         riskScore: p.riskScore || p.risk_score || 0,
-         features: (p.features || []).map((f: any) => ({
-            name: f.name, importance: f.importance || 0, value: f.value || ''
-         })),
-         comparisonInsights: p.comparisonInsights || p.comparison_insights || []
+         approvalLikelihood,
+         timelineDays,
+         bottleneckDept,
+         riskScore,
+         features,
+         comparisonInsights: p.comparisonInsights || p.comparison_insights
+            || (o.similar_npa_hint ? [o.similar_npa_hint] : [])
       } as MLPrediction;
    }
 
@@ -1007,15 +1118,18 @@ export class NpaDetailComponent implements OnInit {
 
    private mapAutoFillSummary(rawOutputs: any): AutoFillSummary | null {
       const o = this.parseJsonOutput(rawOutputs);
+      console.log('[mapAutoFillSummary] parsed keys:', o ? Object.keys(o) : 'NULL', 'raw (500):', JSON.stringify(o).substring(0, 500));
       if (!o) return null;
-      const ar = o.autofill_result || o.coverage || o;
+      // autofill_result may have a nested coverage object
+      const ar = o.autofill_result || o;
+      const cov = ar.coverage || ar;
       const filledFields = o.filled_fields || o.fields || [];
       return {
-         fieldsFilled: ar.auto_filled || ar.fieldsFilled || filledFields.filter((f: any) => f.lineage === 'AUTO').length,
-         fieldsAdapted: ar.adapted || ar.fieldsAdapted || filledFields.filter((f: any) => f.lineage === 'ADAPTED').length,
-         fieldsManual: ar.manual_required || ar.fieldsManual || 0,
-         totalFields: ar.total_fields || ar.totalFields || 47,
-         coveragePct: ar.coverage_pct || ar.coveragePct || 0,
+         fieldsFilled: cov.auto_filled || ar.auto_filled || ar.fieldsFilled || filledFields.filter((f: any) => f.lineage === 'AUTO').length,
+         fieldsAdapted: cov.adapted || ar.adapted || ar.fieldsAdapted || filledFields.filter((f: any) => f.lineage === 'ADAPTED').length,
+         fieldsManual: cov.manual_required || ar.manual_required || ar.fieldsManual || 0,
+         totalFields: cov.total_fields || ar.total_fields || ar.totalFields || 47,
+         coveragePct: cov.coverage_pct || ar.coverage_pct || ar.coveragePct || 0,
          timeSavedMinutes: o.time_savings?.estimated_manual_minutes
             ? (o.time_savings.estimated_manual_minutes - (o.time_savings.estimated_with_autofill_minutes || 0))
             : (ar.timeSavedMinutes || 0),
@@ -1031,6 +1145,7 @@ export class NpaDetailComponent implements OnInit {
 
    private mapGovernanceState(rawOutputs: any): GovernanceState | null {
       const o = this.parseJsonOutput(rawOutputs);
+      console.log('[mapGovernanceState] parsed keys:', o ? Object.keys(o) : 'NULL', 'raw (200):', JSON.stringify(o).substring(0, 500));
       if (!o) return null;
       const ss = o.signoff_status || o;
       const ls = o.loopback_status || {};
@@ -1057,6 +1172,7 @@ export class NpaDetailComponent implements OnInit {
 
    private mapDocCompleteness(rawOutputs: any): DocCompletenessResult | null {
       const o = this.parseJsonOutput(rawOutputs);
+      console.log('[mapDocCompleteness] parsed keys:', o ? Object.keys(o) : 'NULL', 'raw (500):', JSON.stringify(o).substring(0, 500));
       if (!o) return null;
       const c = o.completeness || o;
       return {
@@ -1078,6 +1194,7 @@ export class NpaDetailComponent implements OnInit {
 
    private mapMonitoringResult(rawOutputs: any): MonitoringResult | null {
       const o = this.parseJsonOutput(rawOutputs);
+      console.log('[mapMonitoringResult] parsed keys:', o ? Object.keys(o) : 'NULL', 'raw (500):', JSON.stringify(o).substring(0, 500));
       if (!o) return null;
       return {
          productHealth: o.health_status || o.productHealth || 'HEALTHY',

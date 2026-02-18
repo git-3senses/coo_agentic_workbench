@@ -112,11 +112,11 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
    }
 
    goToDetail(npaId: string) {
-      this.router.navigate([], {
-         relativeTo: this.route,
-         queryParams: { mode: 'detail', projectId: npaId },
-         queryParamsHandling: 'merge'
-      });
+      // Set context + view directly (avoids URL param mismatch)
+      this.npaContext = { npaId };
+      this.viewMode = 'WORK_ITEM';
+      this.autoOpenEditor = false;
+      this.layoutService.setSidebarVisible(false);
    }
 
    ngOnDestroy() {

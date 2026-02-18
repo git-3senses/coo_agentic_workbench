@@ -72,6 +72,11 @@ router.get('/projects/:id', async (req, res) => {
         const [formData] = await db.query('SELECT * FROM npa_form_data WHERE project_id = ?', [projectId]);
         const [conditions] = await db.query('SELECT * FROM npa_post_launch_conditions WHERE project_id = ?', [projectId]);
         const [scorecard] = await db.query('SELECT * FROM npa_classification_scorecards WHERE project_id = ? ORDER BY created_at DESC LIMIT 1', [projectId]);
+        const [documents] = await db.query('SELECT * FROM npa_documents WHERE project_id = ?', [projectId]);
+        const [breaches] = await db.query('SELECT * FROM npa_breach_alerts WHERE project_id = ?', [projectId]);
+        const [metricsRows] = await db.query('SELECT * FROM npa_performance_metrics WHERE project_id = ? ORDER BY snapshot_date DESC LIMIT 1', [projectId]);
+        const [loopbacks] = await db.query('SELECT * FROM npa_loop_backs WHERE project_id = ?', [projectId]);
+        const [workflowStates] = await db.query('SELECT * FROM npa_workflow_states WHERE project_id = ? ORDER BY started_at', [projectId]);
 
         // Construct response object matches frontend expectation
         const result = {
@@ -81,7 +86,12 @@ router.get('/projects/:id', async (req, res) => {
             signoffs,
             formData, // Contains product attributes
             postLaunchConditions: conditions,
-            scorecard: scorecard[0] || null
+            scorecard: scorecard[0] || null,
+            documents,
+            breaches,
+            metrics: metricsRows[0] || null,
+            loopbacks,
+            workflowStates
         };
 
         res.json(result);
