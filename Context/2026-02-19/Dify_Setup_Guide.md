@@ -92,16 +92,13 @@ Angular UI → Express API (port 3000) → Dify Cloud API
 
 ### 3.1 Deploy MCP Python Server
 
-The MCP server must be publicly accessible for Dify Cloud to call it. Options:
-- **Render.com** (recommended — same host as Express API)
-- **Railway.app**
-- Any host with a public HTTPS URL
+The MCP server must be publicly accessible for Dify Cloud to call it. Deploy to any host with a public HTTPS URL.
 
 **Required Environment Variables:**
 ```env
 DATABASE_URL=mysql://user:pass@host:3306/npa_workbench
-PUBLIC_URL=https://your-mcp-server.onrender.com
-PORT=10000        # Render default
+PUBLIC_URL=https://your-mcp-server-url
+PORT=10000
 ENV=production
 ```
 
@@ -109,7 +106,7 @@ ENV=production
 
 After deployment, confirm all 78 tools are registered:
 ```bash
-curl https://your-mcp-server.onrender.com/health
+curl {MCP_SERVER_URL}/health
 # Should return: "tools": 78
 ```
 
@@ -117,7 +114,7 @@ curl https://your-mcp-server.onrender.com/health
 
 The spec auto-generates at runtime. Fetch it:
 ```bash
-curl https://your-mcp-server.onrender.com/openapi.json > dify-openapi-spec.json
+curl {MCP_SERVER_URL}/openapi.json > dify-openapi-spec.json
 ```
 
 ### 3.4 Update Dify Custom Tool
@@ -466,8 +463,11 @@ After configuring all Dify apps, collect API keys and update `server/.env`:
 # ─── Dify Cloud ──────────────────────────────────────────
 DIFY_BASE_URL=https://api.dify.ai/v1
 
-# Tier 1+2: CF_NPA_Orchestrator (serves MASTER_COO + NPA_ORCHESTRATOR)
+# Tier 1: CF_COO_Orchestrator (MASTER_COO)
 DIFY_KEY_MASTER_COO=app-xxxxxxxxxxxxxxxxxx
+
+# Tier 2: CF_NPA_Orchestrator (NPA_ORCHESTRATOR)
+DIFY_KEY_NPA_ORCHESTRATOR=app-xxxxxxxxxxxxxxxxxx
 
 # Tier 3: CF_NPA_Ideation
 DIFY_KEY_IDEATION=app-xxxxxxxxxxxxxxxxxx
@@ -488,7 +488,7 @@ DIFY_KEY_DILIGENCE=app-xxxxxxxxxxxxxxxxxx
 DIFY_KEY_GOVERNANCE=app-xxxxxxxxxxxxxxxxxx
 
 # ─── MCP Python Server ──────────────────────────────────
-MCP_SERVER_URL=https://your-mcp-server.onrender.com
+MCP_SERVER_URL=https://your-mcp-server-url
 ```
 
 ### 7.2 Where to Find API Keys in Dify

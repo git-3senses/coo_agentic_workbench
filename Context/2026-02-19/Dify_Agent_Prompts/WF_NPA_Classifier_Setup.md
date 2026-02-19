@@ -117,9 +117,8 @@ In the Agent Node created in Step 2, add these 10 MCP tools. The Agent's LLM wil
 | 9 | `bundling_apply` | Apply bundling track and record condition results |
 | 10 | `evergreen_list` | List products eligible for Evergreen (same-day) processing |
 
-**MCP Server URL**: `https://mcp-tools-ppjv.onrender.com/mcp/sse`
-
-> **NOTE:** This URL was migrated from Railway to Render.com in Feb 2026. If the MCP server is redeployed, update this URL accordingly. The OpenAPI spec is at `https://mcp-tools-ppjv.onrender.com/openapi.json`.
+**MCP Server URL**: `{MCP_SERVER_URL}/mcp/sse`
+**OpenAPI Spec**: `{MCP_SERVER_URL}/openapi.json`
 
 **NOTE**: Tools are optional for the classification logic itself — the Agent has the full criteria in its prompt and KB. The tools enable DB persistence when `project_id` is provided. The Agent LLM autonomously decides whether to call tools based on context.
 

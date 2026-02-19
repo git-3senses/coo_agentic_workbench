@@ -123,8 +123,8 @@ Unlike the Classifier (which uses an Agent Node with 10 MCP tools for optional D
 Add a **Code Node** after the LLM Node that:
 1. Parses the JSON output from the LLM Node
 2. Calls `risk_run_assessment` and `save_risk_check_result` via HTTP to the MCP server
-3. The MCP server URL is: `https://mcp-tools-ppjv.onrender.com/mcp/sse`
-4. The OpenAPI spec is at: `https://mcp-tools-ppjv.onrender.com/openapi.json`
+3. The MCP server URL is: `{MCP_SERVER_URL}/mcp/sse`
+4. The OpenAPI spec is at: `{MCP_SERVER_URL}/openapi.json`
 
 ## Step 4: Upload KB Documents to Dify
 
@@ -205,7 +205,7 @@ If you want the workflow itself to persist results (instead of relying on the Or
 const riskResult = JSON.parse(inputs.result);
 
 // Call MCP server to persist
-const response = await fetch('https://mcp-tools-ppjv.onrender.com/api/risk/assessment', {
+const response = await fetch('{MCP_SERVER_URL}/api/risk/assessment', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({

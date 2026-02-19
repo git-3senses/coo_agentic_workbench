@@ -1,11 +1,11 @@
 > **Updated: 2026-02-19 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md**
 
-# KB_Domain_Orchestrator_NPA — NPA Domain Deep-Dive (Phase 0)
+# KB_Domain_Orchestrator_NPA — NPA Domain Deep-Dive
 
-**Version**: 3.0 — Enterprise-Grade, Aligned to ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md
+**Version**: 3.1 — Enterprise-Grade, Aligned to ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md
 **Purpose**: Definitive NPA domain reference — lifecycle, classification logic, approval workflows, risk cascades, document rules, template structure, specialist coordination, edge cases, escalation procedures
-**Attached To**: CF_NPA_Orchestrator (KB_NPA_AGENT_KBS_CLOUD), CF_NPA_Query_Assistant (KB_NPA_AGENT_KBS_CLOUD)
-**Last Updated**: 2026-02-13
+**Attached To**: CF_NPA_Orchestrator (KB_NPA_DOMAIN_CLOUD), CF_NPA_Query_Assistant (KB_NPA_AGENT_KBS_CLOUD)
+**Last Updated**: 2026-02-20
 
 ---
 
@@ -853,13 +853,14 @@ System Documentation --> Operational Procedures --> Implementation Planning
 
 ---
 
-## 8. Specialist Agent Details (Phase 0 — 7 Dify Apps)
+## 8. Specialist Agent Details (8 Dify Apps)
 
-### 8.1 Tool Assignment Summary (71 tools across 7 apps)
+### 8.1 Tool Assignment Summary (71 tools across 8 apps)
 
 | Dify App | Type | Logical Agents | Tools | Build Step |
 |----------|------|---------------|-------|-----------|
-| CF_NPA_Orchestrator | Chatflow | MASTER_COO + NPA_ORCHESTRATOR | 8 (read + route) | Step 1 |
+| CF_COO_Orchestrator | Chatflow | MASTER_COO | 8 (read + route) | Step 1a |
+| CF_NPA_Orchestrator | Chatflow | NPA_ORCHESTRATOR | 8 (read + route) | Step 1b |
 | CF_NPA_Ideation | Chatflow | IDEATION | 9 (read + write) | Step 2 |
 | CF_NPA_Query_Assistant | Chatflow | DILIGENCE + KB_SEARCH + NOTIFICATION(read) | 17 (read only) | Step 3 |
 | WF_NPA_Classify_Predict | Workflow | CLASSIFIER + ML_PREDICT | 8 | Step 4 |
@@ -1177,7 +1178,7 @@ Existing products have the most complex routing logic:
 
 ## 12. Database Schema — Key Tables
 
-42 Railway MySQL tables support the NPA lifecycle. Grouped by domain.
+42 MySQL tables support the NPA lifecycle. Grouped by domain.
 
 > **Canonical Status Values** (use these exact values in all tool outputs and agent responses):
 > - **`npa_projects.status`**: `ACTIVE` (default), `On Track`, `At Risk`, `Delayed`, `Blocked`, `Completed`
@@ -1305,11 +1306,12 @@ Existing products have the most complex routing logic:
 
 ---
 
-## 15. Phase 0 Build Order & Validation Gates
+## 15. Build Order & Validation Gates
 
 | Step | Dify App | Validates | Effort |
 |------|----------|----------|--------|
-| 1 | CF_NPA_Orchestrator | Gate 1: Envelope, routing, session tools | 1 day |
+| 1a | CF_COO_Orchestrator | Gate 1a: Domain routing, session tools, envelope contract | 0.5 day |
+| 1b | CF_NPA_Orchestrator | Gate 1b: NPA intent routing, specialist delegation, business rules | 0.5 day |
 | 2 | CF_NPA_Ideation | Gate 2: Chatflow delegation, NPA creation, conversation persistence | 1 day |
 | 3 | CF_NPA_Query_Assistant | Gate 3: Read path, cross-domain queries, KB citations | 1 day |
 | 4 | WF_NPA_Classify_Predict | Gate 4: Workflow integration, structured outputs | 0.5 day |
@@ -1318,4 +1320,4 @@ Existing products have the most complex routing logic:
 
 ---
 
-**End of Knowledge Base — NPA Domain Deep-Dive Phase 0 v3.0**
+**End of Knowledge Base — NPA Domain Deep-Dive v3.1**

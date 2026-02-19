@@ -1102,7 +1102,7 @@ GROUP BY product_type;
 
 ## 15. MCP Tools Available
 
-The KB Search Agent has access to the following MCP tools from the Railway MCP Tools Server:
+The KB Search Agent has access to the following MCP tools from the MCP Tools Server:
 
 | Tool | Purpose | When Used |
 |------|---------|-----------|

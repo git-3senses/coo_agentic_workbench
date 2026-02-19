@@ -45,8 +45,8 @@ The Ideation Agent requires tool access. Configure these tools in the Agent App:
 
 ### Option A: MCP Server (Recommended)
 Connect to the MCP tools server:
-- **MCP Server URL**: `https://mcp-tools-ppjv.onrender.com/mcp/sse`
-- **OpenAPI Spec**: `https://mcp-tools-ppjv.onrender.com/openapi.json`
+- **MCP Server URL**: `{MCP_SERVER_URL}/mcp/sse`
+- **OpenAPI Spec**: `{MCP_SERVER_URL}/openapi.json`
 
 ### Option B: Custom API Tool Definitions
 If MCP SSE is not available, define each tool manually in Dify:

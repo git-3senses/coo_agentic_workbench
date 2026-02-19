@@ -4,8 +4,9 @@
  *
  * Source of truth: ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md §3 & §11
  *
- * 13 logical agents across 4 tiers, deployed as 7 Dify apps:
- *   - CF_NPA_Orchestrator     (Chatflow)  → MASTER_COO, NPA_ORCHESTRATOR
+ * 13 logical agents across 4 tiers, deployed as 8 Dify apps:
+ *   - CF_COO_Orchestrator     (Chatflow)  → MASTER_COO
+ *   - CF_NPA_Orchestrator     (Chatflow)  → NPA_ORCHESTRATOR
  *   - CF_NPA_Ideation         (Chatflow)  → IDEATION
  *   - CF_NPA_Query_Assistant  (Chatflow)  → DILIGENCE, KB_SEARCH
  *   - WF_NPA_Classify_Predict (Workflow)  → CLASSIFIER, ML_PREDICT
@@ -20,11 +21,11 @@ const DIFY_BASE_URL = process.env.DIFY_BASE_URL || 'http://localhost/v1';
 
 const DIFY_AGENTS = {
     // ─── Tier 1 — Strategic Command ──────────────────────────────────
-    // Dify App: CF_NPA_Orchestrator (Chatflow)
+    // Dify App: CF_COO_Orchestrator (Chatflow) — separate app
     MASTER_COO: {
         key: process.env.DIFY_KEY_MASTER_COO || '',
         type: 'chat',
-        difyApp: 'CF_NPA_Orchestrator',
+        difyApp: 'CF_COO_Orchestrator',
         name: 'Master COO Orchestrator',
         tier: 1,
         icon: 'brain-circuit',
@@ -32,9 +33,9 @@ const DIFY_AGENTS = {
     },
 
     // ─── Tier 2 — Domain Orchestration ───────────────────────────────
-    // Dify App: CF_NPA_Orchestrator (Chatflow) — fused with MASTER_COO
+    // Dify App: CF_NPA_Orchestrator (Chatflow) — separate app, own API key
     NPA_ORCHESTRATOR: {
-        key: process.env.DIFY_KEY_MASTER_COO || '',
+        key: process.env.DIFY_KEY_NPA_ORCHESTRATOR || '',
         type: 'chat',
         difyApp: 'CF_NPA_Orchestrator',
         name: 'NPA Domain Orchestrator',

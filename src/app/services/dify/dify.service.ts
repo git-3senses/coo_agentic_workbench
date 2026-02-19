@@ -144,8 +144,8 @@ export class DifyService {
 
     /**
      * Set active agent directly without pushing to delegation stack.
-     * Used for ROUTE_DOMAIN where MASTER_COO and NPA_ORCHESTRATOR share
-     * the same Dify app, so it's a logical switch, not a true delegation.
+     * Used for UI-only agent label changes where no actual Dify app
+     * switch is needed (e.g. display context updates).
      */
     setActiveAgent(agentId: string): void {
         const fromAgent = this._activeAgentId;
@@ -191,7 +191,7 @@ export class DifyService {
             // over the generic domainId mapping. This enables direct agent-to-agent
             // handoff within a ROUTE_DOMAIN action.
             let targetAgent: string;
-            if (payload.target_agent && payload.target_agent !== 'NPA_ORCHESTRATOR' && payload.target_agent !== 'MASTER_COO') {
+            if (payload.target_agent && payload.target_agent !== 'MASTER_COO') {
                 // Explicit target — real delegation to a different Dify app
                 targetAgent = payload.target_agent;
             } else {
@@ -200,14 +200,8 @@ export class DifyService {
 
             console.log(`[DifyService] ROUTE_DOMAIN: domainId=${domainId}, target_agent=${payload.target_agent}, resolved=${targetAgent}`);
 
-            // NPA_ORCHESTRATOR shares the same Dify app as MASTER_COO
-            // so we only do a logical switch (no new conversation needed)
-            if (targetAgent === 'NPA_ORCHESTRATOR') {
-                this.setActiveAgent(targetAgent);
-                return { shouldSwitch: false, targetAgent, action };
-            }
-
-            // For other domains, do a real delegation (push to stack)
+            // All domain agents (including NPA_ORCHESTRATOR) are separate Dify apps
+            // with their own API keys and conversation_ids — do a real delegation
             this.switchAgent(targetAgent, `route_domain:${domainId}`);
             return { shouldSwitch: true, targetAgent, action };
         }

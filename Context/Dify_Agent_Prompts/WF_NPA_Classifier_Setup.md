@@ -95,7 +95,7 @@ Add these tools to the LLM Node (via Dify's MCP integration):
 | `ideation_get_prohibited_list` | Screen against prohibited items |
 | `ideation_find_similar` | Find similar historical NPAs |
 
-**MCP Server URL**: `https://<railway-domain>/mcp/sse`
+**MCP Server URL**: `{MCP_SERVER_URL}/mcp/sse`
 
 **NOTE**: Tools are optional for classification. The LLM has the full criteria in its prompt and KB. Tools are for DB persistence when `project_id` is provided.
 

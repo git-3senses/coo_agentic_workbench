@@ -1037,7 +1037,7 @@ Some NPAs are approved with post-launch conditions (see Section 4.7). These are 
 
 ## 12. Database Schema — Key Tables
 
-42 Railway MySQL tables support the NPA lifecycle. Grouped by domain.
+42 MySQL tables support the NPA lifecycle. Grouped by domain.
 
 > **Canonical Status Values** (use these exact values in all tool outputs and agent responses):
 > - **`npa_projects.status`**: `ACTIVE` (default), `On Track`, `At Risk`, `Delayed`, `Blocked`, `Completed`
