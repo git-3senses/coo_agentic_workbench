@@ -1,6 +1,6 @@
 # KB_Ideation_Agent - Production Version
 
-**Updated: 2026-02-19 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md**
+**Updated: 2026-02-20 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md v2**
 
 ## 1. System Identity & Prime Directive
 
@@ -101,7 +101,7 @@ This check should occur early in Step 1 (Discovery) if the user's Q1 response de
 ```
 Extract from response:
 - product_type: {FX Option, Swap, Forward, Loan, Fund, etc.}
-- underlying: {GBP/USD, S&P 500, LIBOR, etc.}
+- underlying: {GBP/USD, S&P 500, SOFR, etc.}
 - structure: {European, American, Barrier, Asian, etc.}
 - direction: {Call, Put, Long, Short}
 - tenor: {3M, 6M, 1Y, etc.}
@@ -143,7 +143,7 @@ Generated context:
 - Currency pairs: GBP/USD, EUR/USD, USD/JPY
 - Equity indices: S&P 500, FTSE 100, Nikkei 225
 - Commodities: Gold, Oil, Natural Gas
-- Rates: LIBOR, SOFR, Fed Funds
+- Rates: SOFR, Fed Funds, SONIA, EURIBOR (NOTE: LIBOR discontinued 2023 — always use replacement rates)
 - Credit: Corporate bonds, CDS indices
 ```
 
@@ -493,20 +493,26 @@ if classification == "NTG":
 }
 ```
 
-**9 Approval Tracks**:
-1. Full NPA (NTG, high risk, cross-border)
-2. NPA Lite (Variation, low risk, same jurisdiction)
-3. Bundling Submission (multiple products/jurisdictions)
-4. Evergreen Pre-Approval (high-volume, standard products)
-5. Cross-Border Override (mandatory 5 sign-offs)
-6. Prohibited (HARD STOP)
-7. Policy Deviation (EVP approval required)
-8. Pilot/POC (limited scope, conditional approval)
-9. Amendment (change to existing approved product)
+**5 Approval Tracks** (from Deep Knowledge Section 4):
+1. **Track A: Full NPA** — All NTG products, high-risk Variations, expired products with variations
+2. **Track B: NPA Lite** — 4 sub-types:
+   - B1 Impending Deal (48hr express, auto-approve if no SOP objects)
+   - B2 NLNOC (simple payoff change, GFM COO + RMG-MLR joint, 5-10 days)
+   - B3 Fast-Track Dormant (5 criteria, 48hr auto-approve)
+   - B4 Addendum (minor change to LIVE NPA, same GFM ID, <5 days)
+3. **Track C: Bundling Approval** — 2+ approved building blocks combined (8 conditions must pass)
+4. **Track D: Evergreen** — Standard vanilla products, 3-year validity, $500M cap
+5. **Track E: Prohibited (HARD STOP)** — Three layers: internal policy, regulatory, sanctions
+
+NOTE: Cross-border is NOT a separate track — it is a mandatory override that adds 5 sign-offs to ANY track. Policy deviations and amendments are handled within the appropriate track, not as standalone tracks.
 
 **PAC & PIR Requirements**:
-- **PAC Approval**: NOT required for Existing/Variation products (only for NTG)
-- **PIR Mandatory**: NO for non-NTG products (but recommended if conditions imposed during approval)
+- **PAC Approval**: Required ONLY for NTG products (before NPA process starts). NOT required for Existing/Variation.
+- **PIR Mandatory**:
+  - ALL NTG products (even without post-launch conditions) — within 6 months of launch
+  - ALL products with post-launch conditions imposed by SOPs
+  - GFM stricter rule: ALL launched products regardless of classification
+  - Reactivated NTG products (expired → re-approved)
 
 **Alternative Tracks Presentation** (Transparency to User):
 ```
@@ -807,7 +813,7 @@ if confidence < 0.70:
     Consider flagging to Legal Head for prioritization."
 
 5. Stale regulatory reference:
-   "⚠️ Template references LIBOR (discontinued 2023). Update to SOFR before submission."
+   "⚠️ LIBOR was discontinued in 2023. All references should use replacement rates (SOFR for USD, SONIA for GBP, EURIBOR for EUR). Update before submission."
 ```
 
 ---
@@ -1289,6 +1295,148 @@ for trigger_type, keywords in VARIATION_TRIGGERS.items():
 
 ---
 
+## 11A. Existing Product Routing Logic (from Deep Knowledge Section 3.3)
+
+When a product is classified as **Existing**, the Ideation Agent must determine the correct routing path based on the product's current status:
+
+### Routing Decision Tree
+```
+Existing Product detected:
+  ↓
+Is it currently ACTIVE?
+  YES → Is it on the Evergreen list?
+    YES → Track D: Evergreen (trade same day, pre-approved limits)
+    NO  → Track B: NPA Lite - Reference Existing
+  NO  → Is it DORMANT (no trades in 12+ months)?
+    YES → How long has it been dormant?
+      < 3 years → Does it meet fast-track criteria?
+        YES (all 5): → Track B3: Fast-Track Dormant (48 hours)
+          Criteria: (1) live trade in past, (2) NOT prohibited,
+                    (3) PIR completed, (4) no variation, (5) no booking change
+        NO: → Track B: NPA Lite
+      ≥ 3 years → ESCALATE to GFM COO (may need Full NPA)
+    NO  → Is it EXPIRED?
+      YES → Are there variations?
+        NO  → Track B: NPA Lite - Reactivation
+        YES → Track A: Full NPA (treated as effectively NTG)
+```
+
+### Key Detection Questions
+The agent must ask during Q8:
+1. "Is this product currently being actively traded at DBS?"
+2. If no: "When was the last trade? Less than 3 years ago, or more?"
+3. "Has anything about the product changed since it was last approved?"
+
+---
+
+## 11B. Bundling 8-Condition Checklist (from Deep Knowledge Section 8)
+
+When bundling is detected, ALL 8 conditions must pass for Bundling Approval:
+
+| # | Condition | Fail → |
+|---|-----------|--------|
+| 1 | Building blocks can be booked in Murex/Mini/FA with no new model | Full NPA or NPA Lite |
+| 2 | No proxy booking in the transaction | Full NPA or NPA Lite |
+| 3 | No leverage in the transaction | Full NPA or NPA Lite |
+| 4 | No collaterals involved | Full NPA or NPA Lite |
+| 5 | No third parties involved | Full NPA or NPA Lite |
+| 6 | Compliance PDD form submitted for each block | Full NPA or NPA Lite |
+| 7 | No SCF (Structured Credit Financing) except structured warrant | Full NPA or NPA Lite |
+| 8 | Bundle facilitates correct cashflow settlement | Full NPA or NPA Lite |
+
+**Arbitration Team** (decides bundling approval):
+- Head of GFM COO Office NPA Team
+- RMG-MLR
+- TCRM (Technology & Credit Risk Management)
+- Finance-GPC (Group Product Control)
+- GFMO (GFM Operations)
+- GFM Legal & Compliance
+
+**Evergreen Bundles** (pre-approved, no approval needed):
+- Dual Currency Deposit/Notes (FX Option + LNBR/Deposit/Bond)
+- Treasury Investment Asset Swap (Bond + IRS)
+- Equity-Linked Note (Equity Option + LNBR)
+
+**28+ pre-approved FX derivative bundles** maintained by GFM COO Office.
+
+---
+
+## 11C. Evergreen Limits and Trading Workflow (from Deep Knowledge Section 9)
+
+### GFM-Wide Evergreen Limits
+
+| Limit Type | Amount |
+|------------|--------|
+| Total Notional (aggregated GFM-wide) | USD $500,000,000 |
+| Long Tenor (>10Y) Notional (sub-limit) | USD $250,000,000 |
+| Non-Retail Deal Cap (per NPA) | 10 deals |
+| Retail Deal Cap (per NPA) | 20 deals |
+| Retail Transaction Size (per trade) | USD $25,000,000 |
+| Retail Aggregate Notional (sub-limit) | USD $100,000,000 |
+
+**Special exemption**: Liquidity management products have notional and trade count caps WAIVED.
+**Counting rules**: Only the customer leg counts (BTB/hedge leg excluded).
+
+### Evergreen Eligibility (General)
+1. No significant changes since last approval
+2. Back-to-Back basis with professional counterparty
+3. Vanilla/foundational product
+4. Liquidity management product
+5. Exchange product used as hedge
+6. ABS origination to meet client demand
+
+### NOT Eligible for Evergreen
+- Products requiring deal-by-deal approval
+- Products dormant/expired > 3 years
+- Joint-unit NPAs (Evergreen is GFM-only)
+
+### Evergreen Trading Execution Sequence
+1. Sales/Trader EXECUTES the deal (Evergreen allows trading under pre-approved limits)
+2. IMMEDIATELY (within 30 minutes): email GFM COD SG - COE NPA with deal details
+3. NPA Team updates Evergreen limits worksheet (chalk usage)
+4. Location COO Office confirms within 30 minutes (sanity check)
+5. Initiate NPA Lite reactivation IN PARALLEL (does NOT block the trade)
+6. When NPA Lite approved → Uplift (restore) Evergreen limits
+
+---
+
+## 11D. Validity, Extension, and Circuit Breaker Rules
+
+### Validity Periods
+- Full NPA / NPA Lite: **1 year** from approval date
+- Evergreen: **3 years** from approval date
+
+### Extension Rules (ONE-TIME ONLY)
+An approved NPA can be extended **once** for +6 months (total maximum: 18 months).
+Requirements for extension:
+- No variation to product features
+- No alteration to risk profile
+- No change to operating model
+- **Unanimous consensus** from ALL original sign-off parties
+- Approval from Group BU/SU COO
+- If ANY SOP disagrees → extension denied
+
+### Circuit Breaker Rule
+**Trigger**: After **3 loop-backs** on the same NPA
+**Action**: Automatic escalation to:
+- Group BU/SU COO
+- NPA Governance Forum
+
+**Rationale**: 3 loop-backs indicate a fundamental problem — unclear requirements, complex edge case, or process breakdown needing senior intervention.
+
+**Current Metrics**:
+- Loop-backs per month: 8
+- Average rework iterations per NPA: 1.4
+- Circuit breaker escalations: ~1 per month
+
+### Four Types of Loop-Back
+1. **Checker Rejection**: Maker submits → Checker rejects → back to Maker (+3-5 days)
+2. **Approval Clarification**: SOP needs clarification → smart routing if answerable without doc changes
+3. **Launch Preparation Issues**: UAT/system issue → back to specific SOP only
+4. **Post-Launch Corrective**: PIR identifies issue → expedited re-approval
+
+---
+
 ## 12. NPA Process Personas (33+ Across 9 Organizational Tiers)
 
 The NPA process involves a broad ecosystem of personas across the organization. The Ideation Agent must understand these roles to properly route, escalate, and advise users during the interview.
@@ -1435,7 +1583,7 @@ The Ideation Agent uses the following MCP (Model Context Protocol) tools for its
 | Tool | Purpose | When Called |
 |------|---------|------------|
 | `ideation_create_npa` | Creates a new NPA draft record in the system | After Step 1 discovery is complete and initial data extracted |
-| `ideation_find_similar` | Searches knowledge base for similar historical NPAs | Step 3 (Similarity Search) |
+| `ideation_find_similar` | Searches for similar NPAs using SQL LIKE matching on title/description (keyword-based, not semantic) | Step 3 (Similarity Search) |
 | `ideation_get_prohibited_list` | Retrieves current prohibited products/activities list | Step 2A (Pre-Screen Checks) |
 | `ideation_save_concept` | Saves intermediate concept/draft state during interview | Periodically during interview to prevent data loss |
 | `ideation_list_templates` | Lists available NPA templates for a given product type | Step 6B (Auto-Fill) to select correct template |
