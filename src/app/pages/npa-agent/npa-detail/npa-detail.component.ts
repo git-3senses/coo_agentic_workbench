@@ -1131,8 +1131,19 @@ export class NpaDetailComponent implements OnInit {
             if (projectId && this.autoFillSummary?.fields?.length) {
                this.persistAgentResult(projectId, 'autofill', {
                   fields: this.autoFillSummary.fields.map(f => ({
-                     field_key: f.fieldName, value: f.value, confidence: f.confidence
-                  }))
+                     field_key: f.fieldName,
+                     value: f.value,
+                     lineage: f.lineage || 'AUTO',
+                     confidence: f.confidence,
+                     source: f.source,
+                     document_section: f.documentSection
+                  })),
+                  template_id: this.autoFillSummary.templateId,
+                  source_npa: this.autoFillSummary.sourceNpa,
+                  coverage_pct: this.autoFillSummary.coveragePct,
+                  notional_flags: this.autoFillSummary.notionalFlags,
+                  cross_border_flags: this.autoFillSummary.crossBorderFlags,
+                  validation_warnings: this.autoFillSummary.validationWarnings
                });
             }
             break;
@@ -1395,26 +1406,77 @@ export class NpaDetailComponent implements OnInit {
       const o = this.parseJsonOutput(rawOutputs);
       console.log('[mapAutoFillSummary] parsed keys:', o ? Object.keys(o) : 'NULL', 'raw (500):', JSON.stringify(o).substring(0, 500));
       if (!o) return null;
-      // autofill_result may have a nested coverage object
+
+      // v2 prompt output: autofill_result has nested coverage, document_structure, etc.
       const ar = o.autofill_result || o;
       const cov = ar.coverage || ar;
       const filledFields = o.filled_fields || o.fields || [];
+      const manualFields = o.manual_fields || [];
+      const warnings = o.validation_warnings || [];
+      const nf = o.notional_flags || {};
+      const cbf = o.cross_border_flags || {};
+      const ds = ar.document_structure || {};
+      const ts = o.time_savings || {};
+      const pir = o.pir_requirements || {};
+      const validity = ar.validity_period || {};
+
       return {
          fieldsFilled: cov.auto_filled || ar.auto_filled || ar.fieldsFilled || filledFields.filter((f: any) => f.lineage === 'AUTO').length,
          fieldsAdapted: cov.adapted || ar.adapted || ar.fieldsAdapted || filledFields.filter((f: any) => f.lineage === 'ADAPTED').length,
-         fieldsManual: cov.manual_required || ar.manual_required || ar.fieldsManual || 0,
-         totalFields: cov.total_fields || ar.total_fields || ar.totalFields || 72,  // STD_NPA_V2 has 72 fields
+         fieldsManual: cov.manual_required || ar.manual_required || ar.fieldsManual || manualFields.length || 0,
+         totalFields: cov.total_fields || ar.total_fields || ar.totalFields || 72,
          coveragePct: cov.coverage_pct || ar.coverage_pct || ar.coveragePct || 0,
-         timeSavedMinutes: o.time_savings?.estimated_manual_minutes
-            ? (o.time_savings.estimated_manual_minutes - (o.time_savings.estimated_with_autofill_minutes || 0))
+         timeSavedMinutes: ts.estimated_manual_minutes
+            ? (ts.estimated_manual_minutes - (ts.estimated_with_autofill_minutes || 0))
             : (ar.timeSavedMinutes || 0),
          fields: filledFields.map((f: any) => ({
             fieldName: f.field_key || f.fieldName || '',
             value: f.value || '',
             lineage: f.lineage || 'AUTO',
             source: f.source,
-            confidence: f.confidence ? f.confidence / 100 : undefined
-         }))
+            confidence: f.confidence ? f.confidence / 100 : undefined,
+            documentSection: f.document_section || f.documentSection
+         })),
+         // v2 enrichments
+         templateId: ar.template_id || ar.templateId,
+         sourceNpa: ar.source_npa || ar.sourceNpa,
+         sourceSimilarity: ar.source_similarity || ar.sourceSimilarity,
+         documentStructure: ds.part_a_complete != null ? {
+            partAComplete: ds.part_a_complete,
+            partBComplete: ds.part_b_complete,
+            partCSectionsFilled: ds.part_c_sections_filled || [],
+            appendicesRequired: ds.appendices_required || [],
+            appendicesAutoFilled: ds.appendices_auto_filled || []
+         } : undefined,
+         manualFields: manualFields.map((f: any) => ({
+            fieldKey: f.field_key || f.fieldKey || '',
+            label: f.label || '',
+            reason: f.reason || '',
+            requiredBy: f.required_by || f.requiredBy,
+            smartHelp: f.smart_help || f.smartHelp,
+            documentSection: f.document_section || f.documentSection
+         })),
+         validationWarnings: warnings.map((w: any) => ({
+            fieldKey: w.field_key || w.fieldKey || '',
+            warning: w.warning || '',
+            severity: w.severity || 'INFO',
+            documentSection: w.document_section || w.documentSection
+         })),
+         notionalFlags: nf.roae_analysis_needed != null ? {
+            cfoApprovalRequired: nf.cfo_approval_required || false,
+            financeVpRequired: nf.finance_vp_required || false,
+            roaeAnalysisNeeded: nf.roae_analysis_needed || false,
+            mlrReviewRequired: nf.mlr_review_required || false
+         } : undefined,
+         crossBorderFlags: cbf.is_cross_border != null ? {
+            isCrossBorder: cbf.is_cross_border || false,
+            mandatorySignoffs: cbf.mandatory_signoffs || [],
+            additionalRequirements: cbf.additional_requirements || []
+         } : undefined,
+         npaLiteSubtype: ar.npa_lite_subtype || ar.npaLiteSubtype,
+         dormancyStatus: ar.dormancy_status || ar.dormancyStatus,
+         pirRequired: pir.required,
+         validityMonths: validity.duration_months
       } as AutoFillSummary;
    }
 

@@ -173,6 +173,44 @@ export interface AutoFillField {
     lineage: 'AUTO' | 'ADAPTED' | 'MANUAL';
     source?: string;
     confidence?: number;
+    documentSection?: string;
+}
+
+export interface AutoFillManualField {
+    fieldKey: string;
+    label: string;
+    reason: string;
+    requiredBy?: string;
+    smartHelp?: string;
+    documentSection?: string;
+}
+
+export interface AutoFillValidationWarning {
+    fieldKey: string;
+    warning: string;
+    severity: 'HARD_STOP' | 'IMPORTANT' | 'INFO';
+    documentSection?: string;
+}
+
+export interface AutoFillDocumentStructure {
+    partAComplete: boolean;
+    partBComplete: boolean;
+    partCSectionsFilled: string[];
+    appendicesRequired: string[];
+    appendicesAutoFilled: string[];
+}
+
+export interface AutoFillNotionalFlags {
+    cfoApprovalRequired: boolean;
+    financeVpRequired: boolean;
+    roaeAnalysisNeeded: boolean;
+    mlrReviewRequired: boolean;
+}
+
+export interface AutoFillCrossBorderFlags {
+    isCrossBorder: boolean;
+    mandatorySignoffs: string[];
+    additionalRequirements: string[];
 }
 
 export interface AutoFillSummary {
@@ -183,6 +221,19 @@ export interface AutoFillSummary {
     coveragePct: number;
     timeSavedMinutes: number;
     fields: AutoFillField[];
+    // v2 enrichments
+    templateId?: string;
+    sourceNpa?: string;
+    sourceSimilarity?: number;
+    documentStructure?: AutoFillDocumentStructure;
+    manualFields?: AutoFillManualField[];
+    validationWarnings?: AutoFillValidationWarning[];
+    notionalFlags?: AutoFillNotionalFlags;
+    crossBorderFlags?: AutoFillCrossBorderFlags;
+    npaLiteSubtype?: string;
+    dormancyStatus?: string;
+    pirRequired?: boolean;
+    validityMonths?: number;
 }
 
 // ─── Monitoring Agent (#11) ─────────────────────────────────────
