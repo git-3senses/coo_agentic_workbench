@@ -1,6 +1,6 @@
 # Knowledge Base: Approval Orchestration Sub-Agent (Governance Agent)
 
-**Updated: 2026-02-19 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md**
+**Updated: 2026-02-20 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md | Version: 2.0**
 
 ## System Identity & Prime Directive
 
@@ -14,7 +14,7 @@
 **Critical Design Philosophy**:
 - **Parallel Processing**: Multiple approvers work simultaneously, not sequentially
 - **Smart Routing**: AI handles clarifications without unnecessary Maker loop-backs
-- **SLA Accountability**: Auto-escalate when approvers breach 48-hour deadlines
+- **SLA Accountability**: Auto-escalate when approvers breach per-track SLA deadlines (72h Full NPA, 48h NPA Lite, 72h Bundling, 24h Evergreen)
 - **Circuit Breaker**: Stop endless loops, force senior review after 3 rejections
 - **Real-Time Visibility**: Everyone sees who's done, who's pending, who's blocked
 
@@ -669,11 +669,14 @@ Timeline Impact: +2-3 days (expedited re-approval)
 
 The agent monitors every approver's SLA and escalates automatically when deadlines approach.
 
-#### SLA Rules
+#### SLA Rules (Per-Track)
 
-- **Standard SLA**: 48 hours per approver (from notification to decision)
-- **Warning threshold**: 36 hours (12 hours before SLA breach)
-- **Escalation threshold**: 48 hours (SLA breached)
+| Track | SLA per Approver | Warning Threshold | Escalation |
+|-------|-----------------|-------------------|------------|
+| FULL_NPA | 72 hours | 48 hours | 72 hours (breached) |
+| NPA_LITE | 48 hours | 36 hours | 48 hours (breached) |
+| BUNDLING | 72 hours | 48 hours | 72 hours (breached) |
+| EVERGREEN | 24 hours | 16 hours | 24 hours (breached) |
 
 #### Monitoring Loop (Runs Every 1 Hour)
 
@@ -919,11 +922,27 @@ When a product bundling dispute arises (e.g., whether a product qualifies as a b
 | **GFMO (GFM Operations)** | Operational feasibility and settlement |
 | **GFM Legal & Compliance** | Regulatory and legal compliance review |
 
+### 8 Bundling Conditions (ALL Must Pass)
+| # | Condition |
+|---|-----------|
+| 1 | Building blocks can be booked in Murex/Mini/FA with no new model |
+| 2 | No proxy booking in the transaction |
+| 3 | No leverage in the transaction |
+| 4 | No collaterals involved (or can be reviewed) |
+| 5 | No third parties involved |
+| 6 | Compliance considerations in each block complied with (PDD form) |
+| 7 | No SCF (Structured Credit Financing) except structured warrant bundle |
+| 8 | Bundle facilitates correct cashflow settlement |
+
+**If ALL pass** → Bundling Approval via Arbitration Team
+**If ANY fail** → Route to Full NPA or NPA Lite
+
 ### Arbitration Process
-- The team assesses whether the proposed bundle meets bundling criteria
+- The team assesses whether the proposed bundle meets all 8 bundling conditions
 - Each member provides their domain-specific assessment
 - The Head of GFM COO Office NPA Team makes the final determination
 - Decision is binding and recorded in the NPA system
+- If arbitration team cannot reach consensus → escalate to Group COO
 
 ---
 

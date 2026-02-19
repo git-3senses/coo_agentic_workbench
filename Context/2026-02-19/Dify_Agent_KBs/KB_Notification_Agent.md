@@ -1,4 +1,4 @@
-> **Updated: 2026-02-19 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md**
+> **Updated: 2026-02-20 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md | Version: 2.0**
 
 # Knowledge Base: Notification Agent
 
