@@ -13,7 +13,8 @@ import { MonitoringAlertsComponent } from '../../../components/npa/agent-results
 import { DocCompletenessComponent } from '../../../components/npa/agent-results/doc-completeness.component';
 import { DifyService } from '../../../services/dify/dify.service';
 import { OrchestratorChatComponent } from '../../../components/npa/ideation-chat/ideation-chat.component';
-import { RiskAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, AutoFillSummary } from '../../../lib/agent-interfaces';
+import { RiskAssessment, RiskDomainAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, AutoFillSummary } from '../../../lib/agent-interfaces';
+import { RiskCheckService } from '../../../services/risk-check.service';
 import { AutofillSummaryComponent } from '../../../components/npa/agent-results/autofill-summary.component';
 import { GovernanceStatusComponent } from '../../../components/npa/agent-results/governance-status.component';
 import { ClassificationResultComponent } from '../../../components/npa/agent-results/classification-result.component';
@@ -642,6 +643,7 @@ export class NpaDetailComponent implements OnInit {
 
    private npaService = inject(NpaService);
    private http = inject(HttpClient);
+   private riskCheckService = inject(RiskCheckService);
    private waveContext: Record<string, any> = {}; // Sprint 2: accumulated agent outputs between waves
 
    // Form sections loaded from API
@@ -680,6 +682,61 @@ export class NpaDetailComponent implements OnInit {
             }));
          },
          error: (err) => console.warn('Could not load form sections, using empty', err)
+      });
+
+      // Load persisted risk assessment to restore on page reload
+      this.riskCheckService.getNpaChecks(id).subscribe({
+         next: (checks) => {
+            if (!checks?.length) return;
+            // Reconstruct layers from RISK_AGENT rows
+            const layerChecks = checks.filter(c => c.checked_by === 'RISK_AGENT');
+            const domainChecks = checks.filter(c => c.checked_by === 'RISK_AGENT_DOMAIN');
+
+            if (layerChecks.length > 0 && !this.riskAssessmentResult) {
+               const layers = layerChecks.map(c => ({
+                  name: c.check_layer as any,
+                  status: c.result,
+                  details: '',
+                  checks: Array.isArray(c.matched_items) ? c.matched_items.map((item: any) =>
+                     typeof item === 'string'
+                        ? { name: item, status: 'WARNING' as const, detail: item }
+                        : { name: item.name || '', status: item.status || 'PASS', detail: item.detail || '' }
+                  ) : []
+               }));
+               const domainAssessments = domainChecks.map(c => {
+                  const data = typeof c.matched_items === 'string' ? JSON.parse(c.matched_items) : (c.matched_items || {});
+                  return {
+                     domain: c.check_layer.replace('DOMAIN_', '') as any,
+                     score: data.score || 0,
+                     rating: c.result as any,
+                     keyFindings: data.keyFindings || [],
+                     mitigants: data.mitigants || []
+                  };
+               });
+
+               // Also try to get the full risk envelope from intake_assessments
+               const riskIntake = this.intakeAssessments?.find((a: any) => a.domain === 'RISK');
+               const findings = riskIntake?.findings ? (typeof riskIntake.findings === 'string' ? JSON.parse(riskIntake.findings) : riskIntake.findings) : {};
+
+               this.riskAssessmentResult = {
+                  layers,
+                  domainAssessments,
+                  overallScore: riskIntake?.score || 0,
+                  overallRating: this.projectData?.risk_level || 'MEDIUM',
+                  hardStop: riskIntake?.status === 'FAIL',
+                  hardStopReason: undefined,
+                  prerequisites: [],
+                  pirRequirements: findings.pir_requirements || undefined,
+                  notionalFlags: findings.notional_flags || undefined,
+                  mandatorySignoffs: findings.mandatory_signoffs || [],
+                  recommendations: findings.recommendations || [],
+                  circuitBreaker: findings.circuit_breaker || undefined,
+                  evergreenLimits: findings.evergreen_limits || undefined
+               };
+               console.log('[loadProjectDetails] Restored persisted risk assessment:', this.riskAssessmentResult.overallScore, this.riskAssessmentResult.overallRating);
+            }
+         },
+         error: (err) => console.warn('Could not load persisted risk checks', err)
       });
    }
 
@@ -922,6 +979,17 @@ export class NpaDetailComponent implements OnInit {
          counterparty_rating: fieldValue('counterparty_rating', 'A-'),
          use_case: fieldValue('use_case', '') || 'Hedging',
          risk_level: d.risk_level || 'MEDIUM',
+         // NPA Lite sub-type (B1-B4)
+         npa_lite_subtype: d.npa_lite_subtype || fieldValue('npa_lite_subtype', ''),
+         // PAC approval status (required for NTG before NPA starts)
+         pac_approved: String(d.pac_approved ?? fieldValue('pac_approved', 'false') === 'true'),
+         // Dormancy status for existing products
+         dormancy_status: d.dormancy_status || fieldValue('dormancy_status', '') || 'active',
+         // Loop-back count for circuit breaker tracking
+         loop_back_count: String(d.loop_back_count || 0),
+         // Evergreen aggregate usage (GFM-wide)
+         evergreen_notional_used: String(d.evergreen_notional_used || 0),
+         evergreen_deal_count: String(d.evergreen_deal_count || 0),
          // Some Dify workflows use 'input_text' as their primary input variable
          input_text: productDesc
       };
@@ -1036,14 +1104,24 @@ export class NpaDetailComponent implements OnInit {
             break;
          case 'RISK':
             this.riskAssessmentResult = this.mapRiskAssessment(outputs);
-            console.log(`[handleAgentResult] RISK mapped:`, this.riskAssessmentResult ? `score=${this.riskAssessmentResult.overallScore}, layers=${this.riskAssessmentResult.layers?.length}` : 'NULL');
+            console.log(`[handleAgentResult] RISK mapped:`, this.riskAssessmentResult
+               ? `score=${this.riskAssessmentResult.overallScore}, rating=${this.riskAssessmentResult.overallRating}, layers=${this.riskAssessmentResult.layers?.length}, domains=${this.riskAssessmentResult.domainAssessments?.length}`
+               : 'NULL');
             if (projectId && this.riskAssessmentResult) {
                this.persistAgentResult(projectId, 'risk', {
                   layers: this.riskAssessmentResult.layers?.map(l => ({
                      check_layer: l.name, result: l.status, findings: l.checks
                   })),
+                  domain_assessments: this.riskAssessmentResult.domainAssessments,
                   overall_score: this.riskAssessmentResult.overallScore,
-                  hard_stop: this.riskAssessmentResult.hardStop
+                  overall_rating: this.riskAssessmentResult.overallRating,
+                  hard_stop: this.riskAssessmentResult.hardStop,
+                  pir_requirements: this.riskAssessmentResult.pirRequirements,
+                  notional_flags: this.riskAssessmentResult.notionalFlags,
+                  mandatory_signoffs: this.riskAssessmentResult.mandatorySignoffs,
+                  recommendations: this.riskAssessmentResult.recommendations,
+                  circuit_breaker: this.riskAssessmentResult.circuitBreaker,
+                  evergreen_limits: this.riskAssessmentResult.evergreenLimits
                });
             }
             break;
@@ -1202,25 +1280,114 @@ export class NpaDetailComponent implements OnInit {
       const o = this.parseJsonOutput(rawOutputs);
       if (!o) return null;
       const r = o.risk_assessment || o;
+
+      // Map 5 layers (Internal Policy → Regulatory → Sanctions → Dynamic → Finance & Tax)
+      const layers = (o.layer_results || r.layers || []).map((l: any) => ({
+         name: l.layer || l.name || '',
+         status: l.status || 'PASS',
+         details: Array.isArray(l.findings) ? l.findings.join('; ') : (l.details || ''),
+         checks: (l.checks || l.flags || []).map((c: any) =>
+            typeof c === 'string'
+               ? { name: c, status: 'WARNING' as const, detail: c }
+               : { name: c.name, status: c.status || 'PASS', detail: c.detail || c.description || '' }
+         )
+      }));
+
+      // Map 7 domain assessments (Credit, Market, Operational, Liquidity, Legal, Reputational, Cyber)
+      const domainAssessments = (o.domain_assessments || r.domain_assessments || []).map((d: any) => ({
+         domain: d.domain || '',
+         score: d.score || 0,
+         rating: d.rating || 'LOW',
+         keyFindings: d.key_findings || d.keyFindings || [],
+         mitigants: d.mitigants || d.mitigation || []
+      }));
+
+      // Map prerequisites
+      const prerequisites = (o.prerequisite_validation?.pending_items || r.prerequisites || []).map((p: any) =>
+         typeof p === 'string'
+            ? { name: p, status: 'FAIL' as const, category: 'Pending' }
+            : { name: p.name, status: p.status || 'PASS', category: p.category || '' }
+      );
+
+      // Map PIR requirements
+      const pirRaw = o.pir_requirements || r.pir_requirements;
+      const pirRequirements = pirRaw ? {
+         required: pirRaw.required ?? pirRaw.pir_required ?? false,
+         type: pirRaw.type || pirRaw.pir_type,
+         deadline_months: pirRaw.deadline_months || pirRaw.deadline,
+         conditions: pirRaw.conditions || []
+      } : undefined;
+
+      // Map validity risk
+      const valRaw = o.validity_risk || r.validity_risk;
+      const validityRisk = valRaw ? {
+         valid: valRaw.valid ?? true,
+         expiry_date: valRaw.expiry_date,
+         extension_eligible: valRaw.extension_eligible,
+         notes: valRaw.notes
+      } : undefined;
+
+      // Map circuit breaker
+      const cbRaw = o.circuit_breaker || r.circuit_breaker;
+      const circuitBreaker = cbRaw ? {
+         triggered: cbRaw.triggered ?? false,
+         loop_back_count: cbRaw.loop_back_count ?? cbRaw.count ?? 0,
+         threshold: cbRaw.threshold ?? 3,
+         escalation_target: cbRaw.escalation_target
+      } : undefined;
+
+      // Map evergreen limits
+      const egRaw = o.evergreen_limits || r.evergreen_limits;
+      const evergreenLimits = egRaw ? {
+         eligible: egRaw.eligible ?? false,
+         notional_remaining: egRaw.notional_remaining,
+         deal_count_remaining: egRaw.deal_count_remaining,
+         flags: egRaw.flags || []
+      } : undefined;
+
+      // Map NPA Lite risk profile
+      const nlRaw = o.npa_lite_risk_profile || r.npa_lite_risk_profile;
+      const npaLiteRiskProfile = nlRaw ? {
+         subtype: nlRaw.subtype || nlRaw.sub_type,
+         eligible: nlRaw.eligible ?? false,
+         conditions_met: nlRaw.conditions_met || [],
+         conditions_failed: nlRaw.conditions_failed || []
+      } : undefined;
+
+      // Map SOP bottleneck risk
+      const sopRaw = o.sop_bottleneck_risk || r.sop_bottleneck_risk;
+      const sopBottleneckRisk = sopRaw ? {
+         bottleneck_parties: sopRaw.bottleneck_parties || [],
+         estimated_days: sopRaw.estimated_days,
+         critical_path: sopRaw.critical_path
+      } : undefined;
+
+      // Map notional flags
+      const nfRaw = o.notional_flags || r.notional_flags;
+      const notionalFlags = nfRaw ? {
+         finance_vp_required: nfRaw.finance_vp_required ?? false,
+         cfo_required: nfRaw.cfo_required ?? false,
+         roae_required: nfRaw.roae_required ?? nfRaw.roae_analysis_needed ?? false,
+         threshold_breached: nfRaw.threshold_breached
+      } : undefined;
+
       return {
-         layers: (o.layer_results || r.layers || []).map((l: any) => ({
-            name: l.layer || l.name || '',
-            status: l.status || 'PASS',
-            details: Array.isArray(l.findings) ? l.findings.join('; ') : (l.details || ''),
-            checks: (l.checks || l.flags || []).map((c: any) =>
-               typeof c === 'string'
-                  ? { name: c, status: 'WARNING' as const, detail: c }
-                  : { name: c.name, status: c.status || 'PASS', detail: c.detail || c.description || '' }
-            )
-         })),
+         layers,
+         domainAssessments,
          overallScore: r.overall_score || r.overallScore || 0,
+         overallRating: r.overall_risk_rating || r.overallRating || (r.overall_score >= 70 ? 'HIGH' : r.overall_score >= 40 ? 'MEDIUM' : 'LOW'),
          hardStop: r.hardStop || r.hard_stop || false,
          hardStopReason: r.hardStopReason || r.hard_stop_reason || undefined,
-         prerequisites: (o.prerequisite_validation?.pending_items || r.prerequisites || []).map((p: any) =>
-            typeof p === 'string'
-               ? { name: p, status: 'FAIL' as const, category: 'Pending' }
-               : { name: p.name, status: p.status || 'PASS', category: p.category || '' }
-         )
+         prerequisites,
+         pirRequirements,
+         validityRisk,
+         circuitBreaker,
+         evergreenLimits,
+         npaLiteRiskProfile,
+         sopBottleneckRisk,
+         notionalFlags,
+         mandatorySignoffs: o.mandatory_signoffs || r.mandatory_signoffs || [],
+         recommendations: o.recommendations || r.recommendations || []
       } as RiskAssessment;
    }
 

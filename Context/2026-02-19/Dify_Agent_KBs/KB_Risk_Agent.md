@@ -1,12 +1,13 @@
-# Knowledge Base: Prohibited List Checker Agent (Risk & Policy Agent)
+# Knowledge Base: NPA Risk Assessment Agent ("The Shield")
 
-**Updated: 2026-02-19 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md**
+**Updated: 2026-02-19 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md (v2.0)**
+**Version: 2.0 — Aligned with WF_NPA_Risk_Prompt.md v2.0**
 
 ## System Identity & Prime Directive
 
-**Agent Name**: Prohibited List Checker Agent ("The Compliance Gatekeeper")
-**Role**: Real-time validation against prohibited products, jurisdictions, counterparties, and activities
-**Primary Goal**: Detect non-compliance, prohibited activities, and high-risk indicators before any NPA processing begins, operating as a HARD STOP gate
+**Agent Name**: NPA Risk Assessment Agent ("The Shield")
+**Role**: Comprehensive 5-layer risk validation cascade with 7-domain assessment for NPA products. Also operates as a HARD STOP gate for prohibited products, sanctions, and regulatory violations.
+**Primary Goal**: Assess all risk dimensions of an NPA product, validate prerequisites, compute PIR requirements, and produce actionable risk ratings with zero false negatives.
 
 **Prime Directive**:
 **Zero False Negatives** - It is better to flag a safe product as "Needs Review" than to let a dangerous product pass as "Safe"
@@ -791,78 +792,220 @@ The following real NPA cases provide critical precedent for risk assessment deci
 
 ---
 
-## Risk Tiering Logic
+## NPA Approval Governance & Notional Escalation
 
-For products that PASS all 4 compliance layers, assign a `Risk_Tier` to determine approval requirements:
+For products that PASS all compliance layers, the NPA governance model determines approval requirements. The **GFM COO** is the final approving authority (not Board/CEO).
 
-### Tier 1: Critical Risk
-**Trigger Conditions**:
-- Notional > $500M **OR**
-- Keyword: "New Asset Class" (never offered before) **OR**
-- Complexity Score > 90/100
+### Notional Threshold Escalation (R40-R42)
 
-**Approval Requirements**:
-- Sequential Board-level sign-off
-- Group CEO approval
-- Group CRO approval
-- Group CFO approval
+| Notional | Flag | Additional Requirement |
+|----------|------|----------------------|
+| > $10M + Derivative | `mlr_review_required` | MLR review mandatory (GFM SOP) |
+| > $20M | `roae_analysis_needed` | ROAE sensitivity analysis required (Appendix III) |
+| > $50M | `finance_vp_required` | Finance VP review and approval required |
+| > $100M | `cfo_approval_required` | CFO review and approval required (+1 day timeline) |
 
-**Expected Timeline**: 3-4 weeks
+### Risk Rating Override Rules
 
-**Example**:
-```
-Product: Exotic weather derivative (new asset class)
-Notional: $200M
-Risk Tier: CRITICAL (new asset class trigger)
-Required Approvals: Board → CEO → CRO → CFO
-```
+| Condition | Override |
+|-----------|---------|
+| NTG product | Minimum rating = MEDIUM (cannot be LOW) |
+| Cross-border | +1 severity level (LOW→MEDIUM, MEDIUM→HIGH) |
+| Notional >$100M | +1 severity level |
+| Dormant ≥3 years | Minimum = HIGH |
+| Circuit breaker triggered (3+ loop-backs) | Minimum = HIGH |
+| Prohibited product | Always CRITICAL |
 
----
+### Approval Track Timelines
 
-### Tier 2: High Risk
-**Trigger Conditions**:
-- Notional $100M - $500M **OR**
-- Complex derivative (multi-underlying, non-linear payoff) **OR**
-- Sub-investment grade counterparty (BBB+ or below) + Notional > $50M
+| Track | Average Days | Range |
+|-------|-------------|-------|
+| FULL_NPA | 12 days (current avg) | 8-22 days |
+| NPA_LITE | 5-8 days | 3-10 days |
+| NPA_LITE B1/B3 | 2 days (48hr) | 1-3 days |
+| BUNDLING | 3-5 days | 2-7 days |
+| EVERGREEN | 1-2 days | Same day to 3 days |
 
-**Approval Requirements**:
-- Group CRO sign-off
-- Group Risk Head approval
-- Legal review (mandatory)
+### SOP SLA Windows (Sign-Off Stage)
 
-**Expected Timeline**: 2-3 weeks
-
-**Example**:
-```
-Product: Multi-currency interest rate swap
-Notional: $250M
-Counterparty Rating: A+
-Risk Tier: HIGH (notional trigger)
-Required Approvals: Group CRO → Group Risk Head → Legal
-```
+| SOP | Average SLA |
+|-----|-------------|
+| Finance (Group Product Control) | 1.8 days (bottleneck) |
+| RMG-Credit | 1.2 days |
+| Legal & Compliance | 1.1 days |
+| RMG-MLR | ~1 day |
+| Operations | ~1 day |
+| Technology | ~1 day |
 
 ---
 
-### Tier 3: Standard Risk
-**Trigger Conditions**:
-- Notional < $20M **AND**
-- Plain vanilla product (standard FX forward, vanilla option) **AND**
-- Investment grade counterparty (BBB+ or above)
+## Post-Implementation Review (PIR) Rules — R30-R32
 
-**Approval Requirements**:
-- Delegated approval (Desk Head + Regional Risk Head)
-- No CEO/CRO involvement
+### When PIR Is Mandatory
 
-**Expected Timeline**: 3-5 days
+| Condition | Required? | Scope |
+|-----------|----------|-------|
+| ALL NTG products | **YES** | ALL original SOPs, even without conditions |
+| Products with post-launch conditions | **YES** | SOPs who imposed conditions |
+| GFM stricter rule: ANY launched product | **YES** | All launched products regardless of type |
+| Reactivated NTG | **YES** | Full PIR scope |
 
-**Example**:
-```
-Product: FX Forward EUR/USD
-Notional: $15M
-Counterparty Rating: A-
-Risk Tier: STANDARD
-Required Approvals: Desk Head → Regional Risk Head
-```
+### PIR Timeline
+- Must be **initiated within 6 months** of product launch
+- Reminders: Launch + 120 days, + 150 days, + 173 days (URGENT)
+
+### PIR Sign-Off
+- NTG: ALL original SOPs (even if no conditions imposed)
+- Others: SOPs who imposed post-launch conditions
+- Group Audit may conduct independent PIR
+
+### PIR Repeat Logic
+- If issues found during PIR → repeat in **90 days**
+- Continues until all SOPs are satisfied
+
+---
+
+## Validity, Extensions & Expiration — R23-R26
+
+### Standard Validity
+- Full NPA / NPA Lite: **1 year** from approval date
+- Evergreen: **3 years** from approval date
+
+### Extension Rules (One-Time Only)
+- Extension: **+6 months** maximum (total: 18 months)
+- Requirements: No variation, no risk profile change, no operating model change
+- **Unanimous consensus** from ALL original SOPs required
+- Group BU/SU COO approval required
+- If ANY SOP disagrees → extension denied
+
+### Expiry Consequences
+- Product CANNOT be traded after validity expires
+- Expired + no variations → NPA Lite Reactivation
+- Expired + variations → Full NPA (treated as effectively NTG)
+
+### Launch Definition
+"Launch" = first marketed sale/offer OR first trade (NOT indication of interest)
+
+---
+
+## Circuit Breaker & Loop-Back Rules — R36-R37
+
+### Four Types of Loop-Back
+
+| Type | Description | Time Impact |
+|------|-------------|-------------|
+| Type 1: Checker Rejection | Maker submits → Checker rejects → back to Draft | +3-5 days per iteration |
+| Type 2: Approval Clarification | SOP needs clarification during sign-off | +2-3 days (if NPA doc changes needed) |
+| Type 3: Launch Prep Issues | Issue during UAT/config → back to specific SOP | Variable |
+| Type 4: Post-Launch Corrective | PIR finds issue → expedited re-approval | Variable |
+
+### Circuit Breaker Rule
+- **Trigger:** After **3 loop-backs** on the same NPA
+- **Action:** Automatic escalation to Group BU/SU COO + NPA Governance Forum
+- **Rationale:** 3 loop-backs = fundamental problem needing senior intervention
+
+### Current Metrics
+- Loop-backs/month: 8
+- Average rework iterations: 1.4
+- Circuit breaker escalations: ~1/month
+
+---
+
+## Evergreen Products — Limits & Eligibility — R09
+
+### 6 Eligibility Criteria (ALL must be met)
+1. No significant changes since last approval
+2. Back-to-Back (BTB) basis with professional counterparty
+3. Vanilla/foundational product
+4. Liquidity management product (including for DBS Group Holdings)
+5. Exchange product used as hedge against customer trades
+6. ABS origination to meet client demand
+
+### What's NOT Eligible
+- Products requiring deal-by-deal approval
+- Products dormant/expired > 3 years
+- Joint-unit NPAs (Evergreen is GFM-only)
+
+### Evergreen Limits (GFM-Wide)
+
+| Limit Type | Amount |
+|------------|--------|
+| Total Notional (aggregated) | USD $500,000,000 |
+| Long Tenor (>10Y) sub-limit | USD $250,000,000 |
+| Non-Retail Deal Cap (per NPA) | 10 deals |
+| Retail Deal Cap (per NPA) | 20 deals |
+| Retail Transaction Size (per trade) | USD $25,000,000 |
+| Retail Aggregate Notional | USD $100,000,000 |
+
+**Special exemption:** Liquidity management products — notional and trade caps **WAIVED**
+
+### Evergreen Bundles (Pre-Approved)
+- Dual Currency Deposit/Notes (FX Option + LNBR/Deposit/Bond)
+- Treasury Investment Asset Swap (Bond + IRS)
+- Equity-Linked Note (Equity Option + LNBR)
+
+---
+
+## NPA Lite Sub-Types — Risk Differentiation — R12-R15
+
+| Sub-Type | Trigger | Risk Profile | Timeline |
+|----------|---------|-------------|----------|
+| **B1: Impending Deal** | BTB + professional counterparty; or dormant/expired with UAT done | MEDIUM — any SOP objection → fallback | 48 hours |
+| **B2: NLNOC** | Simple payoff change; or reactivation with no structural changes | MEDIUM — joint GFM COO + RMG-MLR decision | 5-10 days |
+| **B3: Fast-Track Dormant** | Prior live trade + not prohibited + PIR completed + no variations | MEDIUM-LOW — 48hr no-objection → auto-approval | 48 hours |
+| **B4: Addendum** | Minor updates to LIVE (not expired) NPA only | LOW — no new features/payoffs; validity NOT extended | < 5 days |
+
+### B4 Addendum Constraints
+- Can only amend LIVE NPAs (NOT expired ones)
+- No new features or payoffs permitted
+- Original NPA reference kept (same GFM ID)
+- Validity period NOT extended (maintains original expiry)
+
+---
+
+## Dormancy & Existing Product Routing — R05, R34
+
+**Dormancy definition:** No transactions booked in the last **12 months** = dormant.
+
+| Status | Condition | Sub-Route | Track |
+|--------|-----------|-----------|-------|
+| Active | On Evergreen list | Evergreen (same-day) | EVERGREEN |
+| Active | NOT on Evergreen list | NPA Lite Ref Existing | NPA_LITE |
+| Dormant | < 3 years + fast-track criteria | Fast-Track 48hr | NPA_LITE (B3) |
+| Dormant | < 3 years + variations detected | NPA Lite (standard) | NPA_LITE |
+| Dormant | ≥ 3 years | Escalate to GFM COO | ESCALATE |
+| Expired | No variations | NPA Lite Reactivation | NPA_LITE |
+| Expired | Variations detected | Full NPA (effectively NTG) | FULL_NPA |
+
+**Dormant ≥ 3 years:** Risk landscape, regulatory environment, and operational infrastructure may have materially changed. GFM COO must determine whether Full NPA is required.
+
+---
+
+## Bundling — 8 Conditions & Arbitration — R08, R17
+
+### 8 Bundling Conditions (ALL Must Pass)
+
+| # | Condition |
+|---|-----------|
+| 1 | Building blocks bookable in Murex/Mini/FA with no new model required |
+| 2 | No proxy booking |
+| 3 | No leverage beyond individual component limits |
+| 4 | No new collaterals (existing CSA/GMRA acceptable; can be reviewed but not auto-rejection) |
+| 5 | No new third-party intermediaries |
+| 6 | PDD compliance for all components |
+| 7 | No SCF — exception: structured warrant bundle is permitted |
+| 8 | Correct cashflow settlement through standard channels |
+
+**If ALL pass** → Bundling Approval via Arbitration Team
+**If ANY fail** → Must use FULL_NPA or NPA_LITE instead
+
+### Bundling Arbitration Team (6 members)
+1. Head of GFM COO Office NPA Team
+2. RMG-MLR
+3. TCRM (Technology & Credit Risk Management)
+4. Finance-GPC (Group Product Control)
+5. GFMO (GFM Operations)
+6. GFM Legal & Compliance
 
 ---
 
@@ -1287,6 +1430,6 @@ That's the power of intelligent compliance automation.
 
 ---
 
-**Total Lines**: 1,007 lines
-**Quality Score**: 9/10 (comprehensive coverage of 4-layer checks, edge cases, risk tiering, real-world examples, and business impact)
-**100% Accuracy**: All content directly from NPA_Prohibited_List_Checker_Agent_Specification.md with zero assumptions.
+**Version**: 2.0 (updated 2026-02-19)
+**Cross-verified against**: NPA_Business_Process_Deep_Knowledge.md — all 44 business rules (R01-R44) referenced
+**Scope**: 5-layer compliance cascade, 7-domain risk assessment, PIR rules, validity/extension, circuit breaker, Evergreen limits, NPA Lite sub-types, bundling conditions, dormancy routing, real NPA case patterns

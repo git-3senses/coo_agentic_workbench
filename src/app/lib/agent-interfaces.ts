@@ -27,7 +27,7 @@ export const AGENT_REGISTRY: AgentDefinition[] = [
     { id: 'CLASSIFIER', name: 'Classification Agent', tier: 3, icon: 'git-branch', color: 'bg-purple-50 text-purple-600', difyType: 'workflow', description: 'NTG/Variation/Existing classification and approval track assignment' },
     { id: 'AUTOFILL', name: 'Template AutoFill Agent', tier: 3, icon: 'file-edit', color: 'bg-blue-50 text-blue-600', difyType: 'workflow', description: '47-field NPA template auto-fill with RAG' },
     { id: 'ML_PREDICT', name: 'ML Prediction Agent', tier: 3, icon: 'trending-up', color: 'bg-amber-50 text-amber-600', difyType: 'workflow', description: 'Approval likelihood, timeline, and bottleneck prediction' },
-    { id: 'RISK', name: 'Risk Agent', tier: 3, icon: 'shield-alert', color: 'bg-red-50 text-red-600', difyType: 'workflow', description: '4-layer risk cascade: Internal → Regulatory → Sanctions → Dynamic' },
+    { id: 'RISK', name: 'Risk Agent', tier: 3, icon: 'shield-alert', color: 'bg-red-50 text-red-600', difyType: 'workflow', description: '5-layer risk cascade + 7-domain assessment: Credit, Market, Operational, Liquidity, Legal, Reputational, Cyber' },
     { id: 'GOVERNANCE', name: 'Governance Agent', tier: 3, icon: 'workflow', color: 'bg-slate-50 text-slate-600', difyType: 'workflow', description: 'Sign-off routing, SLA monitoring, loop-back, circuit breaker' },
     { id: 'DILIGENCE', name: 'Conversational Diligence', tier: 3, icon: 'message-square', color: 'bg-cyan-50 text-cyan-600', difyType: 'chat', description: 'Q&A with KB citations and regulatory context' },
     { id: 'DOC_LIFECYCLE', name: 'Document Lifecycle', tier: 3, icon: 'scan-search', color: 'bg-teal-50 text-teal-600', difyType: 'workflow', description: 'Document validation, completeness, expiry tracking' },
@@ -92,21 +92,40 @@ export interface ClassificationResult {
     mandatorySignOffs: string[];
 }
 
-// ─── Risk Agent (#7) ────────────────────────────────────────────
+// ─── Risk Agent (#7) — 5-Layer Cascade + 7-Domain Assessment ────
 
 export interface RiskLayer {
-    name: 'Internal Policy' | 'Regulatory' | 'Sanctions' | 'Dynamic';
+    name: 'Internal Policy' | 'Regulatory' | 'Sanctions' | 'Dynamic' | 'Finance & Tax' | string;
     status: 'PASS' | 'FAIL' | 'WARNING';
     details: string;
     checks: { name: string; status: 'PASS' | 'FAIL' | 'WARNING'; detail: string }[];
 }
 
+export interface RiskDomainAssessment {
+    domain: 'CREDIT' | 'MARKET' | 'OPERATIONAL' | 'LIQUIDITY' | 'LEGAL' | 'REPUTATIONAL' | 'CYBER' | string;
+    score: number;          // 0-100
+    rating: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | string;
+    keyFindings: string[];
+    mitigants: string[];
+}
+
 export interface RiskAssessment {
     layers: RiskLayer[];
+    domainAssessments: RiskDomainAssessment[];
     overallScore: number;
+    overallRating: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | string;
     hardStop: boolean;
     hardStopReason?: string;
     prerequisites: { name: string; status: 'PASS' | 'FAIL'; category: string }[];
+    pirRequirements?: { required: boolean; type?: string; deadline_months?: number; conditions?: string[] };
+    validityRisk?: { valid: boolean; expiry_date?: string; extension_eligible?: boolean; notes?: string };
+    circuitBreaker?: { triggered: boolean; loop_back_count?: number; threshold?: number; escalation_target?: string };
+    evergreenLimits?: { eligible: boolean; notional_remaining?: number; deal_count_remaining?: number; flags?: string[] };
+    npaLiteRiskProfile?: { subtype?: string; eligible: boolean; conditions_met?: string[]; conditions_failed?: string[] };
+    sopBottleneckRisk?: { bottleneck_parties?: string[]; estimated_days?: number; critical_path?: string };
+    notionalFlags?: { finance_vp_required?: boolean; cfo_required?: boolean; roae_required?: boolean; threshold_breached?: string };
+    mandatorySignoffs?: string[];
+    recommendations?: string[];
 }
 
 // ─── ML Prediction Agent (#6) ───────────────────────────────────

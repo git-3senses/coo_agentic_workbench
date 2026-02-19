@@ -431,11 +431,15 @@ router.post('/npas/:id/persist/classifier', async (req, res) => {
     }
 });
 
-// POST /api/agents/npas/:id/persist/risk — Save RISK assessment results
+// POST /api/agents/npas/:id/persist/risk — Save RISK assessment results (v2: 5 layers + 7 domains + new fields)
 router.post('/npas/:id/persist/risk', async (req, res) => {
-    const { layers, overall_score, hard_stop } = req.body;
+    const {
+        layers, domain_assessments, overall_score, overall_rating, hard_stop,
+        pir_requirements, notional_flags, mandatory_signoffs, recommendations,
+        circuit_breaker, evergreen_limits
+    } = req.body;
     try {
-        // Clear old risk checks for this project, then insert new ones
+        // Clear old risk checks for this project, then insert new ones (5 layers)
         await db.query('DELETE FROM npa_risk_checks WHERE project_id = ? AND checked_by = ?', [req.params.id, 'RISK_AGENT']);
 
         if (Array.isArray(layers)) {
@@ -448,27 +452,60 @@ router.post('/npas/:id/persist/risk', async (req, res) => {
             }
         }
 
-        // Upsert intake assessments for RISK domain
+        // Persist 7-domain assessments as individual risk check rows
+        if (Array.isArray(domain_assessments)) {
+            for (const da of domain_assessments) {
+                await db.query(
+                    `INSERT INTO npa_risk_checks (project_id, check_layer, result, matched_items, checked_by)
+                     VALUES (?, ?, ?, ?, 'RISK_AGENT_DOMAIN')`,
+                    [
+                        req.params.id,
+                        `DOMAIN_${da.domain || 'UNKNOWN'}`,
+                        da.rating || 'LOW',
+                        JSON.stringify({ score: da.score, keyFindings: da.keyFindings || [], mitigants: da.mitigants || [] })
+                    ]
+                );
+            }
+        }
+
+        // Upsert intake assessments for RISK domain — now includes full risk envelope
+        const riskFindings = {
+            layers: layers || [],
+            domain_assessments: domain_assessments || [],
+            pir_requirements: pir_requirements || null,
+            notional_flags: notional_flags || null,
+            mandatory_signoffs: mandatory_signoffs || [],
+            recommendations: recommendations || [],
+            circuit_breaker: circuit_breaker || null,
+            evergreen_limits: evergreen_limits || null
+        };
         await db.query('DELETE FROM npa_intake_assessments WHERE project_id = ? AND domain = ?', [req.params.id, 'RISK']);
         await db.query(
             `INSERT INTO npa_intake_assessments (project_id, domain, status, score, findings)
              VALUES (?, 'RISK', ?, ?, ?)`,
-            [req.params.id, hard_stop ? 'FAIL' : 'PASS', overall_score || 0, JSON.stringify(layers || [])]
+            [req.params.id, hard_stop ? 'FAIL' : 'PASS', overall_score || 0, JSON.stringify(riskFindings)]
         );
 
-        // Update project risk_level based on score
-        if (overall_score !== undefined) {
-            const riskLevel = overall_score >= 70 ? 'HIGH' : overall_score >= 40 ? 'MEDIUM' : 'LOW';
-            await db.query('UPDATE npa_projects SET risk_level = ?, updated_at = NOW() WHERE id = ?', [riskLevel, req.params.id]);
-        }
+        // Update project risk_level based on overall_rating or score
+        const riskLevel = overall_rating || (overall_score >= 70 ? 'HIGH' : overall_score >= 40 ? 'MEDIUM' : 'LOW');
+        await db.query('UPDATE npa_projects SET risk_level = ?, updated_at = NOW() WHERE id = ?', [riskLevel, req.params.id]);
 
         await db.query(
             `INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action, agent_name)
              VALUES (?, 'RISK_AGENT', 'AGENT_RISK_ASSESSED', ?, 1, 'RISK')`,
-            [req.params.id, JSON.stringify({ overall_score, hard_stop, layer_count: layers?.length })]
+            [req.params.id, JSON.stringify({
+                overall_score, overall_rating: riskLevel, hard_stop,
+                layer_count: layers?.length, domain_count: domain_assessments?.length,
+                pir_required: pir_requirements?.required, signoff_count: mandatory_signoffs?.length
+            })]
         );
 
-        res.json({ status: 'PERSISTED', layers_saved: layers?.length || 0 });
+        res.json({
+            status: 'PERSISTED',
+            layers_saved: layers?.length || 0,
+            domains_saved: domain_assessments?.length || 0,
+            risk_level: riskLevel
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
