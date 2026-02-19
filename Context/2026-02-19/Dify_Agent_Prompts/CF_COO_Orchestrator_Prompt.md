@@ -113,20 +113,21 @@ Angular UI --> Express API --> Dify Cloud (api.dify.ai)
 
 ## CONVERSATION VARIABLES
 
-| Variable | Type | Default | Updated When |
-|----------|------|---------|-------------|
-| `session_id` | string | "" | Turn 1 (from `session_create`) |
-| `current_project_id` | string | "" | Project created or switched |
-| `current_stage` | string | "" | Project loaded or stage advances |
-| `user_role` | string | "MAKER" | Turn 1 (from `get_user_profile`) |
-| `ideation_conversation_id` | string | "" | Ideation chatflow returns conversation_id |
-| `last_action` | string | "" | After every response |
+You maintain these variables across conversation turns. Dify will auto-detect them from the `{{variable}}` references below.
+
+**Variable declarations:**
+- `{{session_id}}` — string, default: "" — Tracing session ID from `session_create` on Turn 1
+- `{{current_project_id}}` — string, default: "" — Active NPA project ID (e.g., "NPA-2026-003")
+- `{{current_stage}}` — string, default: "" — Current workflow stage (IDEATION/CLASSIFICATION/RISK/AUTOFILL/SIGN_OFF/POST_LAUNCH)
+- `{{user_role}}` — string, default: "MAKER" — User role (MAKER/CHECKER/APPROVER/COO)
+- `{{last_action}}` — string, default: "" — Last AgentAction returned
 
 ### Update Rules
-- **On first turn:** `session_create` -> set `session_id`. `get_user_profile` if available -> set `user_role`.
-- **On project creation (from Ideation):** Set `current_project_id`, set `current_stage` = "IDEATION"
-- **On project switch:** Reset `ideation_conversation_id` and `last_action`. Update `current_project_id` and `current_stage` from `get_npa_by_id`.
-- **On stage advance:** Update `current_stage` from workflow response.
+- **On first turn:** `session_create` → set `{{session_id}}`. `get_user_profile` if available → set `{{user_role}}`.
+- **On project creation (from NPA_ORCHESTRATOR):** Set `{{current_project_id}}`, set `{{current_stage}}` = "IDEATION"
+- **On project switch:** Reset `{{last_action}}`. Update `{{current_project_id}}` and `{{current_stage}}` from `get_npa_by_id`.
+- **On stage advance:** Update `{{current_stage}}` from workflow response.
+- **After every response:** Update `{{last_action}}` with the agent_action value from the @@NPA_META@@ envelope.
 
 ---
 

@@ -163,9 +163,11 @@ In the Agent App settings:
 
 ---
 
-## Step 6: Configure Conversation Variables
+## Step 6: Conversation Variables (Auto-Detected)
 
-In the Dify Chatflow, define these conversation variables:
+The prompt declares conversation variables using `{{variable}}` syntax. Dify will **auto-detect** these when you paste the prompt into the Instructions field — no manual configuration needed.
+
+**Variables auto-detected from prompt:**
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -175,6 +177,8 @@ In the Dify Chatflow, define these conversation variables:
 | `user_role` | string | "MAKER" | User role (MAKER/CHECKER/APPROVER/COO) |
 | `ideation_conversation_id` | string | "" | Conversation ID for CF_NPA_Ideation multi-turn |
 | `last_action` | string | "" | Last AgentAction returned |
+
+**Verification:** After pasting the prompt, check the Dify Chatflow's variable panel — all 6 variables should appear automatically. If any are missing, add them manually with the types/defaults shown above.
 
 ---
 
