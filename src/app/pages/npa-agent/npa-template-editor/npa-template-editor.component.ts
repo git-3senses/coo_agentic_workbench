@@ -159,7 +159,9 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
 
                <!-- SECTION type — Roman numeral heading (I, II, III) -->
                <ng-container *ngIf="node.type === 'section' || node.type === 'appendix'">
-                  <div [id]="'sec-' + node.id" class="sticky top-0 z-10 bg-white border-b border-gray-200 npa-doc-section-head">
+                  <!-- Scroll anchor wrapper (non-sticky, so scroll-to works) -->
+                  <div [id]="'sec-' + node.id">
+                  <div class="sticky top-0 z-10 bg-white border-b border-gray-200 npa-doc-section-head">
                      <div class="flex items-center justify-between">
                         <h2 class="text-[15px] font-bold text-gray-900 leading-snug">
                            <span class="text-gray-400 mr-1.5">{{ node.numbering }}</span>
@@ -187,6 +189,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                         <ng-container *ngTemplateOutlet="nodeRenderer; context: { $implicit: child, depth: depth + 1 }"></ng-container>
                      </ng-container>
                   </div>
+                  </div><!-- close scroll anchor wrapper -->
                </ng-container>
 
                <!-- TOPIC type — Numbered heading (1, 2, 3) -->
@@ -1305,8 +1308,16 @@ export class NpaTemplateEditorComponent implements OnInit {
    scrollToSection(id: string) {
       this.activeSection = id;
       const el = document.getElementById('sec-' + id);
-      if (el) {
-         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const container = document.getElementById('form-container');
+      if (el && container) {
+         // Calculate actual offset of element relative to scroll container
+         let offsetTop = 0;
+         let current: HTMLElement | null = el;
+         while (current && current !== container) {
+            offsetTop += current.offsetTop;
+            current = current.offsetParent as HTMLElement | null;
+         }
+         container.scrollTo({ top: offsetTop, behavior: 'smooth' });
       }
    }
 
