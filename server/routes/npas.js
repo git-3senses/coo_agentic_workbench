@@ -182,28 +182,35 @@ router.post('/seed-demo', async (req, res) => {
         if (missing.length > 0) {
             // Map field_keys to their correct template sections
             const fieldSectionMap = {
-                // SEC_PROD
+                // SEC_PROD — sub-headers + fields
+                hdr_prod_basic: 'SEC_PROD', hdr_prod_revenue: 'SEC_PROD',
                 trade_date: 'SEC_PROD', pac_reference: 'SEC_PROD', funding_type: 'SEC_PROD',
                 product_maturity: 'SEC_PROD', product_lifecycle: 'SEC_PROD',
                 revenue_year1: 'SEC_PROD', revenue_year2: 'SEC_PROD', revenue_year3: 'SEC_PROD',
                 target_roi: 'SEC_PROD', spv_details: 'SEC_PROD', product_role: 'SEC_PROD',
-                // SEC_OPS
+                // SEC_OPS — sub-headers + fields
+                hdr_ops_operational: 'SEC_OPS', hdr_ops_booking: 'SEC_OPS', hdr_ops_bcp: 'SEC_OPS',
                 valuation_model: 'SEC_OPS', confirmation_process: 'SEC_OPS', reconciliation: 'SEC_OPS',
                 tech_requirements: 'SEC_OPS', front_office_model: 'SEC_OPS', middle_office_model: 'SEC_OPS',
                 back_office_model: 'SEC_OPS', booking_legal_form: 'SEC_OPS', booking_family: 'SEC_OPS',
                 booking_typology: 'SEC_OPS', portfolio_allocation: 'SEC_OPS', hsm_required: 'SEC_OPS',
                 pentest_status: 'SEC_OPS', iss_deviations: 'SEC_OPS',
-                // SEC_RISK
+                // SEC_RISK — sub-headers + fields
+                hdr_risk_market: 'SEC_RISK', hdr_risk_credit: 'SEC_RISK',
+                hdr_risk_operational: 'SEC_RISK', hdr_risk_capital: 'SEC_RISK',
                 credit_risk: 'SEC_RISK', operational_risk: 'SEC_RISK', liquidity_risk: 'SEC_RISK',
                 reputational_risk: 'SEC_RISK', var_capture: 'SEC_RISK', stress_scenarios: 'SEC_RISK',
                 counterparty_default: 'SEC_RISK', custody_risk: 'SEC_RISK', esg_assessment: 'SEC_RISK',
-                // SEC_PRICE
+                // SEC_PRICE — sub-header + fields
+                hdr_price_methodology: 'SEC_PRICE',
                 roae_analysis: 'SEC_PRICE', pricing_assumptions: 'SEC_PRICE', bespoke_adjustments: 'SEC_PRICE',
                 pricing_model_name: 'SEC_PRICE', model_validation_date: 'SEC_PRICE', simm_treatment: 'SEC_PRICE',
-                // SEC_DATA
+                // SEC_DATA — sub-header + fields
+                hdr_data_principles: 'SEC_DATA',
                 data_retention: 'SEC_DATA', reporting_requirements: 'SEC_DATA', pure_assessment_id: 'SEC_DATA',
                 gdpr_compliance: 'SEC_DATA', data_ownership: 'SEC_DATA',
-                // SEC_REG
+                // SEC_REG — sub-header + fields
+                hdr_reg_compliance: 'SEC_REG',
                 primary_regulation: 'SEC_REG', secondary_regulations: 'SEC_REG',
                 regulatory_reporting: 'SEC_REG', sanctions_check: 'SEC_REG',
                 // SEC_ENTITY
@@ -211,7 +218,8 @@ router.post('/seed-demo', async (req, res) => {
                 strike_price: 'SEC_ENTITY', ip_considerations: 'SEC_ENTITY',
                 // SEC_SIGN
                 required_signoffs: 'SEC_SIGN', signoff_order: 'SEC_SIGN',
-                // SEC_LEGAL
+                // SEC_LEGAL — sub-header + fields
+                hdr_legal_docs: 'SEC_LEGAL',
                 isda_agreement: 'SEC_LEGAL', tax_impact: 'SEC_LEGAL',
                 // SEC_DOCS
                 term_sheet: 'SEC_DOCS', supporting_documents: 'SEC_DOCS'
@@ -219,15 +227,46 @@ router.post('/seed-demo', async (req, res) => {
             console.log(`[NPA SEED-DEMO] Adding ${missing.length} missing field keys to ref_npa_fields:`, missing);
             for (const key of missing) {
                 const sectionId = fieldSectionMap[key] || 'SEC_PROD';
-                const fieldType = ['business_rationale', 'legal_opinion', 'market_risk', 'credit_risk', 'operational_risk',
+                const fieldType = key.startsWith('hdr_') ? 'header' :
+                    ['business_rationale', 'legal_opinion', 'market_risk', 'credit_risk', 'operational_risk',
                     'liquidity_risk', 'reputational_risk', 'var_capture', 'stress_scenarios', 'counterparty_default',
                     'custody_risk', 'esg_assessment', 'roae_analysis', 'pricing_assumptions', 'supporting_documents',
                     'isda_agreement', 'tax_impact', 'npa_process_type', 'business_case_status', 'product_role',
                     'underlying_asset', 'customer_segments', 'bundling_rationale'].includes(key) ? 'textarea' : 'text';
+                // Header labels come from seed data (the 'value' field), regular labels auto-generated from key
+                const headerLabels = {
+                    hdr_prod_basic: 'Product Specifications (Basic Information)',
+                    hdr_prod_revenue: 'Revenue & Commercial Viability',
+                    hdr_ops_operational: 'Operational Information',
+                    hdr_ops_booking: 'Booking & Settlement',
+                    hdr_ops_bcp: 'Business Continuity & Security',
+                    hdr_risk_market: 'A. Market & Liquidity Risk',
+                    hdr_risk_credit: 'B. Credit Risk & Counterparty Credit Risk',
+                    hdr_risk_operational: 'C. Operational & Reputational Risk',
+                    hdr_risk_capital: 'D. Regulatory Capital & Stress Testing',
+                    hdr_price_methodology: 'Pricing Model Validation / Assurance',
+                    hdr_data_principles: 'Data Principles & Management Requirements',
+                    hdr_reg_compliance: 'Legal & Compliance Considerations',
+                    hdr_legal_docs: 'Documentation Requirements'
+                };
+                const label = headerLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                // Headers get specific order_index to position them correctly within sections
+                const headerOrder = {
+                    hdr_prod_basic: 1, hdr_prod_revenue: 50,
+                    hdr_ops_operational: 1, hdr_ops_booking: 30, hdr_ops_bcp: 60,
+                    hdr_risk_market: 1, hdr_risk_credit: 20, hdr_risk_operational: 40, hdr_risk_capital: 60,
+                    hdr_price_methodology: 1,
+                    hdr_data_principles: 1,
+                    hdr_reg_compliance: 1,
+                    hdr_legal_docs: 1
+                };
+                const orderIdx = headerOrder[key] || (fieldType === 'header' ? 10 : 999);
+                // Generate a unique ID: FLD_ + uppercase abbreviation of the field key
+                const fldId = 'FLD_' + key.replace(/^hdr_/, 'H_').toUpperCase().substring(0, 40);
                 await conn.query(
-                    `INSERT IGNORE INTO ref_npa_fields (field_key, label, field_type, section_id, order_index, is_required)
-                     VALUES (?, ?, ?, ?, 999, 0)`,
-                    [key, key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), fieldType, sectionId]
+                    `INSERT IGNORE INTO ref_npa_fields (id, field_key, label, field_type, section_id, order_index, is_required)
+                     VALUES (?, ?, ?, ?, ?, ?, 0)`,
+                    [fldId, key, label, fieldType, sectionId, orderIdx]
                 );
             }
             // Also fix any previously mis-assigned field_keys (e.g. section_id='business_case')

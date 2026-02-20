@@ -16,7 +16,8 @@ app.use(express.json());
 // which can take 30-120s depending on the agent.
 app.use('/api', (req, res, next) => {
     const isDifyRoute = req.path.startsWith('/dify/');
-    const timeout = isDifyRoute ? 180000 : 30000; // 3 min for Dify, 30s for others
+    const isSeedRoute = req.path.includes('seed-demo');
+    const timeout = (isDifyRoute || isSeedRoute) ? 180000 : 30000; // 3 min for Dify/seed, 30s for others
     req.setTimeout(timeout, () => {
         if (!res.headersSent) {
             res.status(504).json({ error: 'Request timeout — server took too long to respond' });

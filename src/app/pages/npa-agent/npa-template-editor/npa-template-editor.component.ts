@@ -132,130 +132,121 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
             <!-- ====== DOCUMENT VIEW ====== -->
             <ng-container *ngIf="viewMode === 'document'">
 
-            <!-- Document header strip -->
-            <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-8 py-4 text-white">
-               <div class="flex items-center justify-between">
-                  <div>
-                     <p class="text-xs font-bold uppercase tracking-[0.15em] text-slate-400 mb-1">New Product Approval</p>
-                     <h1 class="text-xl font-bold leading-tight">{{ getDocTitle() }}</h1>
-                     <p *ngIf="getDocSubtitle()" class="text-xs text-slate-300 mt-1.5 max-w-xl leading-relaxed">{{ getDocSubtitle() }}</p>
-                  </div>
-                  <div class="text-right flex-none ml-6">
-                     <div class="px-2.5 py-1 rounded bg-white/10 border border-white/20 inline-block">
-                        <span class="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Classification</span>
-                        <p class="text-xs font-bold text-white">Full NPA</p>
-                     </div>
-                  </div>
-               </div>
-               <div class="flex items-center gap-5 mt-3 pt-2.5 border-t border-white/10 text-xs text-slate-400">
-                  <span><strong class="text-slate-300">Status:</strong> Draft</span>
-                  <span><strong class="text-slate-300">Version:</strong> 1.0</span>
-                  <span><strong class="text-slate-300">Created:</strong> {{ getDocDate() }}</span>
-                  <span><strong class="text-slate-300">Owner:</strong> {{ getDocOwner() }}</span>
+            <!-- Document header — Confluence-style clean white header -->
+            <div class="bg-white border-b border-gray-200" style="max-width:900px; margin:0 auto; padding: 28px 40px 20px;">
+               <h1 class="text-xl font-bold text-gray-900 leading-snug mb-1">{{ getDocTitle() }}</h1>
+               <p class="text-[13px] text-gray-500 leading-relaxed mb-3">New Product Approval &mdash; Draft &middot; v1.0</p>
+               <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-gray-500 pt-2 border-t border-gray-100">
+                  <span><strong class="text-gray-700">Status:</strong> Draft</span>
+                  <span><strong class="text-gray-700">Created:</strong> {{ getDocDate() }}</span>
+                  <span><strong class="text-gray-700">Owner:</strong> {{ getDocOwner() }}</span>
+                  <span class="ml-auto px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px] font-semibold">Full NPA</span>
                </div>
             </div>
 
-            <!-- Sections — document-style layout like Confluence -->
-            <div class="bg-white max-w-4xl mx-auto">
-               <div *ngFor="let section of sections; let si = index" [id]="'sec-' + section.id" class="mb-2">
+            <!-- Sections — Confluence-style document layout -->
+            <div class="bg-white npa-doc-body">
+               <div *ngFor="let section of sections; let si = index" [id]="'sec-' + section.id">
 
-                  <!-- Section heading — like H1 in a document -->
-                  <div class="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b-2 border-blue-600 px-10 py-4 mt-6 first:mt-0">
+                  <!-- Section heading — Confluence H1 style -->
+                  <div class="sticky top-0 z-10 bg-white border-b border-gray-300 npa-doc-section-head">
                      <div class="flex items-center justify-between">
-                        <h2 class="text-lg font-bold text-gray-900">
-                           <span class="text-blue-600 mr-2">{{ getSectionNumber(si) }}.</span>{{ section.title }}
+                        <h2 class="text-[17px] font-bold text-gray-900 leading-snug">
+                           <span class="text-blue-700 mr-1.5">{{ getSectionNumber(si) }}</span>{{ section.title }}
                         </h2>
-                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full"
-                              [class.bg-emerald-100]="getSectionCompletion(section) >= 80"
-                              [class.text-emerald-700]="getSectionCompletion(section) >= 80"
-                              [class.bg-amber-100]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
-                              [class.text-amber-700]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
-                              [class.bg-red-100]="getSectionCompletion(section) < 50"
-                              [class.text-red-700]="getSectionCompletion(section) < 50">
-                           {{ getSectionCompletion(section) }}% complete
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-none"
+                              [class.bg-emerald-50]="getSectionCompletion(section) >= 80"
+                              [class.text-emerald-600]="getSectionCompletion(section) >= 80"
+                              [class.bg-amber-50]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
+                              [class.text-amber-600]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
+                              [class.bg-red-50]="getSectionCompletion(section) < 50"
+                              [class.text-red-500]="getSectionCompletion(section) < 50">
+                           {{ getSectionCompletion(section) }}%
                         </span>
                      </div>
-                     <p *ngIf="section.description" class="text-sm text-gray-500 mt-1.5 leading-relaxed">{{ section.description }}</p>
+                     <p *ngIf="section.description" class="text-[13px] text-gray-500 mt-1 leading-relaxed">{{ section.description }}</p>
                   </div>
 
-                  <!-- Fields — document-style: heading above, content below -->
-                  <div class="px-10 py-6 space-y-6">
-                     <ng-container *ngFor="let field of section.fields">
+                  <!-- Fields — numbered like Confluence -->
+                  <div class="npa-doc-fields">
+                     <ng-container *ngFor="let field of section.fields; let fi = index">
 
-                        <!-- Sub-heading Field — like H3 in a document -->
-                        <div *ngIf="field.type === 'header'" class="pt-4 pb-1 border-b border-gray-200">
-                           <h3 class="text-sm font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
-                              <span class="w-1 h-4 bg-blue-600 rounded-full"></span>
+                        <!-- Sub-heading Field — like sub-section header in Confluence -->
+                        <div *ngIf="field.type === 'header'" class="npa-doc-subheader">
+                           <h3 class="text-[14px] font-bold text-gray-800 flex items-center gap-2">
+                              <span class="w-0.5 h-4 bg-blue-600 rounded-sm flex-none"></span>
                               {{ field.label }}
                            </h3>
                         </div>
 
-                        <!-- Textarea / narrative fields — full paragraph display -->
-                        <div *ngIf="field.type === 'textarea'" class="group" (click)="onFieldFocus(field)">
-                           <div class="flex items-center gap-2 mb-2">
-                              <h4 class="text-sm font-semibold text-gray-700">{{ field.label }}</h4>
-                              <span *ngIf="field.required" class="text-red-500 text-xs font-medium">Required</span>
+                        <!-- Textarea / narrative fields -->
+                        <div *ngIf="field.type === 'textarea'" class="npa-doc-field" (click)="onFieldFocus(field)">
+                           <div class="npa-doc-field-label">
+                              <span class="npa-doc-field-num">{{ getFieldNumber(section, fi) }}.</span>
+                              <span class="npa-doc-field-name">{{ field.label }}:</span>
+                              <span *ngIf="field.required" class="text-red-500 text-[11px]">*</span>
                               <span *ngIf="field.lineage && field.value"
-                                    class="w-2 h-2 rounded-full flex-none"
+                                    class="w-1.5 h-1.5 rounded-full flex-none ml-1"
                                     [class.bg-emerald-500]="field.lineage === 'AUTO'"
                                     [class.bg-amber-500]="field.lineage === 'ADAPTED'"
                                     [class.bg-red-500]="field.lineage === 'MANUAL'"></span>
                            </div>
                            <div *ngIf="editingField !== field.key"
-                                class="text-[15px] text-gray-700 leading-7 whitespace-pre-wrap cursor-text rounded-lg px-4 py-3 hover:bg-blue-50/40 transition-colors border border-transparent hover:border-blue-100 doc-content"
-                                [class.text-gray-300]="!field.value"
-                                [class.italic]="!field.value"
+                                class="npa-doc-field-value doc-content cursor-text"
+                                [class.npa-doc-empty]="!field.value"
                                 (click)="startEditing(field)"
-                                [innerHTML]="formatDocContent(field.value) || 'Click to add content...'">
+                                [innerHTML]="formatDocContent(field.value) || getEmptyPlaceholder('Click to add content...')">
                            </div>
                            <textarea *ngIf="editingField === field.key"
                                      #editArea [(ngModel)]="field.value" (blur)="stopEditing()" (input)="autoSize($event)"
-                                     class="w-full text-[15px] text-gray-700 leading-7 rounded-lg px-4 py-3 border border-blue-300 bg-blue-50/20 outline-none ring-2 ring-blue-100 resize-none"
+                                     class="w-full text-[14px] text-gray-800 leading-relaxed border border-blue-400 bg-blue-50/30 outline-none ring-1 ring-blue-200 resize-none px-3 py-2 rounded"
                                      rows="6"></textarea>
                         </div>
 
-                        <!-- Short fields — label above, value below (document style) -->
+                        <!-- Short fields — numbered label, value underneath -->
                         <div *ngIf="field.type !== 'textarea' && field.type !== 'header' && field.type !== 'file'"
-                             class="group" (click)="onFieldFocus(field)">
-                           <div class="flex items-center gap-2 mb-1">
-                              <h4 class="text-sm font-semibold text-gray-700">
-                                 {{ field.label }}<span *ngIf="field.required" class="text-red-500 ml-1 text-xs">*</span>
-                              </h4>
+                             class="npa-doc-field" (click)="onFieldFocus(field)">
+                           <div class="npa-doc-field-label">
+                              <span class="npa-doc-field-num">{{ getFieldNumber(section, fi) }}.</span>
+                              <span class="npa-doc-field-name">{{ field.label }}:</span>
+                              <span *ngIf="field.required" class="text-red-500 text-[11px]">*</span>
                               <span *ngIf="field.lineage && field.value && editingField !== field.key"
-                                    class="w-2 h-2 rounded-full flex-none"
+                                    class="w-1.5 h-1.5 rounded-full flex-none ml-1"
                                     [class.bg-emerald-500]="field.lineage === 'AUTO'"
                                     [class.bg-amber-500]="field.lineage === 'ADAPTED'"
                                     [class.bg-red-500]="field.lineage === 'MANUAL'"
                                     [title]="field.lineage"></span>
                            </div>
                            <ng-container *ngIf="editingField !== field.key">
-                              <p class="text-[15px] leading-7 cursor-text rounded-lg px-4 py-2 hover:bg-blue-50/40 transition-colors border border-transparent hover:border-blue-100"
-                                 [class.text-gray-900]="field.value"
-                                 [class.text-gray-300]="!field.value" [class.italic]="!field.value"
+                              <div class="npa-doc-field-value doc-content cursor-text"
+                                 [class.npa-doc-empty]="!field.value"
                                  (click)="startEditing(field)"
-                                 [innerHTML]="formatDocContent(field.value) || '—'">
-                              </p>
+                                 [innerHTML]="formatDocContent(field.value) || getEmptyPlaceholder('—')">
+                              </div>
                            </ng-container>
                            <ng-container *ngIf="editingField === field.key">
                               <select *ngIf="field.type === 'select'" #editArea [(ngModel)]="field.value" (blur)="stopEditing()" (change)="stopEditing()"
-                                      class="w-full text-[15px] border border-blue-300 rounded-lg px-4 py-2.5 bg-blue-50/30 outline-none ring-2 ring-blue-100 appearance-none">
+                                      class="w-full text-[14px] border border-blue-400 rounded px-3 py-2 bg-blue-50/30 outline-none ring-1 ring-blue-200 appearance-none">
                                  <option value="" disabled>Select...</option>
                                  <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
                               </select>
                               <input *ngIf="field.type === 'date'" #editArea [(ngModel)]="field.value" type="date" (blur)="stopEditing()"
-                                     class="w-full text-[15px] border border-blue-300 rounded-lg px-4 py-2.5 bg-blue-50/30 outline-none ring-2 ring-blue-100">
+                                     class="w-full text-[14px] border border-blue-400 rounded px-3 py-2 bg-blue-50/30 outline-none ring-1 ring-blue-200">
                               <input *ngIf="field.type !== 'select' && field.type !== 'date'" #editArea [(ngModel)]="field.value" [type]="field.type || 'text'"
                                      (blur)="stopEditing()" (keydown.enter)="stopEditing()"
-                                     class="w-full text-[15px] border border-blue-300 rounded-lg px-4 py-2.5 bg-blue-50/30 outline-none ring-2 ring-blue-100">
+                                     class="w-full text-[14px] border border-blue-400 rounded px-3 py-2 bg-blue-50/30 outline-none ring-1 ring-blue-200">
                            </ng-container>
                         </div>
 
                         <!-- File upload fields -->
-                        <div *ngIf="field.type === 'file'" class="group" (click)="onFieldFocus(field)">
-                           <h4 class="text-sm font-semibold text-gray-700 mb-1">{{ field.label }}</h4>
-                           <div class="flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer">
-                              <lucide-icon name="upload-cloud" class="w-5 h-5 text-gray-400"></lucide-icon>
-                              <span class="text-sm text-gray-500">Click to upload or drag & drop</span>
+                        <div *ngIf="field.type === 'file'" class="npa-doc-field" (click)="onFieldFocus(field)">
+                           <div class="npa-doc-field-label">
+                              <span class="npa-doc-field-num">{{ getFieldNumber(section, fi) }}.</span>
+                              <span class="npa-doc-field-name">{{ field.label }}:</span>
+                           </div>
+                           <div class="flex items-center gap-3 py-2 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors">
+                              <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
+                              <span class="text-[13px]">Click to upload or drag & drop</span>
                            </div>
                         </div>
 
@@ -542,12 +533,82 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     /* Smooth whitespace for narrative fields */
     .whitespace-pre-wrap { white-space: pre-wrap; word-break: break-word; }
-    /* Document content styling — Confluence-like */
-    .doc-content ul, .doc-content ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+
+    /* ===== Confluence-style NPA Document Layout ===== */
+    .npa-doc-body {
+      max-width: 900px;
+      margin: 0 auto;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      color: #172b4d;
+    }
+
+    /* Section heading — like Confluence H1 with blue left border */
+    .npa-doc-section-head {
+      padding: 14px 40px 12px;
+      margin-top: 8px;
+      border-left: 3px solid #2563eb;
+      background: #f8f9fa;
+    }
+
+    /* Field container */
+    .npa-doc-fields {
+      padding: 8px 40px 16px 52px;
+    }
+
+    /* Individual field — compact like a document line */
+    .npa-doc-field {
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f3f5;
+    }
+    .npa-doc-field:last-child { border-bottom: none; }
+    .npa-doc-field:hover { background: #fafbfc; }
+
+    /* Sub-section header */
+    .npa-doc-subheader {
+      padding: 14px 0 6px;
+      margin-top: 4px;
+      border-bottom: 1px solid #dfe1e6;
+    }
+
+    /* Field label row — numbered like Confluence */
+    .npa-doc-field-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+    .npa-doc-field-num {
+      font-size: 13px;
+      font-weight: 600;
+      color: #626f86;
+      min-width: 20px;
+    }
+    .npa-doc-field-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #44546f;
+    }
+
+    /* Field value — clean document text */
+    .npa-doc-field-value {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #172b4d;
+      padding: 2px 0 2px 24px;
+      word-break: break-word;
+    }
+    .npa-doc-empty .npa-doc-field-value,
+    .npa-doc-field-value.npa-doc-empty {
+      color: #b3bac5;
+      font-style: italic;
+    }
+
+    /* Document content styling — lists, paragraphs */
+    .doc-content ul, .doc-content ol { padding-left: 1.25rem; margin: 4px 0; }
     .doc-content ul { list-style-type: disc; }
     .doc-content ol { list-style-type: decimal; }
-    .doc-content li { margin-bottom: 0.35rem; line-height: 1.75; }
-    .doc-content p { margin-bottom: 0.5rem; }
+    .doc-content li { margin-bottom: 2px; line-height: 1.65; font-size: 14px; }
+    .doc-content p { margin-bottom: 4px; line-height: 1.65; }
     .doc-content p:last-child { margin-bottom: 0; }
   `]
 })
@@ -638,6 +699,20 @@ export class NpaTemplateEditorComponent implements OnInit {
    getSectionNumber(index: number): string {
       const romans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII'];
       return romans[index] || String(index + 1);
+   }
+
+   /** HTML placeholder for empty field values */
+   getEmptyPlaceholder(text: string): string {
+      return '<span class="text-gray-400 italic">' + text + '</span>';
+   }
+
+   /** Return 1-based number for non-header fields within a section */
+   getFieldNumber(section: NpaSection, fieldIndex: number): number {
+      let count = 0;
+      for (let i = 0; i <= fieldIndex; i++) {
+         if (section.fields[i]?.type !== 'header') count++;
+      }
+      return count;
    }
 
    getSectionCompletion(section: NpaSection): number {

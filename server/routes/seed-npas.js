@@ -15,6 +15,28 @@ function getExtraFormData(proj) {
     const isHigh = risk === 'HIGH';
 
     return [
+        // ──── Sub-section headers (field_type='header' in DB) ────
+        // SEC_PROD sub-headers
+        ['hdr_prod_basic', 'Product Specifications (Basic Information)', 'AUTO', 100],
+        ['hdr_prod_revenue', 'Revenue & Commercial Viability', 'AUTO', 100],
+        // SEC_OPS sub-headers
+        ['hdr_ops_operational', 'Operational Information', 'AUTO', 100],
+        ['hdr_ops_booking', 'Booking & Settlement', 'AUTO', 100],
+        ['hdr_ops_bcp', 'Business Continuity & Security', 'AUTO', 100],
+        // SEC_RISK sub-headers
+        ['hdr_risk_market', 'A. Market & Liquidity Risk', 'AUTO', 100],
+        ['hdr_risk_credit', 'B. Credit Risk & Counterparty Credit Risk', 'AUTO', 100],
+        ['hdr_risk_operational', 'C. Operational & Reputational Risk', 'AUTO', 100],
+        ['hdr_risk_capital', 'D. Regulatory Capital & Stress Testing', 'AUTO', 100],
+        // SEC_PRICE sub-headers
+        ['hdr_price_methodology', 'Pricing Model Validation / Assurance', 'AUTO', 100],
+        // SEC_DATA sub-headers
+        ['hdr_data_principles', 'Data Principles & Management Requirements', 'AUTO', 100],
+        // SEC_REG sub-headers
+        ['hdr_reg_compliance', 'Legal & Compliance Considerations', 'AUTO', 100],
+        // SEC_LEGAL sub-headers
+        ['hdr_legal_docs', 'Documentation Requirements', 'AUTO', 100],
+
         // SEC_PROD gaps
         ['trade_date', proj.kickoff_date || '2026-01-15', 'AUTO', 95],
         ['pac_reference', proj.pac_approval_status === 'Approved' ? `ExCo-2026-${proj.id.split('-')[1]}` : 'N/A — PAC not required for this track', 'AUTO', 90],
