@@ -41,7 +41,27 @@ NPA_ORCHESTRATOR (Tier 2) → switchAgent('DOC_LIFECYCLE')
 
 ### Agent Node
 - Model: Claude 3.5 Sonnet | Temperature: 0.1 | Max Tokens: 3000
+- Agent Strategy: Function Calling (recommended) or ReAct
+- Max Iterations: 5 (doc checks typically need 2-3 tool calls: requirements → completeness → validate)
 - System Prompt: Copy from `WF_NPA_Doc_Lifecycle_Prompt.md`
+- **User Message Template**:
+```
+Check document lifecycle for this NPA:
+
+Project ID: {{project_id}}
+Approval Track: {{approval_track}}
+Current Stage: {{current_stage}}
+Cross-Border: {{is_cross_border}}
+Notional Amount: {{notional_amount}}
+Context: {{context}}
+
+{{#context#}}
+Reference Knowledge:
+{{context}}
+{{/context#}}
+
+Return ONLY a valid JSON object with the document lifecycle result.
+```
 - Tools: 7 MCP tools (see Step 3)
 
 ## Step 3: MCP Tools (7)

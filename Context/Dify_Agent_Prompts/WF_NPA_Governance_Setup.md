@@ -43,7 +43,29 @@ NPA_ORCHESTRATOR (Tier 2) → switchAgent('GOVERNANCE')
 
 ### Agent Node
 - Model: Claude 3.5 Sonnet | Temperature: 0.1 | Max Tokens: 4000
+- Agent Strategy: Function Calling (recommended) or ReAct
+- Max Iterations: 10 (governance may chain multiple tool calls: routing → matrix → SLA → decisions)
 - System Prompt: Copy from `WF_NPA_Governance_Prompt.md`
+- **User Message Template**:
+```
+Manage NPA governance workflow:
+
+Project ID: {{project_id}}
+Approval Track: {{approval_track}}
+Classification Type: {{classification_type}}
+Current Stage: {{current_stage}}
+Cross-Border: {{is_cross_border}}
+NPA Lite Sub-Type: {{npa_lite_subtype}}
+Notional Amount: {{notional_amount}}
+Context: {{context}}
+
+{{#context#}}
+Reference Knowledge:
+{{context}}
+{{/context#}}
+
+Return ONLY a valid JSON object with the governance action result.
+```
 - Tools: 13 MCP tools (see Step 3)
 
 ## Step 3: MCP Tools (13)

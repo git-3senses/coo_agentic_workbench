@@ -38,7 +38,24 @@ NPA_ORCHESTRATOR (Tier 2) → switchAgent('MONITORING')
 
 ### Agent Node
 - Model: Claude 3.5 Sonnet | Temperature: 0.1 | Max Tokens: 3000
+- Agent Strategy: Function Calling (recommended) or ReAct
+- Max Iterations: 8 (monitoring may chain: metrics → breach check → alert → conditions → PIR)
 - System Prompt: Copy from `WF_NPA_Monitoring_Prompt.md`
+- **User Message Template**:
+```
+Perform post-launch monitoring for this NPA:
+
+Project ID: {{project_id}}
+Current Stage: {{current_stage}}
+Context: {{context}}
+
+{{#context#}}
+Reference Knowledge:
+{{context}}
+{{/context#}}
+
+Return ONLY a valid JSON object with the monitoring result.
+```
 - Tools: 12 MCP tools (see Step 3)
 
 ## Step 3: MCP Tools (12)

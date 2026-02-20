@@ -37,7 +37,23 @@ NPA_ORCHESTRATOR (Tier 2) → switchAgent('NOTIFICATION')
 
 ### Agent Node
 - Model: Claude 3.5 Sonnet | Temperature: 0.1 | Max Tokens: 2000
+- Agent Strategy: Function Calling (recommended) or ReAct
+- Max Iterations: 5 (notification may chain: pending check → send → audit log)
 - System Prompt: Copy from `WF_NPA_Notification_Prompt.md`
+- **User Message Template**:
+```
+Process notification for this NPA:
+
+Project ID: {{project_id}}
+Context: {{context}}
+
+{{#context#}}
+Reference Knowledge:
+{{context}}
+{{/context#}}
+
+Return ONLY a valid JSON object with the notification result.
+```
 - Tools: 5 MCP tools (see Step 3)
 
 ## Step 3: MCP Tools (5)

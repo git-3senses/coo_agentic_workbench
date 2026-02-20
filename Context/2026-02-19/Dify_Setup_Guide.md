@@ -395,15 +395,16 @@ This app serves two logical agents: **Conversational Diligence** and **KB Search
    - Add: KB_Conversational_Diligence, KB_Search_Agent, KB_NPA_Policies, KB_Prohibited_Items
    - Embedding: HQ-VECTOR
 
-4. **Tools:**
+4. **Tools (17 read-only):**
    - Enable from NPA MCP Tools Server:
-     - session_create, session_log_message
-     - search_kb_documents, get_kb_document_by_id, list_kb_sources (KB search)
-     - get_npa_by_id, list_npas (NPA lookups)
-     - classify_get_criteria, classify_get_assessment (classification reference)
-     - get_signoff_routing_rules (governance reference)
-     - get_document_requirements (document reference)
-     - ideation_get_prohibited_list (prohibited items)
+     - `get_npa_by_id`, `list_npas`, `get_workflow_state` (NPA data)
+     - `classify_get_criteria`, `classify_get_assessment` (classification reference)
+     - `governance_get_signoffs`, `get_signoff_routing_rules`, `check_sla_status`, `governance_check_loopbacks` (governance reference)
+     - `check_document_completeness`, `get_document_requirements` (document reference)
+     - `check_breach_thresholds`, `get_post_launch_conditions`, `get_performance_metrics` (monitoring reference)
+     - `search_kb_documents`, `get_kb_document_by_id` (KB search)
+     - `get_pending_notifications` (dashboard)
+   - See `CF_NPA_Query_Assistant_Setup.md` for detailed tool descriptions
 
 5. **Publish**
 
@@ -411,49 +412,29 @@ This app serves two logical agents: **Conversational Diligence** and **KB Search
    - Go to **API Access** tab
    - Copy the API key → set as `DIFY_KEY_DILIGENCE` in `.env`
 
-### 6.2 WF_NPA_Governance_Ops (Workflow — NEW)
+### 6.2 WF_NPA_Governance (Workflow — Split App)
 
-This app serves four logical agents: **Governance**, **Doc Lifecycle**, **Monitoring**, **Notification**.
+Dedicated governance workflow. See `WF_NPA_Governance_Setup.md` for full setup guide.
+- **API Key**: `DIFY_KEY_GOVERNANCE`
+- **Tools**: 13 MCP tools (governance + audit)
 
-1. **Create App:**
-   - Studio → Create from Blank → **Workflow**
-   - Name: `WF_NPA_Governance_Ops`
-   - Description: "Governance operations workflow — signoffs, document lifecycle, monitoring, notifications"
+### 6.3 WF_NPA_Doc_Lifecycle (Workflow — Split App)
 
-2. **Design Workflow Canvas:**
-   ```
-   START → KNOWLEDGE_RETRIEVAL → LLM → OUTPUT
-   ```
+Dedicated document lifecycle workflow. See `WF_NPA_Doc_Lifecycle_Setup.md` for full setup guide.
+- **API Key**: `DIFY_KEY_DOC_LIFECYCLE`
+- **Tools**: 7 MCP tools (documents + audit)
 
-3. **START Node — Input Variables:**
-   - `project_id` (number, required)
-   - `operation` (string, required — one of: signoff_matrix, record_decision, check_loopbacks, advance_stage, validate_docs, check_sla, schedule_pir, send_notification)
-   - `party_name` (string — for signoff operations)
-   - `decision` (string — APPROVED | REJECTED | REWORK)
-   - `comments` (string)
-   - `notification_type` (string)
-   - `document_ids` (string — comma-separated)
+### 6.4 WF_NPA_Monitoring (Workflow — Split App)
 
-4. **Knowledge Retrieval Node:**
-   - Add KBs: KB_Governance_Agent, KB_Doc_Lifecycle, KB_Monitoring_Agent, KB_Notification_Agent
-   - Query: `{{#start.operation#}} for project {{#start.project_id#}}`
+Dedicated monitoring workflow. See `WF_NPA_Monitoring_Setup.md` for full setup guide.
+- **API Key**: `DIFY_KEY_MONITORING`
+- **Tools**: 12 MCP tools (monitoring + evergreen + audit)
 
-5. **LLM Node:**
-   - Model: claude-sonnet-4-5
-   - System prompt: Copy from `Context/2026-02-19/Dify_Agent_Prompts/WF_NPA_Governance_Ops_Prompt.md`
-   - Context: Wire `{{#knowledge_retrieval.result#}}`
+### 6.5 WF_NPA_Notification (Workflow — Split App)
 
-6. **OUTPUT Node Variables:**
-   - `result` (object — operation-specific result)
-   - `status` (string — SUCCESS | FAILURE | PENDING)
-   - `next_actions` (string array)
-   - `notifications_sent` (number)
-
-7. **Publish**
-
-8. **Get API Key:**
-   - Go to **API Access** tab
-   - Copy the API key → set as `DIFY_KEY_GOVERNANCE` in `.env`
+Dedicated notification workflow. See `WF_NPA_Notification_Setup.md` for full setup guide.
+- **API Key**: `DIFY_KEY_NOTIFICATION`
+- **Tools**: 5 MCP tools (notifications + audit)
 
 ---
 
@@ -488,8 +469,17 @@ DIFY_KEY_RISK=app-xxxxxxxxxxxxxxxxxx
 # Tier 3+4: CF_NPA_Query_Assistant (serves DILIGENCE + KB_SEARCH)
 DIFY_KEY_DILIGENCE=app-xxxxxxxxxxxxxxxxxx
 
-# Tier 3+4: WF_NPA_Governance_Ops (serves GOVERNANCE + DOC_LIFECYCLE + MONITORING + NOTIFICATION)
+# Tier 3: WF_NPA_Governance (dedicated governance app)
 DIFY_KEY_GOVERNANCE=app-xxxxxxxxxxxxxxxxxx
+
+# Tier 3: WF_NPA_Doc_Lifecycle (dedicated doc lifecycle app)
+DIFY_KEY_DOC_LIFECYCLE=app-xxxxxxxxxxxxxxxxxx
+
+# Tier 3: WF_NPA_Monitoring (dedicated monitoring app)
+DIFY_KEY_MONITORING=app-xxxxxxxxxxxxxxxxxx
+
+# Tier 4: WF_NPA_Notification (dedicated notification app)
+DIFY_KEY_NOTIFICATION=app-xxxxxxxxxxxxxxxxxx
 
 # ─── MCP Python Server ──────────────────────────────────
 MCP_SERVER_URL=https://your-mcp-server-url
@@ -513,7 +503,10 @@ For each app:
 | DIFY_KEY_AUTOFILL | WF_NPA_Autofill | workflow | AUTOFILL |
 | DIFY_KEY_RISK | WF_NPA_Risk | workflow | RISK |
 | DIFY_KEY_DILIGENCE | CF_NPA_Query_Assistant | chat | DILIGENCE, KB_SEARCH |
-| DIFY_KEY_GOVERNANCE | WF_NPA_Governance_Ops | workflow | GOVERNANCE, DOC_LIFECYCLE, MONITORING, NOTIFICATION |
+| DIFY_KEY_GOVERNANCE | WF_NPA_Governance | workflow | GOVERNANCE |
+| DIFY_KEY_DOC_LIFECYCLE | WF_NPA_Doc_Lifecycle | workflow | DOC_LIFECYCLE |
+| DIFY_KEY_MONITORING | WF_NPA_Monitoring | workflow | MONITORING |
+| DIFY_KEY_NOTIFICATION | WF_NPA_Notification | workflow | NOTIFICATION |
 
 ---
 
@@ -523,8 +516,8 @@ For each app:
 
 - [ ] MCP Python server deployed and healthy (`/health` returns 200 with `"tools": 78`)
 - [ ] OpenAPI spec refreshed in Dify Custom Tool (78 actions, no ⚠️ warnings)
-- [ ] All 7 Dify apps created and published
-- [ ] All 7 API keys set in `server/.env`
+- [ ] All 11 Dify apps created and published
+- [ ] All 11 API keys set in `server/.env`
 - [ ] All KBs created with updated documents and indexing complete
 - [ ] Express server restarted with new env vars
 
