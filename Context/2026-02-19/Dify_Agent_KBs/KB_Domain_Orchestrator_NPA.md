@@ -52,8 +52,8 @@ Each transition has **entry gates** (what must be true to start), **exit gates**
 | **CLASSIFICATION** | WF_NPA_Classify_Predict | project_id exists | Classification score + track assigned, ML prediction saved | Missing project_id | User reviews classification + prediction |
 | **RISK_ASSESSMENT** | WF_NPA_Risk | Classification complete | Risk assessment stored, prerequisites validated | Hard stop (prohibited match) | User reviews risk; if hard stop, NPA blocked |
 | **AUTOFILL** | WF_NPA_Autofill | Risk assessment complete, no hard stop | Template fields populated with lineage | Risk hard stop not cleared | User reviews template, edits ADAPTED/MANUAL fields |
-| **SIGN_OFF** | WF_NPA_Governance_Ops | Template substantially complete | All mandatory sign-offs obtained | Missing critical documents, circuit breaker (3 reworks) | Each sign-off party reviews independently |
-| **POST_LAUNCH** | WF_NPA_Governance_Ops | NPA approved, product launched | PIR completed, monitoring established | Breach thresholds exceeded | Ongoing monitoring review |
+| **SIGN_OFF** | WF_NPA_Governance + WF_NPA_Doc_Lifecycle | Template substantially complete | All mandatory sign-offs obtained | Missing critical documents, circuit breaker (3 reworks) | Each sign-off party reviews independently |
+| **POST_LAUNCH** | WF_NPA_Monitoring + WF_NPA_Notification | NPA approved, product launched | PIR completed, monitoring established | Breach thresholds exceeded | Ongoing monitoring review |
 
 ### 2.3 Stage Transition Rules
 
@@ -853,20 +853,23 @@ System Documentation --> Operational Procedures --> Implementation Planning
 
 ---
 
-## 8. Specialist Agent Details (8 Dify Apps)
+## 8. Specialist Agent Details (11 Dify Apps)
 
-### 8.1 Tool Assignment Summary (71 tools across 8 apps)
+### 8.1 Tool Assignment Summary (84 tools across 11 apps)
 
 | Dify App | Type | Logical Agents | Tools | Build Step |
 |----------|------|---------------|-------|-----------|
 | CF_COO_Orchestrator | Chatflow | MASTER_COO | 8 (read + route) | Step 1a |
 | CF_NPA_Orchestrator | Chatflow | NPA_ORCHESTRATOR | 8 (read + route) | Step 1b |
 | CF_NPA_Ideation | Chatflow | IDEATION | 9 (read + write) | Step 2 |
-| CF_NPA_Query_Assistant | Chatflow | DILIGENCE + KB_SEARCH + NOTIFICATION(read) | 17 (read only) | Step 3 |
+| CF_NPA_Query_Assistant | Chatflow | DILIGENCE + KB_SEARCH | 17 (read only) | Step 3 |
 | WF_NPA_Classify_Predict | Workflow | CLASSIFIER + ML_PREDICT | 8 | Step 4 |
 | WF_NPA_Risk | Workflow | RISK | 10 | Step 5 |
 | WF_NPA_Autofill | Workflow | AUTOFILL | 7 | Step 5 |
-| WF_NPA_Governance_Ops | Workflow | GOVERNANCE + DOC_LIFECYCLE + MONITORING + NOTIFICATION(write) | 18 | Step 5 |
+| WF_NPA_Governance | Workflow | GOVERNANCE | 13 | Step 5a |
+| WF_NPA_Doc_Lifecycle | Workflow | DOC_LIFECYCLE | 7 | Step 5b |
+| WF_NPA_Monitoring | Workflow | MONITORING | 12 | Step 5c |
+| WF_NPA_Notification | Workflow | NOTIFICATION | 5 | Step 5d |
 
 ### 8.2 CF_NPA_Ideation (Chatflow — Step 2)
 
@@ -948,13 +951,13 @@ Body: { "inputs": {}, "query": "<user_message>", "conversation_id": "<ideation_c
 
 **KB Attached:** None
 
-### 8.7 WF_NPA_Governance_Ops (Workflow — Step 5)
+### 8.7 WF_NPA_Governance (Workflow — Step 5a)
 
-**Role**: Sign-offs, documents, stage advance, notifications, post-launch monitoring. Largest tool set (18 tools).
+**Role**: Sign-off orchestration, SLA management, loop-back tracking, escalation, PAC gating, stage advancement. Focused on the approval workflow.
 
-**Tools (18):** `governance_get_signoffs`, `governance_create_signoff_matrix`, `governance_record_decision`, `governance_check_loopbacks`, `governance_advance_stage`, `get_signoff_routing_rules`, `check_sla_status`, `create_escalation`, `save_approval_decision`, `add_comment`, `check_document_completeness`, `get_document_requirements`, `upload_document_metadata`, `validate_document`, `get_monitoring_thresholds`, `create_breach_alert`, `send_notification`, `audit_log_action`
+**Tools (13):** `governance_get_signoffs`, `governance_create_signoff_matrix`, `governance_record_decision`, `governance_check_loopbacks`, `governance_advance_stage`, `get_signoff_routing_rules`, `check_sla_status`, `create_escalation`, `get_escalation_rules`, `save_approval_decision`, `add_comment`, `audit_log_action`, `get_npa_by_id`
 
-**KB Attached:** None
+**KB Attached:** KB_Governance_Agent.md
 
 **Circuit Breaker:** Loop-back count >= 3 triggers automatic escalation to Group COO.
 
@@ -962,6 +965,36 @@ Body: { "inputs": {}, "query": "<user_message>", "conversation_id": "<ideation_c
 - `on_track`: All sign-offs within SLA
 - `at_risk`: At least one approaching deadline (within 2 business days)
 - `breached`: At least one past SLA deadline
+
+### 8.8 WF_NPA_Doc_Lifecycle (Workflow — Step 5b)
+
+**Role**: Document completeness checking, upload tracking, validation, expiry enforcement, version control. Ensures no NPA advances without complete, valid documentation.
+
+**Tools (7):** `upload_document_metadata`, `check_document_completeness`, `get_document_requirements`, `validate_document`, `doc_lifecycle_validate`, `audit_log_action`, `get_npa_by_id`
+
+**KB Attached:** KB_Doc_Lifecycle.md
+
+**Critical Rule:** Expired docs = INVALID. Block advancement. No exceptions. No grace period.
+
+### 8.9 WF_NPA_Monitoring (Workflow — Step 5c)
+
+**Role**: Post-launch performance monitoring, breach detection, PIR scheduling, dormancy detection (GAP-019), approximate booking detection (GAP-020), Evergreen annual review.
+
+**Tools (12):** `get_performance_metrics`, `check_breach_thresholds`, `create_breach_alert`, `get_monitoring_thresholds`, `get_post_launch_conditions`, `update_condition_status`, `detect_approximate_booking`, `evergreen_list`, `evergreen_record_usage`, `evergreen_annual_review`, `audit_log_action`, `get_npa_by_id`
+
+**KB Attached:** KB_Monitoring_Agent.md
+
+**PIR:** Due within 180 days of launch. Mandatory for ALL launched products (GFM stricter rule).
+
+### 8.10 WF_NPA_Notification (Workflow — Step 5d)
+
+**Role**: Unified notification engine — alert delivery, deduplication, severity-based routing, escalation chains, daily digest generation.
+
+**Tools (5):** `send_notification`, `get_pending_notifications`, `mark_notification_read`, `audit_log_action`, `get_npa_by_id`
+
+**KB Attached:** KB_Notification_Agent.md
+
+**Critical Rule:** CRITICAL notifications always delivered immediately, never batched or suppressed.
 
 ---
 
@@ -1028,9 +1061,9 @@ Orchestrator -> WF_NPA_Risk (project_id -> 4-layer risk assessment)
   [Human reviews; hard stop check]
 Orchestrator -> WF_NPA_Autofill (project_id -> template populated)
   [Human reviews and edits]
-Orchestrator -> WF_NPA_Governance_Ops (project_id -> sign-off routing)
+Orchestrator -> WF_NPA_Governance (project_id -> sign-off routing)
   [Sign-off parties review independently]
-Orchestrator -> WF_NPA_Governance_Ops (project_id -> post-launch monitoring)
+Orchestrator -> WF_NPA_Monitoring (project_id -> post-launch monitoring)
   [Ongoing]
 ```
 
@@ -1044,7 +1077,7 @@ Orchestrator -> WF_NPA_Governance_Ops (project_id -> post-launch monitoring)
 | Re-run risk after classification change | Call WF_NPA_Risk again |
 | Sign-off party requests rework (loop-back) | Route back to appropriate stage |
 | Update template after feedback | Call WF_NPA_Autofill with partial update |
-| Re-check documents after upload | Call WF_NPA_Governance_Ops |
+| Re-check documents after upload | Call WF_NPA_Doc_Lifecycle |
 
 ### 10.3 Error Recovery
 
@@ -1315,7 +1348,7 @@ Existing products have the most complex routing logic:
 | 2 | CF_NPA_Ideation | Gate 2: Chatflow delegation, NPA creation, conversation persistence | 1 day |
 | 3 | CF_NPA_Query_Assistant | Gate 3: Read path, cross-domain queries, KB citations | 1 day |
 | 4 | WF_NPA_Classify_Predict | Gate 4: Workflow integration, structured outputs | 0.5 day |
-| 5 | WF_NPA_Risk + WF_NPA_Autofill + WF_NPA_Governance_Ops | Scale pattern | 1.5 days |
+| 5 | WF_NPA_Risk + WF_NPA_Autofill + WF_NPA_Governance + WF_NPA_Doc_Lifecycle + WF_NPA_Monitoring + WF_NPA_Notification | Scale pattern | 2 days |
 | 6 | Freeze architecture | All gates passed end-to-end | — |
 
 ---

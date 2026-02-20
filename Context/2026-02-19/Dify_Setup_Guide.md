@@ -3,10 +3,10 @@
 **Version:** Sprint 5.2 — Post Cross-Verification Update (v2 — architecture validated)
 **Prerequisite:** Updated KBs/Prompts from `Context/2026-02-19/` (31 corrections applied)
 
-> **Architecture Validation (2026-02-19):** Confirmed 7 Dify apps is sufficient for all 13 logical agents.
-> Multi-agent Workflow apps (WF_NPA_Classify_Predict, WF_NPA_Governance_Ops) use `agent_id` / `agent_mode`
-> input dispatching in their prompts to serve multiple logical agents from a single pipeline.
-> No additional Dify apps are needed.
+> **Architecture Update (2026-02-20):** Expanded to 11 Dify apps. The former WF_NPA_Governance_Ops super-app
+> has been split into 4 dedicated workflow apps (Governance, Doc Lifecycle, Monitoring, Notification) and
+> the Orchestrator has been split into Tier 1 (CF_COO_Orchestrator) and Tier 2 (CF_NPA_Orchestrator).
+> See individual Setup Guides for each app's configuration.
 
 ---
 
@@ -24,17 +24,21 @@
 
 ## 1. Architecture Overview
 
-### 13 Logical Agents → 7 Dify Apps
+### 13 Logical Agents → 11 Dify Apps
 
 | Dify App | Type | Logical Agents | Tier |
 |----------|------|---------------|------|
-| CF_NPA_Orchestrator | Agent (Chat) | MASTER_COO, NPA_ORCHESTRATOR | 1, 2 |
+| CF_COO_Orchestrator | Agent (Chat) | MASTER_COO | 1 |
+| CF_NPA_Orchestrator | Agent (Chat) | NPA_ORCHESTRATOR | 2 |
 | CF_NPA_Ideation | Agent (Chat) | IDEATION | 3 |
 | CF_NPA_Query_Assistant | Agent (Chat) | DILIGENCE, KB_SEARCH | 3, 4 |
 | WF_NPA_Classify_Predict | Workflow | CLASSIFIER, ML_PREDICT | 3 |
 | WF_NPA_Risk | Workflow | RISK | 3 |
 | WF_NPA_Autofill | Workflow | AUTOFILL | 3 |
-| WF_NPA_Governance_Ops | Workflow | GOVERNANCE, DOC_LIFECYCLE, MONITORING, NOTIFICATION | 3, 4 |
+| WF_NPA_Governance | Workflow | GOVERNANCE | 3 |
+| WF_NPA_Doc_Lifecycle | Workflow | DOC_LIFECYCLE | 3 |
+| WF_NPA_Monitoring | Workflow | MONITORING | 3 |
+| WF_NPA_Notification | Workflow | NOTIFICATION | 4 |
 
 ### Data Flow
 ```

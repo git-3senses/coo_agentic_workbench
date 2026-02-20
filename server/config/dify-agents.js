@@ -4,7 +4,7 @@
  *
  * Source of truth: ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md §3 & §11
  *
- * 13 logical agents across 4 tiers, deployed as 8 Dify apps:
+ * 13 logical agents across 4 tiers, deployed as 11 Dify apps:
  *   - CF_COO_Orchestrator     (Chatflow)  → MASTER_COO
  *   - CF_NPA_Orchestrator     (Chatflow)  → NPA_ORCHESTRATOR
  *   - CF_NPA_Ideation         (Chatflow)  → IDEATION
@@ -12,7 +12,10 @@
  *   - WF_NPA_Classify_Predict (Workflow)  → CLASSIFIER, ML_PREDICT
  *   - WF_NPA_Risk             (Workflow)  → RISK
  *   - WF_NPA_Autofill         (Workflow)  → AUTOFILL
- *   - WF_NPA_Governance_Ops   (Workflow)  → GOVERNANCE, DOC_LIFECYCLE, MONITORING, NOTIFICATION
+ *   - WF_NPA_Governance       (Workflow)  → GOVERNANCE
+ *   - WF_NPA_Doc_Lifecycle    (Workflow)  → DOC_LIFECYCLE
+ *   - WF_NPA_Monitoring       (Workflow)  → MONITORING
+ *   - WF_NPA_Notification     (Workflow)  → NOTIFICATION
  */
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
@@ -102,11 +105,12 @@ const DIFY_AGENTS = {
         color: 'bg-red-50 text-red-600'
     },
 
-    // Dify App: WF_NPA_Governance_Ops (Workflow)
+    // Dify App: WF_NPA_Governance (Workflow) — dedicated app
+    // Sign-off orchestration, SLA management, loop-backs, escalations, PAC gating
     GOVERNANCE: {
         key: process.env.DIFY_KEY_GOVERNANCE || '',
         type: 'workflow',
-        difyApp: 'WF_NPA_Governance_Ops',
+        difyApp: 'WF_NPA_Governance',
         name: 'Governance Agent',
         tier: 3,
         icon: 'workflow',
@@ -125,22 +129,24 @@ const DIFY_AGENTS = {
         color: 'bg-cyan-50 text-cyan-600'
     },
 
-    // Dify App: WF_NPA_Governance_Ops (Workflow) — fused with GOVERNANCE
+    // Dify App: WF_NPA_Doc_Lifecycle (Workflow) — dedicated app
+    // Document completeness, upload tracking, validation, expiry enforcement
     DOC_LIFECYCLE: {
-        key: process.env.DIFY_KEY_GOVERNANCE || '',
+        key: process.env.DIFY_KEY_DOC_LIFECYCLE || '',
         type: 'workflow',
-        difyApp: 'WF_NPA_Governance_Ops',
+        difyApp: 'WF_NPA_Doc_Lifecycle',
         name: 'Document Lifecycle Agent',
         tier: 3,
         icon: 'scan-search',
         color: 'bg-teal-50 text-teal-600'
     },
 
-    // Dify App: WF_NPA_Governance_Ops (Workflow) — fused with GOVERNANCE
+    // Dify App: WF_NPA_Monitoring (Workflow) — dedicated app
+    // Post-launch monitoring, breach detection, PIR scheduling, dormancy, approximate bookings
     MONITORING: {
-        key: process.env.DIFY_KEY_GOVERNANCE || '',
+        key: process.env.DIFY_KEY_MONITORING || '',
         type: 'workflow',
-        difyApp: 'WF_NPA_Governance_Ops',
+        difyApp: 'WF_NPA_Monitoring',
         name: 'Post-Launch Monitoring Agent',
         tier: 3,
         icon: 'activity',
@@ -161,11 +167,12 @@ const DIFY_AGENTS = {
         color: 'bg-fuchsia-50 text-fuchsia-600'
     },
 
-    // Dify App: WF_NPA_Governance_Ops (Workflow) — fused with GOVERNANCE
+    // Dify App: WF_NPA_Notification (Workflow) — dedicated app
+    // Alert delivery, deduplication, escalation chains, severity-based routing
     NOTIFICATION: {
-        key: process.env.DIFY_KEY_GOVERNANCE || '',
+        key: process.env.DIFY_KEY_NOTIFICATION || '',
         type: 'workflow',
-        difyApp: 'WF_NPA_Governance_Ops',
+        difyApp: 'WF_NPA_Notification',
         name: 'Notification Agent',
         tier: 4,
         icon: 'bell',

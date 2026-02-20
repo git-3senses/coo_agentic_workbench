@@ -1,9 +1,11 @@
-# KB_Domain_Orchestrator_NPA — NPA Domain Deep-Dive (Phase 0)
+> **Updated: 2026-02-19 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md**
 
-**Version**: 3.0 — Enterprise-Grade, Aligned to ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md
+# KB_Domain_Orchestrator_NPA — NPA Domain Deep-Dive
+
+**Version**: 3.1 — Enterprise-Grade, Aligned to ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md
 **Purpose**: Definitive NPA domain reference — lifecycle, classification logic, approval workflows, risk cascades, document rules, template structure, specialist coordination, edge cases, escalation procedures
-**Attached To**: CF_NPA_Orchestrator (KB_NPA_AGENT_KBS_CLOUD), CF_NPA_Query_Assistant (KB_NPA_AGENT_KBS_CLOUD)
-**Last Updated**: 2026-02-13
+**Attached To**: CF_NPA_Orchestrator (KB_NPA_DOMAIN_CLOUD), CF_NPA_Query_Assistant (KB_NPA_AGENT_KBS_CLOUD)
+**Last Updated**: 2026-02-20
 
 ---
 
@@ -50,8 +52,8 @@ Each transition has **entry gates** (what must be true to start), **exit gates**
 | **CLASSIFICATION** | WF_NPA_Classify_Predict | project_id exists | Classification score + track assigned, ML prediction saved | Missing project_id | User reviews classification + prediction |
 | **RISK_ASSESSMENT** | WF_NPA_Risk | Classification complete | Risk assessment stored, prerequisites validated | Hard stop (prohibited match) | User reviews risk; if hard stop, NPA blocked |
 | **AUTOFILL** | WF_NPA_Autofill | Risk assessment complete, no hard stop | Template fields populated with lineage | Risk hard stop not cleared | User reviews template, edits ADAPTED/MANUAL fields |
-| **SIGN_OFF** | WF_NPA_Governance_Ops | Template substantially complete | All mandatory sign-offs obtained | Missing critical documents, circuit breaker (3 reworks) | Each sign-off party reviews independently |
-| **POST_LAUNCH** | WF_NPA_Governance_Ops | NPA approved, product launched | PIR completed, monitoring established | Breach thresholds exceeded | Ongoing monitoring review |
+| **SIGN_OFF** | WF_NPA_Governance + WF_NPA_Doc_Lifecycle | Template substantially complete | All mandatory sign-offs obtained | Missing critical documents, circuit breaker (3 reworks) | Each sign-off party reviews independently |
+| **POST_LAUNCH** | WF_NPA_Monitoring + WF_NPA_Notification | NPA approved, product launched | PIR completed, monitoring established | Breach thresholds exceeded | Ongoing monitoring review |
 
 ### 2.3 Stage Transition Rules
 
@@ -151,6 +153,19 @@ OVERRIDE RULE: A single indicator scored 2 with CRITICAL impact
 trigger NTG classification even if total < 20. This requires
 Group Product Head or Group COO confirmation.
 ```
+
+#### Simplified NTG Decision Threshold (Cross-Verified)
+
+For quick routing decisions, the NTG scoring can be summarized as:
+
+| NTG Score | Variation Score (VAR) | Classification | Track |
+|-----------|----------------------|----------------|-------|
+| >= 10 | Any | **New-to-Group** | Full NPA |
+| 5-9 | Any | **Borderline** | Manual review, likely Variation -> Full NPA or NPA Lite |
+| 0-4 | > 0 | **Variation** | Full NPA (if material) or NPA Lite (if minor) |
+| 0 | 0 | **Existing** | NPA Lite, Bundling, or Evergreen |
+
+**Note**: The NTG Score refers to the count of indicators scored >= 1 (i.e., how many of the 20 indicators are triggered at all). The full scoring (0-40 total points) provides granularity for borderline cases. When >= 50% of indicators (10+ of 20) are triggered, the product is definitively NTG. When fewer than 5 indicators are triggered but at least one Variation criterion applies, the product is a Variation.
 
 ### 3.4 Material Variation Determination
 
@@ -461,6 +476,56 @@ STAGE 3: APPROVAL (Week 4)
     --> Group Product Head sign-off
   GATE: Approved
 ```
+
+#### NPA Lite — 4 Sub-Types (Cross-Verified from Deep Knowledge)
+
+NPA Lite is not a single process -- it has **4 distinct sub-types** with different triggers, timelines, and approval mechanisms:
+
+**B1: Impending Deal (48-Hour Express Approval)**
+- Back-to-back deal with professional counterparty
+- OR dormant/expired product with UAT completed
+- OR Singapore-approved NPA applicable regionally on BTB basis
+- 48-hour notice period to all SOPs
+- If ANY SOP objects -> Falls back to standard NPA Lite
+- If no objections after 48 hours -> Auto-approved
+
+**B2: NLNOC (NPA Lite No Objection Concurrence)**
+- Simple change to payoff of approved product
+- Reactivation of dormant/expired NPA with no structural changes
+- Decision by GFM COO + Head of RMG-MLR jointly
+- SOPs provide "no-objection concurrence" (lighter than full sign-off)
+- Timeline: Typically 5-10 days
+
+**B3: Fast-Track Dormant Reactivation**
+- Existing live trade in the past
+- NOT on prohibited list
+- PIR completed for original NPA
+- No variation or changes in booking
+- 48-hour no-objection notice -> auto-approval
+
+**B4: Approved NPA Addendum**
+- Minor/incremental updates to **live** (not expired) NPA only
+- Examples: adding cash settlement, bilateral -> tripartite, typo fixes
+- NOT eligible for new features or new payoffs
+- Original NPA reference kept intact (same GFM ID)
+- Validity period NOT extended (maintains original expiry)
+- Target: < 5 days
+
+**Sub-Type Selection Logic:**
+```
+IF impending_deal AND (btb_professional OR dormant_with_uat OR sg_regional_btb):
+  track = "B1_IMPENDING_DEAL"
+ELIF simple_payoff_change OR (dormant_reactivation AND no_structural_changes):
+  track = "B2_NLNOC"
+ELIF dormant AND prior_live_trade AND pir_completed AND no_variations:
+  track = "B3_FAST_TRACK_DORMANT"
+ELIF minor_update AND npa_is_live AND NOT npa_is_expired:
+  track = "B4_ADDENDUM"
+ELSE:
+  track = "NPA_LITE_STANDARD"  # Standard 4-6 week process
+```
+
+---
 
 #### Bundling — Combination-Specific Workflow (5-7 weeks)
 
@@ -788,19 +853,23 @@ System Documentation --> Operational Procedures --> Implementation Planning
 
 ---
 
-## 8. Specialist Agent Details (Phase 0 — 7 Dify Apps)
+## 8. Specialist Agent Details (11 Dify Apps)
 
-### 8.1 Tool Assignment Summary (71 tools across 7 apps)
+### 8.1 Tool Assignment Summary (84 tools across 11 apps)
 
 | Dify App | Type | Logical Agents | Tools | Build Step |
 |----------|------|---------------|-------|-----------|
-| CF_NPA_Orchestrator | Chatflow | MASTER_COO + NPA_ORCHESTRATOR | 8 (read + route) | Step 1 |
+| CF_COO_Orchestrator | Chatflow | MASTER_COO | 8 (read + route) | Step 1a |
+| CF_NPA_Orchestrator | Chatflow | NPA_ORCHESTRATOR | 8 (read + route) | Step 1b |
 | CF_NPA_Ideation | Chatflow | IDEATION | 9 (read + write) | Step 2 |
-| CF_NPA_Query_Assistant | Chatflow | DILIGENCE + KB_SEARCH + NOTIFICATION(read) | 17 (read only) | Step 3 |
+| CF_NPA_Query_Assistant | Chatflow | DILIGENCE + KB_SEARCH | 17 (read only) | Step 3 |
 | WF_NPA_Classify_Predict | Workflow | CLASSIFIER + ML_PREDICT | 8 | Step 4 |
 | WF_NPA_Risk | Workflow | RISK | 10 | Step 5 |
 | WF_NPA_Autofill | Workflow | AUTOFILL | 7 | Step 5 |
-| WF_NPA_Governance_Ops | Workflow | GOVERNANCE + DOC_LIFECYCLE + MONITORING + NOTIFICATION(write) | 18 | Step 5 |
+| WF_NPA_Governance | Workflow | GOVERNANCE | 13 | Step 5a |
+| WF_NPA_Doc_Lifecycle | Workflow | DOC_LIFECYCLE | 7 | Step 5b |
+| WF_NPA_Monitoring | Workflow | MONITORING | 12 | Step 5c |
+| WF_NPA_Notification | Workflow | NOTIFICATION | 5 | Step 5d |
 
 ### 8.2 CF_NPA_Ideation (Chatflow — Step 2)
 
@@ -882,13 +951,13 @@ Body: { "inputs": {}, "query": "<user_message>", "conversation_id": "<ideation_c
 
 **KB Attached:** None
 
-### 8.7 WF_NPA_Governance_Ops (Workflow — Step 5)
+### 8.7 WF_NPA_Governance (Workflow — Step 5a)
 
-**Role**: Sign-offs, documents, stage advance, notifications, post-launch monitoring. Largest tool set (18 tools).
+**Role**: Sign-off orchestration, SLA management, loop-back tracking, escalation, PAC gating, stage advancement. Focused on the approval workflow.
 
-**Tools (18):** `governance_get_signoffs`, `governance_create_signoff_matrix`, `governance_record_decision`, `governance_check_loopbacks`, `governance_advance_stage`, `get_signoff_routing_rules`, `check_sla_status`, `create_escalation`, `save_approval_decision`, `add_comment`, `check_document_completeness`, `get_document_requirements`, `upload_document_metadata`, `validate_document`, `get_monitoring_thresholds`, `create_breach_alert`, `send_notification`, `audit_log_action`
+**Tools (13):** `governance_get_signoffs`, `governance_create_signoff_matrix`, `governance_record_decision`, `governance_check_loopbacks`, `governance_advance_stage`, `get_signoff_routing_rules`, `check_sla_status`, `create_escalation`, `get_escalation_rules`, `save_approval_decision`, `add_comment`, `audit_log_action`, `get_npa_by_id`
 
-**KB Attached:** None
+**KB Attached:** KB_Governance_Agent.md
 
 **Circuit Breaker:** Loop-back count >= 3 triggers automatic escalation to Group COO.
 
@@ -896,6 +965,36 @@ Body: { "inputs": {}, "query": "<user_message>", "conversation_id": "<ideation_c
 - `on_track`: All sign-offs within SLA
 - `at_risk`: At least one approaching deadline (within 2 business days)
 - `breached`: At least one past SLA deadline
+
+### 8.8 WF_NPA_Doc_Lifecycle (Workflow — Step 5b)
+
+**Role**: Document completeness checking, upload tracking, validation, expiry enforcement, version control. Ensures no NPA advances without complete, valid documentation.
+
+**Tools (7):** `upload_document_metadata`, `check_document_completeness`, `get_document_requirements`, `validate_document`, `doc_lifecycle_validate`, `audit_log_action`, `get_npa_by_id`
+
+**KB Attached:** KB_Doc_Lifecycle.md
+
+**Critical Rule:** Expired docs = INVALID. Block advancement. No exceptions. No grace period.
+
+### 8.9 WF_NPA_Monitoring (Workflow — Step 5c)
+
+**Role**: Post-launch performance monitoring, breach detection, PIR scheduling, dormancy detection (GAP-019), approximate booking detection (GAP-020), Evergreen annual review.
+
+**Tools (12):** `get_performance_metrics`, `check_breach_thresholds`, `create_breach_alert`, `get_monitoring_thresholds`, `get_post_launch_conditions`, `update_condition_status`, `detect_approximate_booking`, `evergreen_list`, `evergreen_record_usage`, `evergreen_annual_review`, `audit_log_action`, `get_npa_by_id`
+
+**KB Attached:** KB_Monitoring_Agent.md
+
+**PIR:** Due within 180 days of launch. Mandatory for ALL launched products (GFM stricter rule).
+
+### 8.10 WF_NPA_Notification (Workflow — Step 5d)
+
+**Role**: Unified notification engine — alert delivery, deduplication, severity-based routing, escalation chains, daily digest generation.
+
+**Tools (5):** `send_notification`, `get_pending_notifications`, `mark_notification_read`, `audit_log_action`, `get_npa_by_id`
+
+**KB Attached:** KB_Notification_Agent.md
+
+**Critical Rule:** CRITICAL notifications always delivered immediately, never batched or suppressed.
 
 ---
 
@@ -962,9 +1061,9 @@ Orchestrator -> WF_NPA_Risk (project_id -> 4-layer risk assessment)
   [Human reviews; hard stop check]
 Orchestrator -> WF_NPA_Autofill (project_id -> template populated)
   [Human reviews and edits]
-Orchestrator -> WF_NPA_Governance_Ops (project_id -> sign-off routing)
+Orchestrator -> WF_NPA_Governance (project_id -> sign-off routing)
   [Sign-off parties review independently]
-Orchestrator -> WF_NPA_Governance_Ops (project_id -> post-launch monitoring)
+Orchestrator -> WF_NPA_Monitoring (project_id -> post-launch monitoring)
   [Ongoing]
 ```
 
@@ -978,7 +1077,7 @@ Orchestrator -> WF_NPA_Governance_Ops (project_id -> post-launch monitoring)
 | Re-run risk after classification change | Call WF_NPA_Risk again |
 | Sign-off party requests rework (loop-back) | Route back to appropriate stage |
 | Update template after feedback | Call WF_NPA_Autofill with partial update |
-| Re-check documents after upload | Call WF_NPA_Governance_Ops |
+| Re-check documents after upload | Call WF_NPA_Doc_Lifecycle |
 
 ### 10.3 Error Recovery
 
@@ -1032,6 +1131,81 @@ Some NPAs are approved with post-launch conditions (see Section 4.7). These are 
 - Days remaining calculations
 - Status tracking (met / in progress / overdue)
 - Escalation on overdue conditions
+
+---
+
+## 11A. Validity, Extensions, and Expiration (Cross-Verified from Deep Knowledge)
+
+### Standard Validity Periods
+
+| NPA Type | Validity | Notes |
+|----------|----------|-------|
+| Full NPA / NPA Lite | **1 year** from approval date | Standard for all non-Evergreen products |
+| Evergreen | **3 years** from approval date | GFM deviation approved 21-Feb-2023 |
+
+### Extension Rules (One-Time Only)
+
+An approved NPA can be extended **once** for +6 months (total maximum: 18 months).
+
+**Requirements for extension -- ALL must be met:**
+1. No variation to product features
+2. No alteration to risk profile
+3. No change to operating model
+4. **Unanimous consensus** from ALL original sign-off parties
+5. Approval from Group BU/SU COO
+
+**If any SOP disagrees -> extension denied.** There is no override for a SOP objection to extension.
+
+### Expiration Consequences
+
+**CRITICAL RULE: An expired NPA means the product CANNOT be traded. No exceptions.**
+
+When a product is not launched within the validity period:
+- The NPA expires and the product CANNOT be traded
+- To reactivate: Proposing unit must engage Group BU/SU COO on NPA requirements
+- If no variations: NPA Lite - Reactivation track
+- If variations exist: Full NPA (treated as effectively new)
+
+### Launch Definition
+
+"Launch" means either:
+- The date the product is **first marketed and results in a sale/offer**, OR
+- The **first trade** of the product
+
+An indication of interest to a customer does NOT count as launch.
+
+### Dormancy Rules
+
+Products with no transactions booked in the last 12 months are classified as "Dormant":
+
+| Dormancy Duration | Action | Track |
+|-------------------|--------|-------|
+| < 3 years + meets fast-track criteria | Fast-Track Dormant Reactivation (B3) | NPA Lite (48 hours) |
+| < 3 years + variations detected | Standard reactivation | NPA Lite |
+| >= 3 years | Escalate to GFM COO | May need Full NPA |
+
+### Evergreen Validity and Annual Review
+
+- **3 years** from approval date
+- Annual review required by NPA Working Group
+- Products dormant > 3 years at review time -> removed from Evergreen list
+- Products reactivated via NPA Lite maintain Evergreen status for:
+  - NPA approval date + 3 years, OR
+  - Last transaction date during NPA validity + 3 years
+
+### Existing Product Routing Logic (Cross-Verified)
+
+Existing products have the most complex routing logic:
+
+| Status | Condition | Track | Timeline |
+|--------|-----------|-------|----------|
+| Active | On Evergreen list | Evergreen | Trade same day |
+| Active | NOT on Evergreen list | NPA Lite - Reference Existing | 3-4 weeks |
+| Dormant | < 3 years + meets fast-track criteria | Fast-Track Dormant Reactivation (B3) | 48 hours |
+| Dormant | < 3 years + variations detected | NPA Lite | 4-6 weeks |
+| Dormant | >= 3 years | Escalate to GFM COO | May need Full NPA |
+| Expired | No variations | NPA Lite - Reactivation | 3-4 weeks |
+| Expired | Variations detected | Full NPA (treated as new) | 8-12 weeks |
 
 ---
 
@@ -1165,17 +1339,18 @@ Some NPAs are approved with post-launch conditions (see Section 4.7). These are 
 
 ---
 
-## 15. Phase 0 Build Order & Validation Gates
+## 15. Build Order & Validation Gates
 
 | Step | Dify App | Validates | Effort |
 |------|----------|----------|--------|
-| 1 | CF_NPA_Orchestrator | Gate 1: Envelope, routing, session tools | 1 day |
+| 1a | CF_COO_Orchestrator | Gate 1a: Domain routing, session tools, envelope contract | 0.5 day |
+| 1b | CF_NPA_Orchestrator | Gate 1b: NPA intent routing, specialist delegation, business rules | 0.5 day |
 | 2 | CF_NPA_Ideation | Gate 2: Chatflow delegation, NPA creation, conversation persistence | 1 day |
 | 3 | CF_NPA_Query_Assistant | Gate 3: Read path, cross-domain queries, KB citations | 1 day |
 | 4 | WF_NPA_Classify_Predict | Gate 4: Workflow integration, structured outputs | 0.5 day |
-| 5 | WF_NPA_Risk + WF_NPA_Autofill + WF_NPA_Governance_Ops | Scale pattern | 1.5 days |
+| 5 | WF_NPA_Risk + WF_NPA_Autofill + WF_NPA_Governance + WF_NPA_Doc_Lifecycle + WF_NPA_Monitoring + WF_NPA_Notification | Scale pattern | 2 days |
 | 6 | Freeze architecture | All gates passed end-to-end | — |
 
 ---
 
-**End of Knowledge Base — NPA Domain Deep-Dive Phase 0 v3.0**
+**End of Knowledge Base — NPA Domain Deep-Dive v3.1**

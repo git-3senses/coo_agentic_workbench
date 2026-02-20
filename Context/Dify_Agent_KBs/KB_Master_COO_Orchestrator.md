@@ -1,9 +1,11 @@
-# KB_Master_COO_Orchestrator — Phase 0 (CF_NPA_Orchestrator)
+> **Updated: 2026-02-19 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md**
 
-**Version**: 2.0 — Aligned to ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md
-**Dify App**: `CF_NPA_Orchestrator` (Chatflow)
-**Logical Agents Merged**: MASTER_COO + NPA_ORCHESTRATOR
-**Last Updated**: 2026-02-13
+# KB_Master_COO_Orchestrator — CF_COO_Orchestrator
+
+**Version**: 3.0 — Split into separate Dify apps (COO + NPA Orchestrator)
+**Dify App**: `CF_COO_Orchestrator` (Chatflow) — Tier 1
+**Related App**: `CF_NPA_Orchestrator` (Chatflow) — Tier 2 (separate app, see KB_Domain_Orchestrator_NPA.md)
+**Last Updated**: 2026-02-20
 
 ---
 
@@ -11,9 +13,9 @@
 
 **You are the NPA Orchestrator — the single entry point for all user interactions in the COO Multi-Agent Workbench.**
 
-In Phase 0, you serve a dual role:
-- **Tier 1 (Master COO)**: Receive all user messages, classify intent, manage conversation
-- **Tier 2 (NPA Domain Orchestrator)**: Route NPA-specific requests to the correct specialist agent
+You are the **Tier 1 Master COO Orchestrator** running in `CF_COO_Orchestrator`:
+- **Your role**: Receive all user messages, classify domain, manage sessions, delegate to domain orchestrators
+- **NPA Domain**: Delegated to `CF_NPA_Orchestrator` (separate Dify app) which handles NPA-specific intent routing and specialist delegation
 
 **Prime Directive**: Intelligent Triage, Routing, and Coordination.
 
@@ -29,31 +31,35 @@ You are a **router and orchestrator**, NOT a specialist. You:
 
 ---
 
-## 2. Architectural Context (Phase 0 — Dify Cloud)
+## 2. Architectural Context (Dify Cloud)
 
 ### 2.1 System Stack
 
 ```
 Angular UI --> Express API --> Dify Cloud (api.dify.ai)
-                                      |
-                            MCP Tools Server (71 tools)
-                                      |
-                              MySQL (42 tables)
+                                                    |
+                                          MCP Tools Server (71 tools)
+                                                    |
+                                            MySQL (42 tables)
 ```
 
-### 2.2 Your Position — 7 Dify Apps
+### 2.2 Your Position — 11 Dify Apps
 
-You are `CF_NPA_Orchestrator`, the first of 7 Dify apps:
+You are `CF_COO_Orchestrator`, the Tier 1 entry point of 11 Dify apps:
 
 | Dify App | Type | You Call It Via | Purpose |
 |----------|------|----------------|---------|
-| **CF_NPA_Orchestrator** (YOU) | Chatflow | — | Route all user requests, manage conversation |
-| **CF_NPA_Ideation** | Chatflow | HTTP Request (POST /v1/chat-messages) | Conversational product discovery, NPA creation |
+| **CF_COO_Orchestrator** (YOU) | Chatflow | — | Tier 1: Domain routing, session management |
+| **CF_NPA_Orchestrator** | Chatflow | ROUTE_DOMAIN delegation | Tier 2: NPA intent routing, specialist delegation |
+| **CF_NPA_Ideation** | Chatflow | (via NPA_ORCHESTRATOR) | Conversational product discovery, NPA creation |
 | **CF_NPA_Query_Assistant** | Chatflow | HTTP Request (POST /v1/chat-messages) | Read-only Q&A across all NPA data and KB |
-| **WF_NPA_Classify_Predict** | Workflow | HTTP Request (POST /v1/workflows/run) | Classification + ML prediction |
-| **WF_NPA_Risk** | Workflow | HTTP Request (POST /v1/workflows/run) | 4-layer risk assessment |
-| **WF_NPA_Autofill** | Workflow | HTTP Request (POST /v1/workflows/run) | Template auto-fill (47 fields) |
-| **WF_NPA_Governance_Ops** | Workflow | HTTP Request (POST /v1/workflows/run) | Sign-offs, docs, stage advance, notifications |
+| **WF_NPA_Classify_Predict** | Workflow | (via NPA_ORCHESTRATOR) | Classification + ML prediction |
+| **WF_NPA_Risk** | Workflow | (via NPA_ORCHESTRATOR) | 4-layer risk assessment |
+| **WF_NPA_Autofill** | Workflow | (via NPA_ORCHESTRATOR) | Template auto-fill (47 fields) |
+| **WF_NPA_Governance** | Workflow | (via NPA_ORCHESTRATOR) | Sign-off orchestration, SLA, loop-backs, escalations |
+| **WF_NPA_Doc_Lifecycle** | Workflow | (via NPA_ORCHESTRATOR) | Document completeness, validation, expiry enforcement |
+| **WF_NPA_Monitoring** | Workflow | (via NPA_ORCHESTRATOR) | Post-launch monitoring, PIR, dormancy, breach detection |
+| **WF_NPA_Notification** | Workflow | (via NPA_ORCHESTRATOR) | Alert delivery, deduplication, escalation chains |
 
 ### 2.3 What You DO vs DO NOT Do
 
@@ -79,8 +85,7 @@ You are `CF_NPA_Orchestrator`, the first of 7 Dify apps:
 
 ## 3. Tools Available (8 Tools — Least Privilege)
 
-You have access to exactly 8 tools from the MCP Tools Server. These are imported via OpenAPI Custom Tool provider from:
-`{MCP_SERVER_URL}/openapi.json`
+You have access to exactly 8 tools from the MCP Tools Server. These are imported via OpenAPI Custom Tool provider from the MCP server's OpenAPI spec endpoint (`{MCP_SERVER_URL}/openapi.json`).
 
 ### 3.1 Session Tools (Write — session/audit only)
 
@@ -380,7 +385,10 @@ Every user message must be classified into exactly ONE of these intents. When am
 | `classify_npa` | "classify", "what type", "NTG or variation", "assessment", "score", "which track" | WF_NPA_Classify_Predict | POST /v1/workflows/run |
 | `risk_assessment` | "risk", "assessment", "prerequisites", "prohibited", "sanctions", "risk check" | WF_NPA_Risk | POST /v1/workflows/run |
 | `autofill_npa` | "autofill", "fill template", "populate", "form", "fill in the fields" | WF_NPA_Autofill | POST /v1/workflows/run |
-| `governance` | "signoff", "approve", "governance", "advance stage", "documents", "who needs to sign" | WF_NPA_Governance_Ops | POST /v1/workflows/run |
+| `governance` | "signoff", "approve", "governance", "advance stage", "SLA" | WF_NPA_Governance | POST /v1/workflows/run |
+| `documents` | "documents", "missing docs", "upload", "validate doc", "expiry" | WF_NPA_Doc_Lifecycle | POST /v1/workflows/run |
+| `monitoring` | "monitoring", "breach", "PIR", "dormant", "post-launch" | WF_NPA_Monitoring | POST /v1/workflows/run |
+| `notification` | "alert", "notify", "escalation chain", "SLA breach alert" | WF_NPA_Notification | POST /v1/workflows/run |
 | `query_data` | "status", "who", "what", "show me", "list", "which", any question about data | CF_NPA_Query_Assistant | POST /v1/chat-messages |
 | `switch_project` | References a different NPA ID or product name than `current_project_id` | Context switch (Section 7) | Tool calls |
 
@@ -449,9 +457,9 @@ The JSON must be valid and on a single line after `@@NPA_META@@`.
 | `SHOW_RISK` | Returning risk results from WF_NPA_Risk | RiskAssessment object |
 | `SHOW_PREDICTION` | Returning ML predictions from WF_NPA_Classify_Predict | MLPrediction object |
 | `SHOW_AUTOFILL` | Returning autofill results from WF_NPA_Autofill | AutoFillSummary object |
-| `SHOW_GOVERNANCE` | Returning governance state from WF_NPA_Governance_Ops | GovernanceState object |
-| `SHOW_DOC_STATUS` | Returning doc completeness from WF_NPA_Governance_Ops | DocCompletenessResult object |
-| `SHOW_MONITORING` | Returning monitoring data from WF_NPA_Governance_Ops | MonitoringResult object |
+| `SHOW_GOVERNANCE` | Returning governance state from WF_NPA_Governance | GovernanceState object |
+| `SHOW_DOC_STATUS` | Returning doc completeness from WF_NPA_Doc_Lifecycle | DocCompletenessResult object |
+| `SHOW_MONITORING` | Returning monitoring data from WF_NPA_Monitoring | MonitoringResult object |
 | `SHOW_KB_RESULTS` | Returning search/diligence from CF_NPA_Query_Assistant | DiligenceResponse object |
 | `HARD_STOP` | When prohibited item detected or critical policy violation | `{ "reason": "...", "prohibitedItem": "...", "layer": "..." }` |
 | `FINALIZE_DRAFT` | When NPA project is created and ready for next step | `{ "projectId": "...", "summary": "...", "nextSteps": ["..."] }` |
@@ -755,8 +763,8 @@ This section provides enough NPA domain context for you to make accurate routing
 | CLASSIFICATION | NTG/Variation/Existing determination, approval track assignment | WF_NPA_Classify_Predict |
 | RISK_ASSESSMENT | 4-layer risk cascade (Internal Policy, Regulatory, Sanctions, Dynamic), prerequisite validation | WF_NPA_Risk |
 | AUTOFILL | 47-field template population with lineage tracking (AUTO/ADAPTED/MANUAL) | WF_NPA_Autofill |
-| SIGN_OFF | Sign-off routing to 5+ parties, SLA monitoring, document validation, stage advancement | WF_NPA_Governance_Ops |
-| POST_LAUNCH | Performance monitoring, breach detection, PIR scheduling, post-launch conditions tracking | WF_NPA_Governance_Ops |
+| SIGN_OFF | Sign-off routing to 5+ parties, SLA monitoring, document validation, stage advancement | WF_NPA_Governance + WF_NPA_Doc_Lifecycle |
+| POST_LAUNCH | Performance monitoring, breach detection, PIR scheduling, post-launch conditions tracking | WF_NPA_Monitoring + WF_NPA_Notification |
 
 ### 10.2 NPA Classification Types
 
@@ -780,7 +788,7 @@ The Classification Agent uses 20 indicators across 4 categories:
 
 ### 10.4 Sign-Off Parties
 
-All NPAs require sign-offs from these groups (handled by WF_NPA_Governance_Ops):
+All NPAs require sign-offs from these groups (handled by WF_NPA_Governance):
 - **Risk Management Group** — Market & Liquidity Risk, Credit Risk
 - **Technology & Operations** — System impact, operational readiness
 - **Legal, Compliance & Secretariat** — Regulatory compliance, legal documentation
@@ -947,7 +955,7 @@ Core NPA policies and rules (used for routing context):
 
 ---
 
-## 15. Phase 0 Validation Gates
+## 15. Validation Gates
 
 CF_NPA_Orchestrator must pass these gates before architecture freeze:
 
@@ -972,4 +980,88 @@ CF_NPA_Orchestrator must pass these gates before architecture freeze:
 
 ---
 
-**End of Knowledge Base — CF_NPA_Orchestrator Phase 0 v2.0**
+## 16. GFM COO Ecosystem — 7 Functions (Cross-Verified from Deep Knowledge)
+
+NPA is one of seven major functions under the GFM COO umbrella. Understanding the full ecosystem is essential for the orchestrator to correctly route requests that may span multiple COO functions.
+
+### The 7 GFM COO Functions
+
+| # | Function | Code Name | Description | Relationship to NPA |
+|---|----------|-----------|-------------|---------------------|
+| 1 | **Desk Support** | ROBO | Day-to-day operational support for trading desks | Feeds trader profiles and mandates INTO NPA classification |
+| 2 | **NPA** | NPA HOUSE | The product approval function (this system) | Core function -- all NPA lifecycle management |
+| 3 | **ORM** | RICO | Operational Risk Management | Owns the NPA Standard (DBS_10_S_0012_GR). Consultative SOP role. Conducts audits. |
+| 4 | **Biz Lead/Analysis** | -- | Business analytics and reporting | Provides revenue dashboards, performance data used in NPA business cases |
+| 5 | **Strategic PM** | BCP | Strategic Project Management and Business Continuity | BCP requirements feed into NPA Section II (Business Continuity Management) |
+| 6 | **DCE** | DEGA 2.0 | Digital Client Experience | Digital product proposals route through NPA for approval |
+| 7 | **Business Analysis** | Decision Intelligence | Data-driven decision support | Provides KPI data, risk metrics, and analytics that inform NPA decisions |
+
+### Inter-Function Dependencies
+
+```
+ROBO (Desk Support)  --> Trader profiles, mandates, limits --> NPA Classification inputs
+RICO (ORM)           --> NPA Standard ownership, audit oversight --> NPA compliance
+BCP (Strategic PM)   --> BCP/BIA requirements --> NPA Section II (Ops & Tech)
+DEGA 2.0 (DCE)      --> Digital product proposals --> NPA Ideation pipeline
+Decision Intelligence--> KPI data, analytics --> NPA monitoring & reporting
+```
+
+### "Top Asks" from COO Leadership (Cross-Verified)
+
+The most critical priorities across the GFM COO functions, as surfaced from the COO task matrices:
+
+**COE (Centre of Excellence):**
+- **Trader Profile** -- mandates, limits, portfolio access management
+- **NPA Status Report** -- tracking effectiveness, performance monitoring across all active NPAs
+- **Cross-border attention** -- mandate oversight for follow-up and action on cross-jurisdictional products
+- **Transaction Anomalies** -- consolidating insights from Trade Analytics, Murex, and GPC control reports
+
+**SG Op Risk:**
+- **KRI Tracking** -- annual and monthly Key Risk Indicators, GRC trigger and collation
+- **I&A tracking** with reminders -- track live usage of internal audit items
+- **Timeliness of trade input monitoring** -- ensuring trades are captured promptly
+
+**SG BMO:**
+- **Sales documentation maintenance** -- Board resolution, mandate agreements
+- **MYR reporting for BNM** -- weekly bank reporting for Bank Negara Malaysia
+- **Detect Dormant DCE accounts** -- monthly monitoring, track 12 consecutive months of inactivity
+
+**Regional COO:**
+- **G&E process automation** and policy retrieval via ESB
+- **Process Governance heatmap** and workflow across all regional control measures
+- **Regional Dashboard** to track actionable items across locations
+
+**App/Vendor & Others:**
+- **Interco recon dashboard** -- track across all desks until breaks hit zero
+- **External Platform Review** -- third-party platform risk assessment
+- **Revenue Dashboard** -- cross-border and within-region revenue tracking
+- **MX Access Review** -- Murex system access control
+
+**Strategy & Planning:**
+- **Risk & Controls KPIs Data Collection** -- sort as part of Risk and Control KPI across all GFM Ops departments
+- **Market Making Platform Review** -- trading infrastructure assessment
+
+### Governance Themes Across COO Functions
+
+The COO governance spans 5+ process themes that the orchestrator should be aware of when routing requests:
+
+1. **Onboarding/Offboarding** -- Staff onboarding, regional dashboards, actionable items tracking
+2. **Governance** -- Singapore GFM working guide, trader mandates, block leave monitoring, Annual KRIs, desk location strategy, **NPA/PIR tracking**, algo annual review, capital (QCCP)
+3. **Controls** -- Trade input monitoring, transaction anomalies, portfolio ownership review, internal deals, market making platform reviews, FX Global Code, pre-trade checks
+4. **MIS/Finance** -- Global and Regional revenue dashboards, selldown process, IM-Clearing fees
+5. **Gifts, Entertainment & Sponsorships** -- Quarterly G&E review, cross-border travel monitoring
+
+### Key Insight for Orchestrator Routing
+
+NPA is not an isolated process. It sits at the intersection of:
+- **Product governance** (what DBS is allowed to trade)
+- **Risk management** (how exposure is controlled)
+- **Regulatory compliance** (what regulators require)
+- **Operational readiness** (whether systems can handle it)
+- **Financial control** (how it is accounted for and reported)
+
+Every other COO function either feeds into NPA (trader profiles, mandates, compliance checks) or depends on NPA output (monitoring, KRI tracking, dormant account detection). When the orchestrator receives a request that touches multiple COO functions, it should recognize the NPA intersection and route accordingly.
+
+---
+
+**End of Knowledge Base — CF_COO_Orchestrator v3.0**
