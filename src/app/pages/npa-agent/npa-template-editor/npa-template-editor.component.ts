@@ -16,7 +16,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
     <div class="fixed inset-0 z-[200] bg-white flex flex-col font-sans animate-in fade-in duration-200">
 
       <!-- TOP BAR -->
-      <div class="h-12 bg-slate-900 flex items-center justify-between px-4 z-20 flex-none">
+      <div class="bg-slate-900 flex items-center justify-between px-4 z-20 flex-none" style="height:80px">
         <div class="flex items-center gap-3">
           <button (click)="closeEditor()" class="flex items-center justify-center w-8 h-8 rounded-md hover:bg-white/10 text-slate-400 hover:text-white transition-all">
              <lucide-icon name="arrow-left" class="w-4 h-4"></lucide-icon>
