@@ -59,6 +59,8 @@ Attach these KB datasets:
 
 ## Step 3: MCP Tools (17 read-only)
 
+**Chatflow apps use MCP Tools** (via MCP SSE plugin). This is different from Workflow apps which use Custom Tools (OpenAPI import).
+
 In the Agent settings, click **"Add Tool"** > select **MCP** as provider > add each tool from the MCP server.
 
 | # | Tool | Category | Purpose |

@@ -1060,7 +1060,7 @@ export class NpaDetailComponent implements OnInit {
             ]);
          }),
          concatMap(() => {
-            // W3: DOC_LIFECYCLE + MONITORING (staggered because they share same Dify app)
+            // W3: DOC_LIFECYCLE + MONITORING (separate Dify apps, staggered to reduce concurrent load)
             return fireAgent('DOC_LIFECYCLE', { agent_mode: 'DOC_LIFECYCLE' }).pipe(
                concatMap(() => fireAgent('MONITORING', { agent_mode: 'MONITORING' }))
             );

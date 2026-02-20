@@ -62,9 +62,13 @@ Reference Knowledge:
 
 Return ONLY a valid JSON object with the document lifecycle result.
 ```
-- Tools: 7 MCP tools (see Step 3)
+- Tools: 7 Custom Tools (see Step 3)
 
-## Step 3: MCP Tools (7)
+## Step 3: Custom Tools (7) — via OpenAPI Import
+
+In the Agent Node, click **"Add Tool"** > **Custom Tool** > Import from OpenAPI spec URL: `{MCP_SERVER_URL}/openapi.json`
+Select ONLY the 7 tools listed below:
+
 | # | Tool | Category |
 |---|------|----------|
 | 1 | `upload_document_metadata` | Documents |
@@ -74,6 +78,8 @@ Return ONLY a valid JSON object with the document lifecycle result.
 | 5 | `doc_lifecycle_validate` | Documents |
 | 6 | `audit_log_action` | Audit |
 | 7 | `get_npa_by_id` | Utility |
+
+**Note:** Workflow apps use Custom Tools (OpenAPI import). Chatflow apps use MCP Tools (MCP SSE plugin).
 
 ## Step 4: KB Upload
 Upload `KB_Doc_Lifecycle.md` to Dify Knowledge dataset.

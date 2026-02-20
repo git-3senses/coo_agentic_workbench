@@ -54,9 +54,13 @@ Reference Knowledge:
 
 Return ONLY a valid JSON object with the notification result.
 ```
-- Tools: 5 MCP tools (see Step 3)
+- Tools: 5 Custom Tools (see Step 3)
 
-## Step 3: MCP Tools (5)
+## Step 3: Custom Tools (5) — via OpenAPI Import
+
+In the Agent Node, click **"Add Tool"** > **Custom Tool** > Import from OpenAPI spec URL: `{MCP_SERVER_URL}/openapi.json`
+Select ONLY the 5 tools listed below:
+
 | # | Tool | Category |
 |---|------|----------|
 | 1 | `send_notification` | Notifications |
@@ -64,6 +68,8 @@ Return ONLY a valid JSON object with the notification result.
 | 3 | `mark_notification_read` | Notifications |
 | 4 | `audit_log_action` | Audit |
 | 5 | `get_npa_by_id` | Utility |
+
+**Note:** Workflow apps use Custom Tools (OpenAPI import). Chatflow apps use MCP Tools (MCP SSE plugin).
 
 ## Step 4: KB Upload
 Upload `KB_Notification_Agent.md` to Dify Knowledge dataset.

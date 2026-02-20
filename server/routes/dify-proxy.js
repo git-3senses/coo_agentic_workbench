@@ -31,6 +31,34 @@ const VALID_AGENT_ACTIONS = new Set([
     'SHOW_ERROR'
 ]);
 
+// ─── Default Inputs for Chatflow Agents ──────────────────────────────────────
+// Dify Chatflow apps declare input variables that can be REQUIRED.
+// The Angular client sends inputs={} by default.  To prevent 400 errors
+// from Dify ("variable is required in input form"), we merge sensible
+// defaults for each Chatflow agent before forwarding to Dify.
+// Only the keys listed here are sent — extra keys are harmless but omitting
+// REQUIRED keys causes hard Dify 400 failures.
+
+const CHATFLOW_DEFAULT_INPUTS = {
+    // CF_COO_Orchestrator — all optional in Dify, but we fill them for completeness
+    MASTER_COO: {
+        variable: '', session_id: '', current_project_id: '',
+        current_stage: '', user_role: 'analyst', last_action: ''
+    },
+    // CF_NPA_Orchestrator — 8 REQUIRED variables
+    NPA_ORCHESTRATOR: {
+        variable: '', session_id: '', current_project_id: '',
+        current_stage: 'ideation', user_role: 'analyst',
+        ideation_conversation_id: '', last_action: '',
+        user_id: 'user-123', user_message: ''
+    },
+    // CF_NPA_Ideation — only 'orchestrator_message' (optional paragraph)
+    IDEATION: {
+        orchestrator_message: ''
+    }
+    // CF_NPA_Query_Assistant (DILIGENCE, KB_SEARCH) — no variables defined in Dify
+};
+
 // ─── @@NPA_META@@ Envelope Parsing ───────────────────────────────────────────
 
 const META_REGEX = /@@NPA_META@@(\{[\s\S]*\})$/;
@@ -338,6 +366,15 @@ function collectWorkflowSSEStream(stream) {
                         taskId = evt.task_id || taskId;
                         outputs = evt.data?.outputs || {};
                         status = evt.data?.status || 'succeeded';
+                        // Capture workflow-level error (e.g., MCP PluginInvokeError)
+                        if (evt.data?.error) {
+                            streamError = {
+                                code: 'WORKFLOW_EXECUTION_ERROR',
+                                message: evt.data.error,
+                                status: 500
+                            };
+                            console.warn(`[WF SSE] Workflow error: ${evt.data.error.substring(0, 200)}`);
+                        }
                     } else if (evt.event === 'text_chunk') {
                         textChunks += (evt.data?.text || '');
                     } else if (evt.event === 'node_finished') {
@@ -479,9 +516,26 @@ function respondWithCollected(res, collected, agentId) {
  * a clean JSON response. This keeps Angular simple (just HTTP POST/JSON).
  */
 router.post('/chat', async (req, res) => {
-    const { agent_id, query, inputs = {}, conversation_id, user = 'default-user', response_mode = 'blocking' } = req.body;
+    const { agent_id: rawAgentId, query, inputs = {}, conversation_id, user = 'default-user', response_mode = 'blocking' } = req.body;
 
-    console.log(`[CHAT] Incoming: agent=${agent_id}, query="${(query || '').slice(0, 50)}", conv=${conversation_id || 'NEW'}, mode=${response_mode}`);
+    // Dify LLMs sometimes output Dify app names instead of internal agent_ids.
+    // Normalize them server-side as a safety net (frontend also normalizes).
+    const DIFY_APP_ALIASES = {
+        'CF_NPA_Query_Assistant': 'DILIGENCE',
+        'CF_NPA_Ideation': 'IDEATION',
+        'CF_NPA_Orchestrator': 'NPA_ORCHESTRATOR',
+        'CF_COO_Orchestrator': 'MASTER_COO',
+        'WF_NPA_Classifier': 'CLASSIFIER',
+        'WF_NPA_Risk': 'RISK',
+        'WF_NPA_Governance': 'GOVERNANCE',
+        'WF_NPA_Template_Autofill': 'AUTOFILL',
+        'WF_NPA_Doc_Lifecycle': 'DOC_LIFECYCLE',
+        'WF_NPA_Post_Launch': 'MONITORING',
+        'WF_NPA_SLA_Monitor': 'SLA_MONITOR',
+    };
+    const agent_id = DIFY_APP_ALIASES[rawAgentId] || rawAgentId;
+
+    console.log(`[CHAT] Incoming: agent=${agent_id}${rawAgentId !== agent_id ? ` (alias: ${rawAgentId})` : ''}, query="${(query || '').slice(0, 50)}", conv=${conversation_id || 'NEW'}, mode=${response_mode}`);
 
     if (!agent_id) {
         return res.status(400).json({ error: 'agent_id is required' });
@@ -504,14 +558,23 @@ router.post('/chat', async (req, res) => {
         });
     }
 
+    // Merge default inputs for this agent to prevent "variable is required" 400 errors.
+    // Client-provided values override defaults (spread order: defaults first, then client inputs).
+    const defaults = CHATFLOW_DEFAULT_INPUTS[agent_id] || {};
+    const safeInputs = { ...defaults, ...inputs };
+
     // Always use streaming for Dify Agent apps (they don't support blocking)
     const difyPayload = {
         query: safeQuery,
-        inputs,
+        inputs: safeInputs,
         user,
         response_mode: 'streaming',
         ...(conversation_id && { conversation_id })
     };
+
+    if (Object.keys(defaults).length > 0) {
+        console.log(`[CHAT] Merged ${Object.keys(defaults).length} default inputs for ${agent_id}`);
+    }
 
     try {
         if (response_mode === 'streaming') {
@@ -703,59 +766,94 @@ router.post('/workflow', async (req, res) => {
             // Use streaming + server-side collection to avoid Dify Cloud 504 gateway timeout.
             // Same pattern as chat: call Dify with response_mode='streaming', collect SSE,
             // then return assembled JSON to Angular.
-            console.log(`[${agent_id}] Workflow blocking call via streaming+collection`);
+            //
+            // Retry strategy for MCP "Extra data" JSON parse bug:
+            // Dify's MCP+REST dual-mount plugin can produce PluginInvokeError with
+            // "Extra data: line 1 column 31 (char 30)". This is non-deterministic —
+            // retrying the same request often succeeds. We retry up to WF_MAX_RETRIES times.
+            const WF_MAX_RETRIES = 2;
+            let lastResult = null;
 
-            const streamPayload = { ...difyPayload, response_mode: 'streaming' };
-
-            const response = await axios.post(
-                `${DIFY_BASE_URL}/workflows/run`,
-                streamPayload,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${agent.key}`,
-                        'Content-Type': 'application/json'
-                    },
-                    responseType: 'stream',
-                    timeout: 180000 // 3 minutes for network-level timeout
+            for (let attempt = 0; attempt <= WF_MAX_RETRIES; attempt++) {
+                if (attempt > 0) {
+                    console.warn(`[${agent_id}] Workflow retry ${attempt}/${WF_MAX_RETRIES}`);
+                } else {
+                    console.log(`[${agent_id}] Workflow blocking call via streaming+collection`);
                 }
-            );
 
-            const { outputs, workflowRunId, taskId, status: workflowStatus, streamError } =
-                await collectWorkflowSSEStream(response.data);
+                const streamPayload = { ...difyPayload, response_mode: 'streaming' };
 
-            console.log(`[${agent_id}] Workflow collected: status=${workflowStatus}, outputs=${Object.keys(outputs).length} keys${streamError ? `, error: ${streamError.message}` : ''}`);
+                try {
+                    const response = await axios.post(
+                        `${DIFY_BASE_URL}/workflows/run`,
+                        streamPayload,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${agent.key}`,
+                                'Content-Type': 'application/json'
+                            },
+                            responseType: 'stream',
+                            timeout: 180000 // 3 minutes for network-level timeout
+                        }
+                    );
 
-            // Handle workflow failure
-            if (workflowStatus === 'failed') {
-                return res.json({
-                    workflow_run_id: workflowRunId,
-                    task_id: taskId,
-                    data: { outputs, status: 'failed' },
-                    metadata: makeError(
-                        agent_id,
-                        'WORKFLOW_FAILURE',
-                        streamError?.message || 'Workflow execution failed',
-                        streamError?.message
-                    )
-                });
+                    lastResult = await collectWorkflowSSEStream(response.data);
+                } catch (retryErr) {
+                    console.error(`[${agent_id}] Attempt ${attempt} network error: ${retryErr.message}`);
+                    continue;
+                }
+
+                const { outputs, workflowRunId, taskId, status: workflowStatus, streamError } = lastResult;
+
+                console.log(`[${agent_id}] Workflow collected: status=${workflowStatus}, outputs=${Object.keys(outputs).length} keys${streamError ? `, error: ${streamError.message}` : ''}`);
+
+                // Success — return immediately
+                if (workflowStatus === 'succeeded') {
+                    const metadata = extractWorkflowMeta(outputs, agent_id);
+
+                    if (streamError) {
+                        if (!metadata.trace) metadata.trace = {};
+                        metadata.trace.stream_warning = streamError.message;
+                    }
+
+                    return res.json({
+                        workflow_run_id: workflowRunId,
+                        task_id: taskId,
+                        data: { outputs, status: workflowStatus },
+                        metadata
+                    });
+                }
+
+                // Check if the error is the retryable MCP "Extra data" bug
+                const errorStr = (streamError?.message || '') + (typeof outputs === 'object' ? JSON.stringify(outputs) : '');
+                const isRetryable = errorStr.includes('Extra data') || errorStr.includes('PluginInvokeError') || errorStr.includes('JSONDecodeError');
+
+                if (!isRetryable || attempt >= WF_MAX_RETRIES) {
+                    // Non-retryable error OR all retries exhausted — return failure
+                    return res.json({
+                        workflow_run_id: workflowRunId,
+                        task_id: taskId,
+                        data: { outputs, status: 'failed' },
+                        metadata: makeError(
+                            agent_id,
+                            'WORKFLOW_FAILURE',
+                            streamError?.message || 'Workflow execution failed',
+                            streamError?.message
+                        )
+                    });
+                }
+
+                // Retryable error — wait briefly and retry
+                console.warn(`[${agent_id}] Retryable MCP error detected, will retry in 2s...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
-            const metadata = extractWorkflowMeta(outputs, agent_id);
-
-            // If stream had errors but we still got outputs, attach warning
-            if (streamError) {
-                if (!metadata.trace) metadata.trace = {};
-                metadata.trace.stream_warning = streamError.message;
-            }
-
-            res.json({
-                workflow_run_id: workflowRunId,
-                task_id: taskId,
-                data: {
-                    outputs,
-                    status: workflowStatus
-                },
-                metadata
+            // Fallback if loop exits without returning (shouldn't happen)
+            return res.json({
+                workflow_run_id: lastResult?.workflowRunId || null,
+                task_id: lastResult?.taskId || null,
+                data: { outputs: lastResult?.outputs || {}, status: 'failed' },
+                metadata: makeError(agent_id, 'WORKFLOW_FAILURE', 'All workflow retry attempts exhausted')
             });
         }
     } catch (err) {

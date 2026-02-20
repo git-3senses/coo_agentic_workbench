@@ -66,9 +66,13 @@ Reference Knowledge:
 
 Return ONLY a valid JSON object with the governance action result.
 ```
-- Tools: 13 MCP tools (see Step 3)
+- Tools: 13 Custom Tools (see Step 3)
 
-## Step 3: MCP Tools (13)
+## Step 3: Custom Tools (13) — via OpenAPI Import
+
+In the Agent Node, click **"Add Tool"** > **Custom Tool** > Import from OpenAPI spec URL: `{MCP_SERVER_URL}/openapi.json`
+Select ONLY the 13 tools listed below:
+
 | # | Tool | Category |
 |---|------|----------|
 | 1 | `governance_get_signoffs` | Governance |
@@ -84,6 +88,8 @@ Return ONLY a valid JSON object with the governance action result.
 | 11 | `add_comment` | Governance |
 | 12 | `audit_log_action` | Audit |
 | 13 | `get_npa_by_id` | Utility |
+
+**Note:** Workflow apps use Custom Tools (OpenAPI import). Chatflow apps use MCP Tools (MCP SSE plugin).
 
 ## Step 4: KB Upload
 Upload `KB_Governance_Agent.md` to Dify Knowledge dataset.

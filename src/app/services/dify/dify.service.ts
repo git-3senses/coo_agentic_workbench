@@ -165,10 +165,28 @@ export class DifyService {
         const action = metadata?.agent_action;
         const payload = metadata?.payload;
 
+        // Dify LLMs sometimes output Dify app names (e.g. "CF_NPA_Query_Assistant")
+        // instead of internal agent_ids (e.g. "DILIGENCE"). Normalize them.
+        const difyAppToAgentId: Record<string, string> = {
+            'CF_NPA_Query_Assistant': 'DILIGENCE',
+            'CF_NPA_Ideation': 'IDEATION',
+            'CF_NPA_Orchestrator': 'NPA_ORCHESTRATOR',
+            'CF_COO_Orchestrator': 'MASTER_COO',
+            'WF_NPA_Classifier': 'CLASSIFIER',
+            'WF_NPA_Risk': 'RISK',
+            'WF_NPA_Governance': 'GOVERNANCE',
+            'WF_NPA_Template_Autofill': 'AUTOFILL',
+            'WF_NPA_Doc_Lifecycle': 'DOC_LIFECYCLE',
+            'WF_NPA_Post_Launch': 'MONITORING',
+            'WF_NPA_SLA_Monitor': 'SLA_MONITOR',
+        };
+        const normalizeAgent = (id: string) => difyAppToAgentId[id] || id;
+
         // DELEGATE_AGENT: Explicit delegation to a specific agent
         if (action === 'DELEGATE_AGENT' && payload?.target_agent) {
-            this.switchAgent(payload.target_agent, `delegate:${action}`);
-            return { shouldSwitch: true, targetAgent: payload.target_agent, action };
+            const target = normalizeAgent(payload.target_agent);
+            this.switchAgent(target, `delegate:${action}`);
+            return { shouldSwitch: true, targetAgent: target, action };
         }
 
         // ROUTE_DOMAIN: Orchestrator identified the domain — route to domain agent
@@ -192,8 +210,8 @@ export class DifyService {
             // handoff within a ROUTE_DOMAIN action.
             let targetAgent: string;
             if (payload.target_agent && payload.target_agent !== 'MASTER_COO') {
-                // Explicit target — real delegation to a different Dify app
-                targetAgent = payload.target_agent;
+                // Normalize: Dify app name → internal agent_id (if needed)
+                targetAgent = normalizeAgent(payload.target_agent);
             } else {
                 targetAgent = domainAgentMap[domainId] || 'NPA_ORCHESTRATOR';
             }
@@ -464,6 +482,25 @@ export class DifyService {
             return { agent_action: 'SHOW_RAW_RESPONSE', agent_id: 'UNKNOWN', payload: {}, trace: {}, _cleanAnswer: '' };
         }
 
+        // ── Try @@NPA_META@@{json} format first (Chatflow agents) ──
+        const metaMatch = rawAnswer.match(/@@NPA_META@@(\{[\s\S]*\})$/);
+        if (metaMatch) {
+            try {
+                const meta = JSON.parse(metaMatch[1]);
+                const cleanAnswer = rawAnswer.slice(0, metaMatch.index).trimEnd();
+                return {
+                    agent_action: meta.agent_action || 'SHOW_RAW_RESPONSE',
+                    agent_id: meta.agent_id || 'UNKNOWN',
+                    payload: meta.payload || {},
+                    trace: meta.trace || {},
+                    _cleanAnswer: cleanAnswer
+                };
+            } catch (e) {
+                console.warn('@@NPA_META@@ JSON parse failed:', e);
+            }
+        }
+
+        // ── Try [NPA_ACTION]...[NPA_SESSION] marker format (Agent apps) ──
         const lines = rawAnswer.split('\n');
         const markers: Record<string, string> = {};
         let markerStartIndex = -1;
