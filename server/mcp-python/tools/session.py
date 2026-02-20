@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 from registry import ToolDefinition, ToolResult, registry
-from db import execute
+from db import execute, query
 
 
 # ─── Tool 1: session_create ───────────────────────────────────────
@@ -65,6 +65,14 @@ SESSION_LOG_MESSAGE_SCHEMA = {
 
 
 async def session_log_message_handler(input: dict) -> ToolResult:
+    # Validate session exists before inserting (FK constraint protection)
+    session = await query(
+        "SELECT id FROM agent_sessions WHERE id = %s",
+        [input["session_id"]],
+    )
+    if not session:
+        return ToolResult(success=False, error=f"Session '{input['session_id']}' not found. Create a session first using session_create.")
+
     message_id = await execute(
         """INSERT INTO agent_messages (session_id, role, agent_identity_id, content, metadata, agent_confidence, reasoning_chain, citations, timestamp)
            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())""",

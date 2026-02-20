@@ -36,17 +36,31 @@ RUN_ASSESSMENT_SCHEMA = {
 
 
 async def risk_run_assessment_handler(inp: dict) -> ToolResult:
+    VALID_RESULTS = {"PASS", "FAIL", "WARNING"}
+
     results = []
     for domain in inp["risk_domains"]:
+        # Resilient field mapping: accept 'status' or 'level' for backward compatibility
+        status = domain.get("status") or domain.get("level", "PASS")
+        status = status.upper()
+        # Map common values to DB-valid results
+        if status not in VALID_RESULTS:
+            status_map = {"HIGH": "WARNING", "CRITICAL": "FAIL", "LOW": "PASS",
+                          "MEDIUM": "WARNING", "WARN": "WARNING", "OK": "PASS",
+                          "APPLICABLE": "PASS", "NOT_APPLICABLE": "PASS"}
+            status = status_map.get(status, "PASS")
+
+        score = domain.get("score", 0)
+
         # Write to npa_risk_checks per architecture spec
         row_id = await execute(
             """INSERT INTO npa_risk_checks (project_id, check_layer, result, matched_items, checked_by, checked_at)
                VALUES (%s, %s, %s, %s, %s, NOW())""",
-            [inp["project_id"], domain["domain"], domain["status"],
+            [inp["project_id"], domain["domain"], status,
              json.dumps(domain["findings"]) if domain.get("findings") else None,
              "RISK_AGENT"],
         )
-        results.append({"id": row_id, "domain": domain["domain"], "status": domain["status"], "score": domain["score"]})
+        results.append({"id": row_id, "domain": domain["domain"], "status": status, "score": score})
 
     await execute(
         "UPDATE npa_projects SET risk_level = %s WHERE id = %s",
@@ -58,7 +72,7 @@ async def risk_run_assessment_handler(inp: dict) -> ToolResult:
         "assessments": results,
         "overall_risk_rating": inp["overall_risk_rating"],
         "domains_assessed": len(results),
-        "critical_domains": [d["domain"] for d in inp["risk_domains"] if d["status"] == "FAIL"],
+        "critical_domains": [d["domain"] for d in inp["risk_domains"] if (d.get("status") or d.get("level", "")).upper() in ("FAIL", "HIGH", "CRITICAL")],
     })
 
 

@@ -35,13 +35,27 @@ ASSESS_DOMAINS_SCHEMA = {
 
 
 async def classify_assess_domains_handler(inp: dict) -> ToolResult:
+    VALID_STATUSES = {"PASS", "FAIL", "WARN"}
+
     results = []
     for a in inp["assessments"]:
+        # Validate status matches DB CHECK constraint: ('PASS','FAIL','WARN')
+        status = a.get("status", "PASS").upper()
+        if status not in VALID_STATUSES:
+            # Map common alternatives to valid values
+            status_map = {"APPLICABLE": "PASS", "NOT_APPLICABLE": "PASS", "N/A": "PASS",
+                          "WARNING": "WARN", "ERROR": "FAIL", "CRITICAL": "FAIL",
+                          "READY": "PASS", "NOT_READY": "FAIL", "NEEDS_WORK": "WARN"}
+            status = status_map.get(status, "WARN")
+
+        # Ensure score is within valid range (0-100)
+        score = min(100, max(0, int(a.get("score", 0))))
+
         # Write to npa_intake_assessments (domain-level intake)
         row_id = await execute(
             """INSERT INTO npa_intake_assessments (project_id, domain, status, score, findings, assessed_at)
                VALUES (%s, %s, %s, %s, %s, NOW())""",
-            [inp["project_id"], a["domain"], a["status"], a["score"],
+            [inp["project_id"], a["domain"], status, score,
              json.dumps(a["findings"]) if a.get("findings") else None],
         )
         # Also write per-criteria scores to npa_classification_assessments (architecture spec)
@@ -54,11 +68,11 @@ async def classify_assess_domains_handler(inp: dict) -> ToolResult:
             await execute(
                 """INSERT INTO npa_classification_assessments (project_id, criteria_id, score, evidence, assessed_by, confidence, assessed_at)
                    VALUES (%s, %s, %s, %s, %s, %s, NOW())""",
-                [inp["project_id"], domain_criteria[0]["id"], a["score"],
+                [inp["project_id"], domain_criteria[0]["id"], score,
                  json.dumps({"domain": a["domain"], "findings": a.get("findings", [])}),
-                 "CLASSIFICATION_AGENT", a["score"]],
+                 "CLASSIFICATION_AGENT", score],
             )
-        results.append({"id": row_id, "domain": a["domain"], "status": a["status"], "score": a["score"]})
+        results.append({"id": row_id, "domain": a["domain"], "status": status, "score": score})
 
     avg_score = sum(a["score"] for a in inp["assessments"]) / len(inp["assessments"])
     fail_count = sum(1 for a in inp["assessments"] if a["status"] == "FAIL")

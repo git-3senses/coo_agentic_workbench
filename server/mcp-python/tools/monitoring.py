@@ -291,7 +291,7 @@ async def detect_approximate_booking_handler(inp: dict) -> ToolResult:
     # Get the NPA project details
     project = await query(
         """SELECT id, title, product_category, approval_track, notional_amount,
-                  booking_entity, npa_type
+                  npa_type
            FROM npa_projects WHERE id = %s""",
         [inp["project_id"]],
     )
@@ -349,19 +349,19 @@ async def detect_approximate_booking_handler(inp: dict) -> ToolResult:
 
     # Check if any risk checks flagged booking anomalies
     risk_anomalies = await query(
-        """SELECT check_name, result, notes FROM npa_risk_checks
+        """SELECT check_layer, result, matched_items FROM npa_risk_checks
            WHERE project_id = %s AND result = 'WARNING'
-           ORDER BY created_at DESC LIMIT 5""",
+           ORDER BY checked_at DESC LIMIT 5""",
         [inp["project_id"]],
     )
     if risk_anomalies:
         for anomaly in risk_anomalies:
-            notes = str(anomaly.get("notes") or "")
+            notes = str(anomaly.get("matched_items") or "")
             if any(kw in notes.lower() for kw in ["proxy", "approximate", "booking", "mismatch", "substitute"]):
                 flags.append({
                     "signal": "RISK_CHECK_WARNING",
                     "severity": "HIGH",
-                    "detail": f"Risk check '{anomaly['check_name']}' flagged: {notes[:100]}",
+                    "detail": f"Risk check '{anomaly['check_layer']}' flagged: {notes[:100]}",
                 })
                 risk_score += 25
 

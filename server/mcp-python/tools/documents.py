@@ -261,9 +261,9 @@ async def doc_lifecycle_validate_handler(inp: dict) -> ToolResult:
 
         await execute(
             """UPDATE npa_documents
-               SET validation_status = %s, validation_stage = %s, validation_notes = %s
+               SET validation_status = %s, validation_stage = %s
                WHERE id = %s""",
-            [v["validation_status"], v.get("validation_stage"), v.get("validation_notes"), v["document_id"]],
+            [v["validation_status"], v.get("validation_stage"), v["document_id"]],
         )
         results.append({
             "document_id": v["document_id"],

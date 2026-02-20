@@ -37,8 +37,8 @@ async def ideation_create_npa_handler(inp: dict) -> ToolResult:
     await execute(
         """INSERT INTO npa_projects (id, title, description, npa_type, product_category, risk_level,
                                      is_cross_border, notional_amount, currency, submitted_by,
-                                     product_manager, pm_team, current_stage, status, created_at)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'INITIATION', 'ACTIVE', NOW())""",
+                                     product_manager, pm_team, current_stage, status, created_at, updated_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'INITIATION', 'ACTIVE', NOW(), NOW())""",
         [
             npa_id, inp["title"], inp.get("description"), inp["npa_type"],
             inp.get("product_category"), inp["risk_level"],
@@ -164,13 +164,26 @@ async def ideation_save_concept_handler(inp: dict) -> ToolResult:
     ]
     fields = [(k, v) for k, v in fields if v is not None]
 
+    # Check that the field_key exists in ref_npa_fields before inserting into npa_form_data (FK constraint)
     for key, value in fields:
-        await execute(
-            """INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score)
-               VALUES (%s, %s, %s, 'AUTO', 85.00)
-               ON DUPLICATE KEY UPDATE field_value = VALUES(field_value), lineage = 'AUTO', confidence_score = 85.00""",
-            [inp["project_id"], key, value],
+        existing_field = await query(
+            "SELECT field_key FROM ref_npa_fields WHERE field_key = %s",
+            [key],
         )
+        if existing_field:
+            await execute(
+                """INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score)
+                   VALUES (%s, %s, %s, 'AUTO', 85.00)
+                   ON DUPLICATE KEY UPDATE field_value = VALUES(field_value), lineage = 'AUTO', confidence_score = 85.00""",
+                [inp["project_id"], key, value],
+            )
+        else:
+            # Field not in reference table — store as description update on the project instead
+            if key == "concept_notes":
+                await execute(
+                    "UPDATE npa_projects SET description = CONCAT(COALESCE(description, ''), %s) WHERE id = %s",
+                    [f"\n[Concept Notes]: {value}", inp["project_id"]],
+                )
 
     if inp.get("estimated_revenue") is not None:
         await execute(
