@@ -44,18 +44,15 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                       class="px-3 py-1.5 text-xs font-medium rounded transition-all text-slate-400 hover:text-slate-200">Form</button>
            </div>
 
-           <!-- Lineage legend -->
-           <div class="hidden lg:flex items-center gap-3 text-xs font-medium border-l border-slate-700 pl-3 ml-1">
-              <span class="flex items-center gap-1 text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Auto</span>
-              <span class="flex items-center gap-1 text-amber-400"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Adapted</span>
-              <span class="flex items-center gap-1 text-red-400"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Manual</span>
+           <!-- Lineage legend — subtle dots only -->
+           <div class="hidden lg:flex items-center gap-3 text-[11px] font-medium border-l border-slate-700 pl-3 ml-1 text-slate-400">
+              <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Auto</span>
+              <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>Adapted</span>
+              <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>Manual</span>
            </div>
 
            <div class="h-5 w-px bg-slate-700"></div>
 
-           <button (click)="validateGovernance()" class="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors flex items-center gap-1.5">
-              <lucide-icon name="shield-check" class="w-3.5 h-3.5"></lucide-icon> Validate
-           </button>
            <button (click)="save()" class="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors flex items-center gap-1.5">
               <lucide-icon name="save" class="w-3.5 h-3.5"></lucide-icon> Save & Close
            </button>
@@ -71,23 +68,15 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
             <!-- Completion header -->
             <div class="px-4 py-3 border-b border-gray-200 bg-white">
                <div class="flex items-center justify-between mb-2">
-                  <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Completion</span>
-                  <span class="text-sm font-bold" [class.text-emerald-600]="getOverallCompletion() >= 80"
-                        [class.text-amber-600]="getOverallCompletion() >= 50 && getOverallCompletion() < 80"
-                        [class.text-red-500]="getOverallCompletion() < 50">{{ getOverallCompletion() }}%</span>
+                  <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Progress</span>
+                  <span class="text-sm font-bold text-gray-700">{{ getOverallCompletion() }}%</span>
                </div>
-               <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                  <div class="h-full rounded-full transition-all duration-500"
-                       [style.width.%]="getOverallCompletion()"
-                       [class.bg-emerald-500]="getOverallCompletion() >= 80"
-                       [class.bg-amber-500]="getOverallCompletion() >= 50 && getOverallCompletion() < 80"
-                       [class.bg-red-400]="getOverallCompletion() < 50"></div>
+               <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full bg-blue-500 transition-all duration-500"
+                       [style.width.%]="getOverallCompletion()"></div>
                </div>
-               <!-- Lineage breakdown -->
-               <div class="flex items-center gap-3 mt-2.5 text-xs text-gray-500">
-                  <span>{{ getLineageCount('AUTO') }} auto</span>
-                  <span>{{ getLineageCount('ADAPTED') }} adapted</span>
-                  <span>{{ getLineageCount('MANUAL') }} manual</span>
+               <div class="flex items-center justify-between mt-2 text-[11px] text-gray-400">
+                  <span>{{ getFilledFieldCount() }} / {{ getTotalFieldCount() }} fields</span>
                </div>
             </div>
 
@@ -96,34 +85,27 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                <a *ngFor="let navItem of templateNavSections"
                   href="javascript:void(0)"
                   (click)="scrollToSection(navItem.id)"
-                  class="group flex items-center gap-2.5 px-3 py-2.5 text-[13px] transition-all border-l-2 mx-1 rounded-r-md"
-                  [class.border-blue-600]="activeSection === navItem.id"
+                  class="group flex items-center gap-2 px-3 py-2 text-[12px] transition-all border-l-2 mx-1 rounded-r-sm"
+                  [class.border-blue-500]="activeSection === navItem.id"
                   [class.bg-blue-50]="activeSection === navItem.id"
-                  [class.text-blue-800]="activeSection === navItem.id"
+                  [class.text-gray-900]="activeSection === navItem.id"
                   [class.font-semibold]="activeSection === navItem.id"
                   [class.border-transparent]="activeSection !== navItem.id"
-                  [class.text-gray-600]="activeSection !== navItem.id"
-                  [class.hover:bg-gray-100]="activeSection !== navItem.id"
-                  [class.hover:border-gray-300]="activeSection !== navItem.id">
-                  <span class="font-mono text-[11px] text-gray-400 w-8 text-right flex-none">{{ navItem.numbering }}</span>
+                  [class.text-gray-500]="activeSection !== navItem.id"
+                  [class.hover:bg-gray-50]="activeSection !== navItem.id"
+                  [class.hover:text-gray-700]="activeSection !== navItem.id">
+                  <span class="font-mono text-[10px] text-gray-400 w-7 text-right flex-none">{{ navItem.numbering }}</span>
                   <span class="flex-1 leading-snug truncate">{{ navItem.label }}</span>
-                  <!-- Completion mini-bar -->
-                  <div class="w-8 h-1 bg-gray-200 rounded-full flex-none overflow-hidden">
-                     <div class="h-full rounded-full transition-all"
-                          [style.width.%]="getNodeCompletion(navItem.id)"
-                          [class.bg-emerald-500]="getNodeCompletion(navItem.id) >= 80"
-                          [class.bg-amber-400]="getNodeCompletion(navItem.id) >= 50 && getNodeCompletion(navItem.id) < 80"
-                          [class.bg-red-400]="getNodeCompletion(navItem.id) < 50"></div>
-                  </div>
+                  <span class="text-[10px] font-mono text-gray-400 flex-none">{{ getNodeCompletion(navItem.id) }}%</span>
                </a>
             </nav>
 
-            <!-- Field stats footer -->
-            <div class="px-4 py-3 border-t border-gray-200 bg-white text-xs text-gray-500 space-y-1.5">
-               <div class="flex justify-between"><span>Total Fields</span><span class="font-bold text-gray-700">{{ getTotalFieldCount() }}</span></div>
-               <div class="flex justify-between"><span>Filled</span><span class="font-bold text-emerald-600">{{ getFilledFieldCount() }}</span></div>
-               <div class="flex justify-between"><span>Empty</span><span class="font-bold text-gray-400">{{ getTotalFieldCount() - getFilledFieldCount() }}</span></div>
-               <div class="flex justify-between"><span>Sections</span><span class="font-bold text-gray-700">{{ sections.length }}</span></div>
+            <!-- Lineage summary footer -->
+            <div class="px-4 py-3 border-t border-gray-200 bg-white text-[11px] text-gray-400 space-y-1">
+               <div class="flex justify-between"><span>Auto-filled</span><span class="font-semibold text-gray-600">{{ getLineageCount('AUTO') }}</span></div>
+               <div class="flex justify-between"><span>Adapted</span><span class="font-semibold text-gray-600">{{ getLineageCount('ADAPTED') }}</span></div>
+               <div class="flex justify-between"><span>Manual</span><span class="font-semibold text-gray-600">{{ getLineageCount('MANUAL') }}</span></div>
+               <div class="flex justify-between border-t border-gray-100 pt-1 mt-1"><span>Empty</span><span class="font-semibold text-gray-400">{{ getTotalFieldCount() - getFilledFieldCount() }}</span></div>
             </div>
          </div>
 
@@ -177,22 +159,14 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
 
                <!-- SECTION type — Roman numeral heading (I, II, III) -->
                <ng-container *ngIf="node.type === 'section' || node.type === 'appendix'">
-                  <div [id]="'sec-' + node.id" class="sticky top-0 z-10 bg-white border-b border-gray-300 npa-doc-section-head">
+                  <div [id]="'sec-' + node.id" class="sticky top-0 z-10 bg-white border-b border-gray-200 npa-doc-section-head">
                      <div class="flex items-center justify-between">
-                        <h2 class="text-[17px] font-bold text-gray-900 leading-snug">
-                           <span class="text-blue-700 mr-1.5">{{ node.numbering }}</span>
+                        <h2 class="text-[15px] font-bold text-gray-900 leading-snug">
+                           <span class="text-gray-400 mr-1.5">{{ node.numbering }}</span>
                            <span *ngIf="node.numbering && !node.numbering.startsWith('Appendix')">.</span>
                            {{ node.label }}
                         </h2>
-                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-none"
-                              [class.bg-emerald-50]="getNodeCompletion(node.id) >= 80"
-                              [class.text-emerald-600]="getNodeCompletion(node.id) >= 80"
-                              [class.bg-amber-50]="getNodeCompletion(node.id) >= 50 && getNodeCompletion(node.id) < 80"
-                              [class.text-amber-600]="getNodeCompletion(node.id) >= 50 && getNodeCompletion(node.id) < 80"
-                              [class.bg-red-50]="getNodeCompletion(node.id) < 50"
-                              [class.text-red-500]="getNodeCompletion(node.id) < 50">
-                           {{ getNodeCompletion(node.id) }}%
-                        </span>
+                        <span class="text-[10px] font-medium text-gray-400">{{ getNodeCompletion(node.id) }}%</span>
                      </div>
                   </div>
                   <div class="npa-doc-fields">
@@ -218,8 +192,8 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                <!-- TOPIC type — Numbered heading (1, 2, 3) -->
                <ng-container *ngIf="node.type === 'topic'">
                   <div class="npa-doc-topic-head">
-                     <h3 class="text-[15px] font-bold text-gray-900">
-                        <span class="text-blue-600 mr-1">{{ node.numbering }}.</span> {{ node.label }}
+                     <h3 class="text-[14px] font-semibold text-gray-800">
+                        <span class="text-gray-400 mr-1">{{ node.numbering }}.</span> {{ node.label }}
                      </h3>
                   </div>
                   <!-- Guidance text -->
@@ -297,7 +271,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                                  <td *ngFor="let cell of splitTableValue(field.value, (node.tableColumns?.length || 2) - 1)"
                                      (click)="onFieldFocus(field)"
                                      class="cursor-pointer hover:bg-blue-50"
-                                     [class.text-emerald-700]="cell === 'Yes'"
+                                     [class.text-gray-800]="cell === 'Yes'"
                                      [class.text-gray-400]="cell === 'No' || cell === 'N/A'">
                                     {{ cell }}
                                  </td>
@@ -320,10 +294,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                      <span class="npa-doc-field-name">{{ field.label }}:</span>
                      <span *ngIf="field.required" class="text-red-500 text-[11px]">*</span>
                      <span *ngIf="field.lineage && field.value"
-                           class="w-1.5 h-1.5 rounded-full flex-none ml-1"
-                           [class.bg-emerald-500]="field.lineage === 'AUTO'"
-                           [class.bg-amber-500]="field.lineage === 'ADAPTED'"
-                           [class.bg-red-500]="field.lineage === 'MANUAL'"
+                           class="w-1.5 h-1.5 rounded-full flex-none ml-1 bg-gray-300"
                            [title]="field.lineage"></span>
                   </div>
                   <div *ngIf="editingField !== field.key"
@@ -391,19 +362,11 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                      <div class="npa-form-section-head">
                         <div class="flex items-center justify-between">
                            <h2 class="text-[15px] font-bold text-gray-900">
-                              <span class="text-blue-700 mr-1">{{ node.numbering }}</span>
+                              <span class="text-gray-500 mr-1">{{ node.numbering }}</span>
                               <span *ngIf="node.numbering && !node.numbering.startsWith('Appendix')">.</span>
                               {{ node.label }}
                            </h2>
-                           <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-none"
-                                 [class.bg-emerald-50]="getNodeCompletion(node.id) >= 80"
-                                 [class.text-emerald-600]="getNodeCompletion(node.id) >= 80"
-                                 [class.bg-amber-50]="getNodeCompletion(node.id) >= 50 && getNodeCompletion(node.id) < 80"
-                                 [class.text-amber-600]="getNodeCompletion(node.id) >= 50 && getNodeCompletion(node.id) < 80"
-                                 [class.bg-red-50]="getNodeCompletion(node.id) < 50"
-                                 [class.text-red-500]="getNodeCompletion(node.id) < 50">
-                              {{ getNodeCompletion(node.id) }}%
-                           </span>
+                           <span class="text-[10px] font-medium text-gray-400">{{ getNodeCompletion(node.id) }}%</span>
                         </div>
                         <p *ngIf="node.guidance" class="text-[12px] text-gray-500 mt-1 italic">{{ node.guidance }}</p>
                      </div>
@@ -430,7 +393,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                <ng-container *ngIf="node.type === 'topic'">
                   <div class="npa-form-topic">
                      <h3 class="npa-form-topic-head">
-                        <span class="text-blue-600 mr-1">{{ node.numbering }}.</span> {{ node.label }}
+                        <span class="text-gray-400 mr-1">{{ node.numbering }}.</span> {{ node.label }}
                      </h3>
                      <div *ngIf="node.guidance" class="npa-form-guidance">
                         <p>{{ node.guidance }}</p>
@@ -507,7 +470,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                                  <td *ngFor="let cell of splitTableValue(field.value, (node.tableColumns?.length || 2) - 1)"
                                      (click)="onFieldFocus(field)"
                                      class="cursor-pointer hover:bg-blue-50"
-                                     [class.text-emerald-700]="cell === 'Yes'"
+                                     [class.text-gray-800]="cell === 'Yes'"
                                      [class.text-gray-400]="cell === 'No' || cell === 'N/A'">
                                     {{ cell }}
                                  </td>
@@ -530,10 +493,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                      {{ field.label }}
                      <span *ngIf="field.required" class="text-red-500">*</span>
                      <span *ngIf="field.lineage && field.value"
-                           class="inline-block w-1.5 h-1.5 rounded-full ml-1 -mt-px"
-                           [class.bg-emerald-500]="field.lineage === 'AUTO'"
-                           [class.bg-amber-500]="field.lineage === 'ADAPTED'"
-                           [class.bg-red-500]="field.lineage === 'MANUAL'"
+                           class="inline-block w-1.5 h-1.5 rounded-full ml-1 -mt-px bg-gray-300"
                            [title]="field.lineage"></span>
                   </label>
                   <select *ngIf="field.type === 'select'" [(ngModel)]="field.value"
@@ -580,10 +540,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                       <p class="text-[11px] uppercase font-bold text-gray-400 mb-0.5">Field</p>
                       <h2 class="text-sm font-bold text-gray-900">{{ focusedField.label }}</h2>
                       <div class="mt-1.5 flex items-center gap-2">
-                         <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase"
-                               [class.bg-emerald-100]="focusedField.lineage === 'AUTO'" [class.text-emerald-700]="focusedField.lineage === 'AUTO'"
-                               [class.bg-amber-100]="focusedField.lineage === 'ADAPTED'" [class.text-amber-700]="focusedField.lineage === 'ADAPTED'"
-                               [class.bg-red-100]="focusedField.lineage === 'MANUAL'" [class.text-red-700]="focusedField.lineage === 'MANUAL'">
+                         <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase bg-gray-100 text-gray-600">
                             {{ focusedField.lineage }}
                          </span>
                          <span *ngIf="focusedField.lineageMetadata?.confidenceScore" class="text-[11px] font-medium text-gray-400">
@@ -603,9 +560,6 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                             "{{ focusedField.lineageMetadata?.sourceSnippet }}"
                          </div>
                       </div>
-                      <button class="w-full mt-3 py-2 bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 rounded text-xs font-semibold transition-colors flex items-center justify-center gap-1.5">
-                         <lucide-icon name="external-link" class="w-3 h-3"></lucide-icon> View Source
-                      </button>
                    </div>
 
                    <div *ngIf="focusedField.lineage === 'MANUAL'">
@@ -623,88 +577,14 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                </div>
             </ng-container>
 
-            <!-- Default state: Document Summary Dashboard -->
+            <!-- Default state: Minimal prompt to select a field -->
             <ng-container *ngIf="!focusedField">
-               <div class="h-11 border-b border-gray-100 flex items-center px-4 bg-gray-50 flex-none">
-                   <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-                      <lucide-icon name="bar-chart-3" class="w-3.5 h-3.5"></lucide-icon> Document Summary
-                   </h3>
-               </div>
-
-               <div class="p-4 flex-1 overflow-y-auto space-y-5">
-                  <!-- Overall completion gauge -->
-                  <div class="text-center py-3">
-                     <div class="text-3xl font-bold" [class.text-emerald-600]="getOverallCompletion() >= 80"
-                          [class.text-amber-600]="getOverallCompletion() >= 50 && getOverallCompletion() < 80"
-                          [class.text-red-500]="getOverallCompletion() < 50">{{ getOverallCompletion() }}%</div>
-                     <p class="text-xs text-gray-400 font-medium mt-1">Overall Completion</p>
+               <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
+                  <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                     <lucide-icon name="eye" class="w-5 h-5 text-gray-400"></lucide-icon>
                   </div>
-
-                  <!-- Lineage breakdown -->
-                  <div>
-                     <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Lineage Breakdown</p>
-                     <div class="space-y-2.5">
-                        <div class="flex items-center gap-2.5">
-                           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-none"></span>
-                           <span class="text-xs text-gray-600 flex-1">Auto-filled</span>
-                           <span class="text-xs font-bold text-gray-800">{{ getLineageCount('AUTO') }}</span>
-                        </div>
-                        <div class="flex items-center gap-2.5">
-                           <span class="w-2.5 h-2.5 rounded-full bg-amber-500 flex-none"></span>
-                           <span class="text-xs text-gray-600 flex-1">Adapted</span>
-                           <span class="text-xs font-bold text-gray-800">{{ getLineageCount('ADAPTED') }}</span>
-                        </div>
-                        <div class="flex items-center gap-2.5">
-                           <span class="w-2.5 h-2.5 rounded-full bg-red-500 flex-none"></span>
-                           <span class="text-xs text-gray-600 flex-1">Manual</span>
-                           <span class="text-xs font-bold text-gray-800">{{ getLineageCount('MANUAL') }}</span>
-                        </div>
-                        <div class="flex items-center gap-2.5 pt-1.5 border-t border-gray-100">
-                           <span class="w-2.5 h-2.5 rounded-full bg-gray-300 flex-none"></span>
-                           <span class="text-xs text-gray-600 flex-1">Empty</span>
-                           <span class="text-xs font-bold text-gray-400">{{ getTotalFieldCount() - getFilledFieldCount() }}</span>
-                        </div>
-                     </div>
-                     <!-- Stacked bar -->
-                     <div class="h-2 bg-gray-100 rounded-full overflow-hidden flex mt-2" *ngIf="getTotalFieldCount() > 0">
-                        <div class="bg-emerald-500 h-full transition-all" [style.width.%]="(getLineageCount('AUTO') / getTotalFieldCount()) * 100"></div>
-                        <div class="bg-amber-500 h-full transition-all" [style.width.%]="(getLineageCount('ADAPTED') / getTotalFieldCount()) * 100"></div>
-                        <div class="bg-red-500 h-full transition-all" [style.width.%]="(getLineageCount('MANUAL') / getTotalFieldCount()) * 100"></div>
-                     </div>
-                  </div>
-
-                  <!-- Section-by-section breakdown -->
-                  <div>
-                     <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Section Status</p>
-                     <div class="space-y-2">
-                        <div *ngFor="let section of sections; let i = index" class="flex items-center gap-2.5 text-xs">
-                           <lucide-icon *ngIf="getSectionCompletion(section) === 100" name="check-circle" class="w-3 h-3 text-emerald-500 flex-none"></lucide-icon>
-                           <lucide-icon *ngIf="getSectionCompletion(section) > 0 && getSectionCompletion(section) < 100" name="clock" class="w-3 h-3 text-amber-500 flex-none"></lucide-icon>
-                           <lucide-icon *ngIf="getSectionCompletion(section) === 0" name="circle" class="w-3 h-3 text-gray-300 flex-none"></lucide-icon>
-                           <span class="flex-1 truncate text-gray-600">{{ section.title }}</span>
-                           <span class="font-mono font-bold text-[11px]"
-                                 [class.text-emerald-600]="getSectionCompletion(section) >= 80"
-                                 [class.text-amber-600]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
-                                 [class.text-gray-400]="getSectionCompletion(section) < 50">{{ getSectionCompletion(section) }}%</span>
-                        </div>
-                     </div>
-                  </div>
-
-                  <!-- Quick actions -->
-                  <div class="pt-2 border-t border-gray-100 space-y-2">
-                     <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Actions</p>
-                     <button (click)="validateGovernance()" class="w-full py-2 bg-slate-50 hover:bg-slate-100 border border-gray-200 rounded text-xs font-semibold text-gray-700 transition-colors flex items-center justify-center gap-1.5">
-                        <lucide-icon name="shield-check" class="w-3.5 h-3.5"></lucide-icon> Run Governance Check
-                     </button>
-                     <button class="w-full py-2 bg-slate-50 hover:bg-slate-100 border border-gray-200 rounded text-xs font-semibold text-gray-700 transition-colors flex items-center justify-center gap-1.5">
-                        <lucide-icon name="wand-2" class="w-3.5 h-3.5"></lucide-icon> Auto-fill Empty Fields
-                     </button>
-                  </div>
-
-                  <!-- Tip -->
-                  <div class="bg-blue-50 rounded-md p-2.5 border border-blue-100 mt-2">
-                     <p class="text-xs text-blue-700 leading-relaxed"><strong>Tip:</strong> Click any field to see its source lineage, adaptation logic, and confidence score in this panel.</p>
-                  </div>
+                  <h4 class="text-sm font-semibold text-gray-600 mb-1">Source Inspector</h4>
+                  <p class="text-[12px] text-gray-400 leading-relaxed">Click any field to view its lineage, source data, and confidence score.</p>
                </div>
             </ng-container>
          </div>
@@ -799,12 +679,12 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
       color: #172b4d;
     }
 
-    /* Section heading — like Confluence H1 with blue left border */
+    /* Section heading — clean left border */
     .npa-doc-section-head {
       padding: 14px 40px 12px;
       margin-top: 8px;
-      border-left: 3px solid #2563eb;
-      background: #f8f9fa;
+      border-left: 3px solid #94a3b8;
+      background: #fafbfc;
     }
 
     /* Field container */
@@ -864,8 +744,8 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
     .npa-doc-part-head {
       padding: 16px 40px 10px;
       margin-top: 12px;
-      border-bottom: 2px solid #1e3a5f;
-      background: #f1f5f9;
+      border-bottom: 1px solid #d1d5db;
+      background: #f9fafb;
     }
 
     /* ===== Topic heading (numbered 1, 2, 3) ===== */
@@ -960,8 +840,8 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
     .npa-form-part-head {
       padding: 14px 32px 10px;
       margin-top: 8px;
-      border-bottom: 2px solid #1e3a5f;
-      background: #f1f5f9;
+      border-bottom: 1px solid #d1d5db;
+      background: #f9fafb;
     }
     .npa-form-section {
       margin: 8px 12px 0;
@@ -972,9 +852,9 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
     }
     .npa-form-section-head {
       padding: 14px 24px 12px;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-      border-left: 3px solid #2563eb;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      border-left: 3px solid #94a3b8;
     }
     .npa-form-section-body {
       padding: 12px 24px 20px;
@@ -1435,17 +1315,19 @@ export class NpaTemplateEditorComponent implements OnInit {
    }
 
    onScroll(e: any) {
-      // Scroll spy — update activeSection based on scroll position
-      const container = e.target;
-      for (const section of this.sections) {
-         const el = document.getElementById('sec-' + section.id);
+      // Scroll spy — update activeSection based on scroll position using template nav IDs
+      let lastMatch = '';
+      for (const navItem of this.templateNavSections) {
+         const el = document.getElementById('sec-' + navItem.id);
          if (el) {
             const rect = el.getBoundingClientRect();
-            if (rect.top <= 200 && rect.bottom > 100) {
-               this.activeSection = section.id;
-               break;
+            if (rect.top <= 200) {
+               lastMatch = navItem.id;
             }
          }
+      }
+      if (lastMatch) {
+         this.activeSection = lastMatch;
       }
    }
 
@@ -1526,19 +1408,12 @@ export class NpaTemplateEditorComponent implements OnInit {
    }
 
    getInputStyles(lineage: FieldLineage, isFocused: boolean): string {
-      let base = 'bg-gray-50 border transition-all text-gray-900 ';
-      if (lineage === 'AUTO') base += 'border-green-500 ';
-      else if (lineage === 'ADAPTED') base += 'border-amber-500 ';
-      else if (lineage === 'MANUAL') base += 'border-red-500 ';
-      else base += 'border-gray-300 ';
+      let base = 'bg-white border transition-all text-gray-900 border-gray-200 ';
 
       if (isFocused) {
-         if (lineage === 'AUTO') base += 'ring-2 ring-green-100 border-green-600 bg-white';
-         else if (lineage === 'ADAPTED') base += 'ring-2 ring-amber-100 border-amber-600 bg-white';
-         else if (lineage === 'MANUAL') base += 'ring-2 ring-red-100 border-red-600 bg-white';
-         else base += 'ring-2 ring-blue-100 border-blue-500 bg-white';
+         base += 'ring-2 ring-blue-100 border-blue-400 bg-white';
       } else {
-         base += 'focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500';
+         base += 'hover:border-gray-300 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-400';
       }
       return base;
    }
