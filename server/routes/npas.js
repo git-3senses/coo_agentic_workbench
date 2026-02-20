@@ -180,12 +180,61 @@ router.post('/seed-demo', async (req, res) => {
         const existingSet = new Set(existingKeys.map(r => r.field_key));
         const missing = [...allFieldKeys].filter(k => !existingSet.has(k));
         if (missing.length > 0) {
+            // Map field_keys to their correct template sections
+            const fieldSectionMap = {
+                // SEC_PROD
+                trade_date: 'SEC_PROD', pac_reference: 'SEC_PROD', funding_type: 'SEC_PROD',
+                product_maturity: 'SEC_PROD', product_lifecycle: 'SEC_PROD',
+                revenue_year1: 'SEC_PROD', revenue_year2: 'SEC_PROD', revenue_year3: 'SEC_PROD',
+                target_roi: 'SEC_PROD', spv_details: 'SEC_PROD', product_role: 'SEC_PROD',
+                // SEC_OPS
+                valuation_model: 'SEC_OPS', confirmation_process: 'SEC_OPS', reconciliation: 'SEC_OPS',
+                tech_requirements: 'SEC_OPS', front_office_model: 'SEC_OPS', middle_office_model: 'SEC_OPS',
+                back_office_model: 'SEC_OPS', booking_legal_form: 'SEC_OPS', booking_family: 'SEC_OPS',
+                booking_typology: 'SEC_OPS', portfolio_allocation: 'SEC_OPS', hsm_required: 'SEC_OPS',
+                pentest_status: 'SEC_OPS', iss_deviations: 'SEC_OPS',
+                // SEC_RISK
+                credit_risk: 'SEC_RISK', operational_risk: 'SEC_RISK', liquidity_risk: 'SEC_RISK',
+                reputational_risk: 'SEC_RISK', var_capture: 'SEC_RISK', stress_scenarios: 'SEC_RISK',
+                counterparty_default: 'SEC_RISK', custody_risk: 'SEC_RISK', esg_assessment: 'SEC_RISK',
+                // SEC_PRICE
+                roae_analysis: 'SEC_PRICE', pricing_assumptions: 'SEC_PRICE', bespoke_adjustments: 'SEC_PRICE',
+                pricing_model_name: 'SEC_PRICE', model_validation_date: 'SEC_PRICE', simm_treatment: 'SEC_PRICE',
+                // SEC_DATA
+                data_retention: 'SEC_DATA', reporting_requirements: 'SEC_DATA', pure_assessment_id: 'SEC_DATA',
+                gdpr_compliance: 'SEC_DATA', data_ownership: 'SEC_DATA',
+                // SEC_REG
+                primary_regulation: 'SEC_REG', secondary_regulations: 'SEC_REG',
+                regulatory_reporting: 'SEC_REG', sanctions_check: 'SEC_REG',
+                // SEC_ENTITY
+                booking_entity: 'SEC_ENTITY', counterparty: 'SEC_ENTITY', counterparty_rating: 'SEC_ENTITY',
+                strike_price: 'SEC_ENTITY', ip_considerations: 'SEC_ENTITY',
+                // SEC_SIGN
+                required_signoffs: 'SEC_SIGN', signoff_order: 'SEC_SIGN',
+                // SEC_LEGAL
+                isda_agreement: 'SEC_LEGAL', tax_impact: 'SEC_LEGAL',
+                // SEC_DOCS
+                term_sheet: 'SEC_DOCS', supporting_documents: 'SEC_DOCS'
+            };
             console.log(`[NPA SEED-DEMO] Adding ${missing.length} missing field keys to ref_npa_fields:`, missing);
             for (const key of missing) {
+                const sectionId = fieldSectionMap[key] || 'SEC_PROD';
+                const fieldType = ['business_rationale', 'legal_opinion', 'market_risk', 'credit_risk', 'operational_risk',
+                    'liquidity_risk', 'reputational_risk', 'var_capture', 'stress_scenarios', 'counterparty_default',
+                    'custody_risk', 'esg_assessment', 'roae_analysis', 'pricing_assumptions', 'supporting_documents',
+                    'isda_agreement', 'tax_impact', 'npa_process_type', 'business_case_status', 'product_role',
+                    'underlying_asset', 'customer_segments', 'bundling_rationale'].includes(key) ? 'textarea' : 'text';
                 await conn.query(
                     `INSERT IGNORE INTO ref_npa_fields (field_key, label, field_type, section_id, order_index, is_required)
-                     VALUES (?, ?, 'textarea', 'business_case', 999, 0)`,
-                    [key, key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())]
+                     VALUES (?, ?, ?, ?, 999, 0)`,
+                    [key, key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), fieldType, sectionId]
+                );
+            }
+            // Also fix any previously mis-assigned field_keys (e.g. section_id='business_case')
+            for (const [key, sectionId] of Object.entries(fieldSectionMap)) {
+                await conn.query(
+                    `UPDATE ref_npa_fields SET section_id = ? WHERE field_key = ? AND section_id NOT LIKE 'SEC_%'`,
+                    [sectionId, key]
                 );
             }
         }

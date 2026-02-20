@@ -2,11 +2,105 @@
 // Modeled after real TSG examples from KB: TSG1917, TSG2042, TSG2339, TSG2055, TSG2543
 // Covers: New-to-Group, Variation, Existing/B3, Evergreen, Bundling + all major product categories
 
+// Generate additional form data fields to fill empty template sections
+// These fields map to ref_npa_fields entries in sections: SEC_PRICE, SEC_DATA, SEC_REG, SEC_ENTITY, SEC_SIGN, SEC_LEGAL, SEC_DOCS
+// Also fills gaps in SEC_PROD, SEC_OPS, SEC_RISK that aren't covered by the core seed data
+function getExtraFormData(proj) {
+    const t = proj.npa_type;
+    const cat = proj.product_category;
+    const risk = proj.risk_level;
+    const ntl = proj.notional_amount || 0;
+    const rev = proj.estimated_revenue || 0;
+    const isNtg = t === 'New-to-Group';
+    const isHigh = risk === 'HIGH';
+
+    return [
+        // SEC_PROD gaps
+        ['trade_date', proj.kickoff_date || '2026-01-15', 'AUTO', 95],
+        ['pac_reference', proj.pac_approval_status === 'Approved' ? `ExCo-2026-${proj.id.split('-')[1]}` : 'N/A — PAC not required for this track', 'AUTO', 90],
+        ['funding_type', cat.includes('Fixed Income') || cat.includes('Fund') ? 'Funded position' : 'Unfunded derivative', 'AUTO', 92],
+        ['product_maturity', cat.includes('Equity') || cat.includes('Structured') ? '1-3 years' : cat.includes('Commodity') ? '6M-2Y rolling' : '5Y standard', 'AUTO', 88],
+        ['product_lifecycle', isNtg ? 'New launch — full lifecycle setup required' : t === 'Existing' ? 'Reactivation of dormant product' : 'Extension of existing product line', 'AUTO', 91],
+        ['revenue_year1', `${(rev / 1e6).toFixed(1)}M`, 'MANUAL', 100],
+        ['revenue_year2', `${(rev * 1.3 / 1e6).toFixed(1)}M`, 'AUTO', 75],
+        ['revenue_year3', `${(rev * 1.6 / 1e6).toFixed(1)}M`, 'AUTO', 70],
+        ['target_roi', isHigh ? '18-22% ROAE' : '12-15% ROAE', 'AUTO', 80],
+        ['spv_details', cat.includes('Structured') ? 'SPV required: DBS Capital Markets Ltd (Cayman) for note issuance' : 'No SPV required — principal booking on DBS balance sheet', 'AUTO', 85],
+
+        // SEC_OPS gaps
+        ['valuation_model', cat.includes('Credit') ? 'ISDA CDS Standard Model (hazard rate bootstrapping)' : cat.includes('FX') ? 'Garman-Kohlhagen for barriers, Black-Scholes for vanilla' : cat.includes('Interest Rate') ? 'LMM/SABR for swaptions, Hull-White for exotic IR' : cat.includes('Equity') ? 'Local volatility surface with Monte Carlo' : cat.includes('Commodity') ? 'Multi-factor Schwartz-Smith model' : 'Discounted cash flow with credit spread adjustment', 'AUTO', 88],
+        ['confirmation_process', 'Electronic confirmation via MarkitWire/DTCC. T+1 affirmation target. Unconfirmed trade aging policy: escalation at T+3.', 'AUTO', 90],
+        ['reconciliation', 'Daily P&L reconciliation (Front-to-Back). Monthly position reconciliation with custodian. Quarterly regulatory reconciliation.', 'AUTO', 89],
+        ['tech_requirements', isNtg ? 'New system integration required — estimated 6-8 weeks build cycle' : 'Minor configuration changes to existing systems — 1-2 weeks', 'AUTO', 85],
+        ['front_office_model', `Murex MX.3 — ${cat} module. Real-time pricing and risk. Pre-deal check integration.`, 'AUTO', 92],
+        ['middle_office_model', 'Murex Middle Office for trade lifecycle management. Daily P&L attribution. Independent price verification (IPV) via Bloomberg/Markit.', 'AUTO', 91],
+        ['back_office_model', 'Murex Back Office for settlement instruction generation. SWIFT/CLS for payment. Nostro reconciliation via SmartStream TLM.', 'AUTO', 90],
+        ['booking_legal_form', cat.includes('Fund') ? 'Unit trust structure' : 'OTC bilateral derivative', 'AUTO', 93],
+        ['booking_family', cat.replace(' Derivatives', '').replace(' Products', ''), 'AUTO', 95],
+        ['booking_typology', `${cat} — ${t}`, 'AUTO', 94],
+        ['portfolio_allocation', `DBSSG_GFM_${cat.split(' ')[0].toUpperCase()}`, 'AUTO', 92],
+        ['hsm_required', isHigh ? 'Yes — HSM review required for high-risk classification' : 'No — standard risk classification', 'AUTO', 88],
+        ['pentest_status', isNtg ? 'Scheduled — pre-launch penetration test required for new systems' : 'Completed — existing infrastructure already pen-tested', 'AUTO', 86],
+        ['iss_deviations', 'No ISS deviations identified. Standard booking and settlement model applies.', 'AUTO', 90],
+
+        // SEC_RISK gaps
+        ['credit_risk', `Counterparty credit risk: ${isHigh ? 'HIGH — requires enhanced credit limits and collateral framework' : 'MEDIUM — covered by existing ISDA/CSA framework'}. Daily MTM exposure monitoring. Potential future exposure (PFE) calculated using SA-CCR methodology.`, 'AUTO', 87],
+        ['operational_risk', `${isNtg ? 'HIGH — new product operational procedures, staff training, system integration' : 'LOW — existing operational framework applies'}. Key operational risks: booking errors, settlement failures, confirmation backlogs. Mitigants: maker-checker controls, automated confirmations, reconciliation breaks monitoring.`, 'AUTO', 85],
+        ['liquidity_risk', cat.includes('Credit') || cat.includes('Structured') ? 'MEDIUM — CDS market liquidity can deteriorate in stress; index more liquid than single-name. Bid-ask spreads widen 3-5x in stress.' : cat.includes('FX') ? 'LOW — deep and liquid market; NDF liquidity varies by currency pair' : 'LOW — standard exchange-traded or OTC market with adequate liquidity', 'AUTO', 86],
+        ['reputational_risk', isNtg ? 'MEDIUM — new product category; reputational risk if credit event handling is poor or client disputes arise' : 'LOW — established product with track record', 'AUTO', 84],
+        ['var_capture', `VaR model: ${cat.includes('Credit') ? 'CreditMetrics with Monte Carlo simulation' : 'Historical simulation (500-day window)'}. Coverage: ${isHigh ? '99th percentile, 10-day holding period' : '99th percentile, 1-day holding period'}. Back-testing: monthly with traffic light system.`, 'AUTO', 82],
+        ['stress_scenarios', `${isHigh ? '6 scenarios' : '3 scenarios'}: (1) Market crash -20%, (2) Interest rate shock +200bps, (3) Credit spread widening 3x${isHigh ? ', (4) Liquidity crisis, (5) Counterparty default, (6) Correlation breakdown' : ''}. Results reported to ALCO monthly.`, 'AUTO', 80],
+        ['counterparty_default', `Exposure at Default (EAD) calculation via SA-CCR. Loss Given Default (LGD): ${isHigh ? '45% unsecured, 20% collateralized' : '35% standard'}. Wrong-way risk: ${cat.includes('Credit') ? 'Significant — correlated default monitored daily' : 'Not material for this product type'}.`, 'AUTO', 83],
+        ['custody_risk', cat.includes('Fund') || cat.includes('Fixed Income') ? 'Securities held with BNP Paribas Securities Services (SG). Segregated client accounts. Daily NAV reconciliation.' : 'Not applicable — unfunded derivative product. No custody of physical assets required.', 'AUTO', 88],
+        ['esg_assessment', cat.includes('ESG') ? 'POSITIVE — product specifically targets ESG-aligned investments per GFIT taxonomy. Green bond criteria applied.' : cat.includes('Commodity') && proj.title.includes('Oil') ? 'REQUIRES REVIEW — fossil fuel exposure. DBS Responsible Financing framework applies. Transition finance classification requested.' : 'NEUTRAL — no significant ESG impact identified. Standard DBS sustainability framework applies.', 'AUTO', 78],
+
+        // SEC_PRICE fields
+        ['roae_analysis', `Year 1 ROAE: ${isHigh ? '15-18%' : '12-14%'} (above ${isHigh ? '15%' : '12%'} hurdle). Capital consumption: $${(ntl * 0.08 / 1e6).toFixed(0)}M under SA-CCR. Revenue/Capital: ${(rev / (ntl * 0.08) * 100).toFixed(1)}%.`, 'AUTO', 82],
+        ['pricing_assumptions', `Base case: ${cat.includes('FX') ? 'Forward curve from Bloomberg. Volatility surface from broker quotes.' : cat.includes('Interest Rate') ? 'SOFR/SORA swap curve. Swaption vol surface from ICAP.' : 'Market data from Bloomberg/Markit. Historical calibration window: 2 years.'}`, 'AUTO', 85],
+        ['bespoke_adjustments', isNtg ? 'Bespoke pricing for initial client onboarding — wider spreads (2x) to compensate for model uncertainty in first 3 months' : 'Standard pricing grid applies — no bespoke adjustments required', 'AUTO', 80],
+        ['pricing_model_name', cat.includes('Credit') ? 'ISDA CDS Standard Model' : cat.includes('FX') ? 'Garman-Kohlhagen / Black-76' : cat.includes('Interest Rate') ? 'SABR / Hull-White' : cat.includes('Equity') ? 'Local Vol + Monte Carlo' : cat.includes('Commodity') ? 'Schwartz-Smith Two-Factor' : 'DCF with credit spread', 'AUTO', 90],
+        ['model_validation_date', '2026-01-10', 'AUTO', 95],
+        ['simm_treatment', `ISDA SIMM ${cat.includes('FX') ? 'Risk Class 1 (Interest Rate + FX)' : cat.includes('Credit') ? 'Risk Class 2 (Credit Qualifying)' : cat.includes('Equity') ? 'Risk Class 3 (Equity)' : cat.includes('Commodity') ? 'Risk Class 4 (Commodity)' : 'Risk Class 1 (Interest Rate)'}. Delta, vega, and curvature margin components.`, 'AUTO', 84],
+
+        // SEC_DATA fields
+        ['data_retention', '7 years for trade records per MAS requirements. 5 years for client communications. 10 years for regulatory filings.', 'AUTO', 92],
+        ['reporting_requirements', `MAS Trade Repository reporting (T+2). ${proj.is_cross_border ? 'HKMA OTC derivatives reporting for HK leg. ' : ''}Internal: daily risk report, weekly P&L report, monthly ALCO report.`, 'AUTO', 88],
+        ['pure_assessment_id', `PURE-${proj.id.split('-')[1]}-${cat.split(' ')[0].toUpperCase()}`, 'AUTO', 95],
+        ['gdpr_compliance', proj.is_cross_border ? 'Not applicable — no EU exposure. PDPA (Singapore) applies. Cross-border data sharing governed by SCCs with HK/CN counterparties.' : 'Not applicable — PDPA (Singapore) governs. No cross-border personal data transfer.', 'AUTO', 90],
+        ['data_ownership', 'Front Office owns trade data. Risk Management owns risk data. Compliance owns regulatory reporting data. Data Governance Council provides oversight.', 'AUTO', 88],
+
+        // SEC_REG fields
+        ['primary_regulation', `MAS Notice 637 (Capital adequacy). ${cat.includes('Equity') ? 'SFA Part XIII (Securities).' : cat.includes('Fund') ? 'SFA Division 2 (Collective Investment Schemes).' : 'SFA Part VIA (OTC Derivatives).'}`, 'AUTO', 88],
+        ['secondary_regulations', `MAS Notice SFA 04-N13 (Reporting). ${proj.is_cross_border ? 'HKMA SPM OR-1 (Operational Risk). SFC Code of Conduct.' : ''} Basel III SA-CCR framework. ISDA protocol adherence.`, 'AUTO', 85],
+        ['regulatory_reporting', `MAS Trade Repository: T+2 reporting via DTCC. ${proj.is_cross_border ? 'HKMA: monthly position report. ' : ''}MAS 610/1003: quarterly capital adequacy returns. Internal: daily risk dashboard.`, 'AUTO', 87],
+        ['sanctions_check', 'Automated sanctions screening via Dow Jones Risk & Compliance. Daily screening against OFAC, EU, UN, MAS lists. Pre-deal counterparty check integrated in Murex.', 'AUTO', 92],
+
+        // SEC_ENTITY fields
+        ['booking_entity', 'DBS Bank Ltd — Singapore (Head Office)', 'AUTO', 98],
+        ['counterparty', isNtg ? 'New counterparty onboarding required. Institutional clients only — banks, asset managers, hedge funds, insurance companies.' : 'Existing client base. No new counterparty types.', 'AUTO', 88],
+        ['counterparty_rating', `Minimum counterparty rating: ${isHigh ? 'BBB- (investment grade) for uncollateralized, no minimum for fully collateralized under CSA' : 'BB+ for standard OTC derivatives with CSA'}`, 'AUTO', 85],
+        ['strike_price', cat.includes('FX') || cat.includes('Equity') ? `Strike determined at trade inception based on spot reference. Barrier levels: ${cat.includes('FX') ? '±5-10% from spot for knock-in' : '90-110% of initial fixing for participation notes'}.` : 'Not applicable — no embedded optionality in this product structure', 'AUTO', 82],
+        ['ip_considerations', 'No proprietary IP involved. Standard market product structure. DBS branding on client-facing term sheets and trade confirmations.', 'AUTO', 90],
+
+        // SEC_SIGN fields
+        ['required_signoffs', isNtg ? 'Full sign-off matrix: Risk, Legal, Compliance, Finance, Operations, Technology, Product Head (7 parties)' : `Lite sign-off: ${t === 'Existing' ? 'Risk, Compliance (2 parties)' : 'Risk, Legal, Compliance (3 parties)'}`, 'AUTO', 92],
+        ['signoff_order', isNtg ? 'Sequential: Risk → Legal → Compliance → Operations → Technology → Finance → Product Head' : 'Parallel: all parties review simultaneously', 'AUTO', 90],
+
+        // SEC_LEGAL fields
+        ['isda_agreement', cat.includes('FX') || cat.includes('Interest Rate') || cat.includes('Credit') ? `ISDA Master Agreement (2002) with Schedule and CSA. ${cat.includes('Credit') ? 'ISDA 2014 Credit Derivatives Definitions supplement required.' : 'Standard ISDA definitions apply.'} Negotiation status: ${isNtg ? 'New ISDA required for CDS' : 'Existing ISDA covers this product'}.` : cat.includes('Fund') ? 'Not applicable — fund subscription agreement governs.' : 'ISDA Master Agreement in place with existing counterparties.', 'AUTO', 88],
+        ['tax_impact', `${proj.is_cross_border ? 'Cross-border withholding tax review required. SG-HK DTA applies (0% WHT on interest). ' : ''}GST: exempt financial supply (input tax apportionment applies). Income tax: trading book P&L taxed at 17% corporate rate. Transfer pricing: arm\'s length pricing for cross-entity bookings.`, 'AUTO', 82],
+
+        // SEC_DOCS fields
+        ['term_sheet', `${proj.title} — Term Sheet v2.0 (attached)`, 'MANUAL', 100],
+        ['supporting_documents', `${isNtg ? 'PAC approval memo, product proposal, risk assessment report, legal opinion, technology impact assessment, operational readiness checklist' : 'Product variation memo, risk update, compliance sign-off'}`, 'AUTO', 88]
+    ];
+}
+
 function getNpaProfiles(now) {
     const sla3d = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
     const sla2d = new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
-    return [
+    const profiles = [
         // ═══ NPA #1: Full NPA / New-to-Group / Credit Derivatives / HIGH ═══
         // Modeled after TSG2042 NAFMII Repo — new legal framework, new market
         {
@@ -670,6 +764,19 @@ function getNpaProfiles(now) {
             ]
         }
     ];
+
+    // Enrich: merge extra formData fields into each profile (fills empty template sections)
+    for (const profile of profiles) {
+        const extra = getExtraFormData(profile.project);
+        const existingKeys = new Set(profile.formData.map(fd => fd[0]));
+        for (const field of extra) {
+            if (!existingKeys.has(field[0])) {
+                profile.formData.push(field);
+            }
+        }
+    }
+
+    return profiles;
 }
 
 module.exports = { getNpaProfiles };
