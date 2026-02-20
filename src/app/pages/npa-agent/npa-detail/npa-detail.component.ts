@@ -658,7 +658,20 @@ export class NpaDetailComponent implements OnInit {
    strategicAssessment: any = null;
 
    loadProjectDetails(id: string) {
-      this.governanceService.getProjectDetails(id).subscribe({
+      this.governanceService.getProjectDetails(id).pipe(
+         catchError((err) => {
+            console.warn(`[NPA Detail] Governance API 404 for ${id}, falling back to NPA service...`);
+            // Fallback: load from NPA service directly (returns NpaDetail with fewer joined tables)
+            return this.npaService.getById(id).pipe(
+               catchError((err2) => {
+                  console.error(`[NPA Detail] Project ${id} not found in any service`, err2);
+                  // Project truly doesn't exist — show a message
+                  this.projectData = { id, title: `Project ${id} not found`, current_stage: 'UNKNOWN' } as any;
+                  return EMPTY;
+               })
+            );
+         })
+      ).subscribe({
          next: (data) => {
             this.projectData = data;
             this.currentStage = data.current_stage;
