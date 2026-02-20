@@ -756,12 +756,13 @@ export class NpaDetailComponent implements OnInit {
       // Map Form Data to Product Attributes (Part A: key summary fields only)
       // Part C (full NPA draft) is accessed via the "View Full NPA Draft" overlay
       const partAKeys = [
-         'product_name', 'product_type', 'desk', 'business_unit',
+         'product_name', 'product_type', 'product_category', 'desk', 'business_unit',
          'notional_amount', 'tenor', 'underlying_asset',
          'product_manager_name', 'group_product_head', 'proposal_preparer',
          'npa_process_type', 'business_case_status', 'approving_authority',
          'kickoff_date', 'risk_classification', 'booking_entity',
-         'counterparty_rating', 'settlement_method'
+         'counterparty_rating', 'settlement_method',
+         'customer_segments', 'bundling_rationale'
       ];
       if (data.formData && data.formData.length > 0) {
          this.productAttributes = data.formData
@@ -864,9 +865,16 @@ export class NpaDetailComponent implements OnInit {
          const sc = data.scorecard;
          const breakdown = typeof sc.breakdown === 'string' ? JSON.parse(sc.breakdown) : (sc.breakdown || {});
          const criteria = breakdown.criteria || [];
+         const approvalTrack = this.projectData?.approval_track || '';
+         const trackLabel = approvalTrack === 'FULL_NPA' ? 'Full NPA'
+            : approvalTrack === 'NPA_LITE' ? 'NPA Lite'
+            : approvalTrack === 'BUNDLING' ? 'Bundling'
+            : approvalTrack === 'EVERGREEN' ? 'Evergreen'
+            : approvalTrack === 'PROHIBITED' ? 'Prohibited'
+            : (sc.calculated_tier === 'New-to-Group') ? 'Full NPA' : 'NPA Lite';
          this.classificationResult = {
-            type: sc.calculated_tier || 'Variation',
-            track: (sc.calculated_tier === 'New-to-Group') ? 'Full NPA' : 'NPA Lite',
+            type: sc.calculated_tier || this.projectData?.npa_type || 'Variation',
+            track: trackLabel,
             scores: criteria.map((c: any) => ({
                criterion: c.criterion || '',
                score: c.score ?? 0,
@@ -966,12 +974,27 @@ export class NpaDetailComponent implements OnInit {
    }
 
    get approvalTrack(): string {
-      const type = this.projectData?.npa_type || this.npaContext?.track;
-      return type === 'NPA Lite' ? 'NPA Lite (Variation)' : (type === 'New-to-Group' ? 'New-to-Group (High Risk)' : 'Variation (Medium Risk)');
+      // Prefer approval_track from DB, fall back to npa_type
+      const track = this.projectData?.approval_track || this.npaContext?.track || '';
+      const type = this.projectData?.npa_type || '';
+      switch (track) {
+         case 'FULL_NPA': return 'Full NPA' + (type === 'New-to-Group' ? ' (New-to-Group)' : '');
+         case 'NPA_LITE': return 'NPA Lite (Variation)';
+         case 'BUNDLING': return 'Bundling';
+         case 'EVERGREEN': return 'Evergreen Renewal';
+         case 'PROHIBITED': return 'Prohibited Product';
+         default:
+            // Legacy fallback for old data without approval_track
+            if (type === 'New-to-Group') return 'Full NPA (New-to-Group)';
+            if (type === 'NPA Lite' || type === 'Variation') return 'NPA Lite (Variation)';
+            if (type === 'Existing') return 'NPA Lite (Existing)';
+            return track || type || 'Standard';
+      }
    }
 
    get isNtg(): boolean {
-      return (this.projectData?.npa_type || this.npaContext?.track) === 'New-to-Group';
+      return (this.projectData?.npa_type || this.npaContext?.track) === 'New-to-Group'
+         || this.projectData?.approval_track === 'FULL_NPA';
    }
 
    get pacStatus(): string {

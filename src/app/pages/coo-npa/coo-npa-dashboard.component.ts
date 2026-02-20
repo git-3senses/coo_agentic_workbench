@@ -855,8 +855,8 @@ export class CooNpaDashboardComponent implements OnInit {
                     pmTeam: p.pm_team || 'N/A',
                     pacApproval: p.current_stage === 'APPROVED' ? 'Approved' : 'Pending',
                     proposalPreparer: p.submitted_by || 'Unknown',
-                    template: 'Standard NPA',
-                    classification: this.mapClassification(p.npa_type),
+                    template: p.product_category || p.npa_type || 'Standard NPA',
+                    classification: this.mapClassification(p.npa_type, p.approval_track),
                     stage: this.mapStage(p.current_stage),
                     status: this.mapStatus(p.status),
                     ageDays: Math.floor((Date.now() - new Date(p.created_at).getTime()) / (1000 * 3600 * 24))
@@ -997,15 +997,19 @@ export class CooNpaDashboardComponent implements OnInit {
         const map: any = {
             'INITIATION': 'Discovery',
             'DISCOVERY': 'Discovery',
+            'REVIEW': 'DCE Review',
             'RISK_ASSESSMENT': 'Risk Assess',
             'DCE_REVIEW': 'DCE Review',
             'GOVERNANCE': 'Governance',
+            'SIGN_OFF': 'Sign-Off',
             'PENDING_SIGN_OFFS': 'Sign-Off',
+            'LAUNCH': 'Launch',
             'APPROVED': 'Launch',
             'LAUNCHED': 'Launch',
+            'MONITORING': 'Launch',
             'RETURNED_TO_MAKER': 'Discovery'
         };
-        return map[backendStage] || 'Discovery';
+        return map[backendStage] || backendStage || 'Discovery';
     }
 
     private mapStatus(status: string): 'On Track' | 'At Risk' | 'Delayed' {
@@ -1016,9 +1020,14 @@ export class CooNpaDashboardComponent implements OnInit {
         return 'On Track';
     }
 
-    private mapClassification(npaType: string): 'Complex' | 'Standard' | 'Light' {
+    private mapClassification(npaType: string, approvalTrack?: string): 'Complex' | 'Standard' | 'Light' {
+        // Use approval_track if available for more precise mapping
+        if (approvalTrack === 'FULL_NPA' || approvalTrack === 'PROHIBITED') return 'Complex';
+        if (approvalTrack === 'NPA_LITE' || approvalTrack === 'EVERGREEN') return 'Light';
+        if (approvalTrack === 'BUNDLING') return 'Standard';
+        // Fallback to npa_type
         if (npaType === 'New-to-Group') return 'Complex';
-        if (npaType === 'NPA Lite') return 'Light';
+        if (npaType === 'NPA Lite' || npaType === 'Existing') return 'Light';
         return 'Standard';
     }
 

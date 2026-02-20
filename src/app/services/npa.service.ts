@@ -8,6 +8,8 @@ export interface NpaListItem {
     title: string;
     description: string;
     npa_type: string;
+    product_category: string;
+    approval_track: string;
     current_stage: string;
     status: string;
     risk_level: string;
