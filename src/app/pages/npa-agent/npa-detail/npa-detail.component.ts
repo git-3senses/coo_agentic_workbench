@@ -85,6 +85,12 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
         </div>
 
         <div class="flex items-center gap-3">
+           <button *ngIf="dbDataSufficient" (click)="refreshAgentAnalysis()"
+                   class="px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200 hover:border-indigo-300 flex items-center gap-2"
+                   title="Re-run all AI agents with live Dify analysis">
+             <lucide-icon name="refresh-cw" class="w-4 h-4"></lucide-icon>
+             Refresh Analysis
+           </button>
            <button class="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 hover:border-gray-300 flex items-center gap-2">
              <lucide-icon name="help-circle" class="w-4 h-4"></lucide-icon>
              Help
@@ -853,15 +859,75 @@ export class NpaDetailComponent implements OnInit {
          } as MonitoringResult;
       }
 
-      // Map Classification Scorecard
-      if (data.scorecard) {
-         console.log('Scorecard loaded:', data.scorecard);
+      // Pre-populate classificationResult from DB scorecard
+      if (data.scorecard && !this.classificationResult) {
+         const sc = data.scorecard;
+         const breakdown = typeof sc.breakdown === 'string' ? JSON.parse(sc.breakdown) : (sc.breakdown || {});
+         const criteria = breakdown.criteria || [];
+         this.classificationResult = {
+            type: sc.calculated_tier || 'Variation',
+            track: (sc.calculated_tier === 'New-to-Group') ? 'Full NPA' : 'NPA Lite',
+            scores: criteria.map((c: any) => ({
+               criterion: c.criterion || '',
+               score: c.score ?? 0,
+               maxScore: c.maxScore || 5,
+               reasoning: c.reasoning || ''
+            })),
+            overallConfidence: breakdown.overall_confidence || sc.total_score || 0,
+            prohibitedMatch: breakdown.prohibited_match || { matched: false },
+            mandatorySignOffs: breakdown.mandatory_signoffs || []
+         } as ClassificationResult;
+         console.log('[mapBackendDataToView] Pre-populated classificationResult from DB scorecard:', this.classificationResult.type, 'confidence:', this.classificationResult.overallConfidence);
+      }
+
+      // Synthesize mlPrediction from scorecard + project data (same logic as mapMlPrediction)
+      if (this.classificationResult && !this.mlPrediction) {
+         const track = this.classificationResult.track || '';
+         const confidence = this.classificationResult.overallConfidence || 50;
+         this.mlPrediction = {
+            approvalLikelihood: confidence,
+            timelineDays: track.includes('LITE') ? 25 : 45,
+            bottleneckDept: data.risk_level === 'HIGH' ? 'CFO / Finance' : 'Legal',
+            riskScore: Math.max(0, 100 - confidence),
+            features: [],
+            comparisonInsights: []
+         } as MLPrediction;
+         console.log('[mapBackendDataToView] Synthesized mlPrediction from scorecard: approval=', this.mlPrediction.approvalLikelihood);
+      }
+
+      // Pre-populate autoFillSummary from form data field coverage
+      if (data.formData && data.formData.length > 0 && !this.autoFillSummary) {
+         const total = data.formData.length;
+         const filled = data.formData.filter((f: any) => f.field_value && f.field_value.trim() !== '').length;
+         const auto = data.formData.filter((f: any) => f.lineage === 'AUTO' || f.lineage === 'auto').length;
+         const adapted = data.formData.filter((f: any) => f.lineage === 'ADAPTED' || f.lineage === 'adapted').length;
+         const manual = filled - auto - adapted;
+         this.autoFillSummary = {
+            fieldsFilled: auto,
+            fieldsAdapted: adapted,
+            fieldsManual: Math.max(0, manual),
+            totalFields: total,
+            coveragePct: Math.round((filled / Math.max(total, 1)) * 100),
+            timeSavedMinutes: Math.round(auto * 1.2),
+            fields: [],
+            templateId: '',
+            sourceNpa: '',
+            sourceSimilarity: 0,
+            validationWarnings: [],
+            npaLiteSubtype: '',
+            dormancyStatus: '',
+            pirRequired: false,
+            validityMonths: 12
+         } as AutoFillSummary;
+         console.log('[mapBackendDataToView] Pre-populated autoFillSummary from formData: coverage=', this.autoFillSummary.coveragePct, '%');
       }
 
       // Update tab badges from pre-populated DB data
       this.updateTabBadge('APPROVALS', null);
       this.updateTabBadge('DOCUMENTS', null);
       this.updateTabBadge('MONITORING', null);
+      this.updateTabBadge('ANALYSIS', null);
+      this.updateTabBadge('PRODUCT_SPECS', null);
    }
 
    get riskAssessments() {
@@ -995,10 +1061,43 @@ export class NpaDetailComponent implements OnInit {
       };
    }
 
+   /** Public method to force re-run all agents (called by "Refresh Analysis" button) */
+   refreshAgentAnalysis(): void {
+      this._agentsLaunched = false;
+      // Clear persisted states so agents overwrite fresh
+      this.classificationResult = null;
+      this.mlPrediction = null;
+      this.autoFillSummary = null;
+      this.riskAssessmentResult = null;
+      this.agentErrors = {};
+      this.runAgentAnalysis();
+   }
+
+   /** True when DB pre-populated enough data that we skip live agents on first load */
+   dbDataSufficient = false;
+
    private runAgentAnalysis(): void {
       if (this._agentsLaunched) return; // prevent duplicate agent launches
       const inputs = this.buildWorkflowInputs();
       if (!inputs['project_id']) return;
+
+      // DB-First: If mapBackendDataToView already pre-populated core KPIs, skip firing agents
+      // This makes the page load instantly from persisted data. User can click "Refresh Analysis"
+      // to re-run live Dify agents.
+      const hasRisk = !!this.riskAssessmentResult;
+      const hasClassification = !!this.classificationResult;
+      const hasGovernance = !!this.governanceState;
+      const hasDocs = !!this.docCompleteness;
+      if (hasRisk && hasClassification && hasGovernance && hasDocs) {
+         console.log('[runAgentAnalysis] DB data sufficient — skipping live agent calls. Use "Refresh Analysis" to re-run.');
+         this.dbDataSufficient = true;
+         this._agentsLaunched = true;
+         // Mark all agents as not loading (they have DB data)
+         const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'AUTOFILL', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
+         agents.forEach(a => this.agentLoading[a] = false);
+         return;
+      }
+
       this._agentsLaunched = true;
       this.waveContext = {};
 
@@ -1210,10 +1309,46 @@ export class NpaDetailComponent implements OnInit {
          // Strip markdown code fences
          raw = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
          try { return JSON.parse(raw); } catch (e) {
+            // Attempt 2: Try to extract embedded JSON from narrative text
+            // Dify LLMs sometimes return "This is a CRITICAL case. {...json...}"
+            const jsonMatch = raw.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+               try { return JSON.parse(jsonMatch[0]); } catch (_) { /* fall through */ }
+            }
             console.warn('[parseJsonOutput] Failed to parse result:', e, 'raw (first 200):', raw.substring(0, 200));
+            // Attempt 3: Return a keyword-derived fallback so mappers don't get null
+            return this.extractFallbackFromText(raw);
          }
       }
       return outputs;
+   }
+
+   /** Extract structured fallback from narrative Dify text when JSON parse fails */
+   private extractFallbackFromText(raw: string): any {
+      const lower = raw.toLowerCase();
+      const isCritical = lower.includes('critical') || lower.includes('prohibited');
+      const isHigh = lower.includes('high risk') || lower.includes('high');
+      const isProhibited = lower.includes('prohibited') || lower.includes('hard stop') || lower.includes('block');
+
+      return {
+         _fromFallback: true,
+         classification: {
+            type: isProhibited ? 'Prohibited' : (isCritical ? 'New-to-Group' : 'Variation'),
+            track: isCritical ? 'FULL_NPA' : 'NPA_LITE'
+         },
+         scorecard: {
+            overall_confidence: isCritical ? 15 : (isHigh ? 40 : 70),
+            scores: []
+         },
+         risk_assessment: {
+            overall_score: isCritical ? 95 : (isHigh ? 70 : 35),
+            overall_rating: isCritical ? 'CRITICAL' : (isHigh ? 'HIGH' : 'MEDIUM'),
+            hard_stop: isProhibited
+         },
+         prohibited_check: { matched: isProhibited },
+         mandatory_signoffs: isCritical ? ['Finance', 'Credit', 'MLR', 'Legal', 'Ops'] : [],
+         _rawSummary: raw.substring(0, 300)
+      };
    }
 
    private mapClassificationResult(rawOutputs: any): ClassificationResult | null {
