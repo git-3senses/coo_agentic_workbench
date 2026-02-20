@@ -1298,11 +1298,105 @@ export class NpaTemplateEditorComponent implements OnInit {
       this.editingField = null;
    }
 
-   // --- Validation ---
+   // --- Governance Check — calls Dify WF_NPA_Governance agent first, then DB fallback ---
    validateGovernance() {
       this.isRunningGovernance = true;
-      const desc = this.extractDescriptionFromForm();
       const projectId = this.inputData?.projectId || this.inputData?.id || this.inputData?.npaId;
+      const desc = this.extractDescriptionFromForm();
+
+      // Collect all filled fields as context for the Governance agent
+      const filledFields: Record<string, string> = {};
+      for (const section of this.sections) {
+         for (const field of section.fields) {
+            if (field.value && field.value.trim()) {
+               filledFields[field.key] = field.value.substring(0, 500); // Cap length
+            }
+         }
+      }
+
+      // Step 1: Try Dify WF_NPA_Governance workflow agent
+      const payload = {
+         app: 'WF_NPA_Governance',
+         inputs: {
+            project_id: projectId || 'demo',
+            product_description: desc,
+            completion_pct: String(this.getOverallCompletion()),
+            total_fields: String(this.getTotalFieldCount()),
+            filled_fields: String(this.getFilledFieldCount()),
+            auto_filled: String(this.getLineageCount('AUTO')),
+            form_snapshot: JSON.stringify(filledFields)
+         },
+         response_mode: 'blocking'
+      };
+
+      this.http.post<any>('/api/dify/workflow', payload).subscribe({
+         next: (res) => {
+            // Parse agent response into ReadinessResult
+            const agentResult = this.parseGovernanceAgentResponse(res);
+            if (agentResult) {
+               this.validationResult = agentResult;
+               this.showValidationModal = true;
+               this.isRunningGovernance = false;
+
+               // Also persist to DB for audit trail
+               if (projectId) {
+                  this.governanceService.saveReadinessAssessment(projectId, agentResult).subscribe();
+               }
+            } else {
+               // Agent returned no parseable result — fall back to DB service
+               this.fallbackToDbGovernance(desc, projectId);
+            }
+         },
+         error: () => {
+            // Dify agent unreachable — fall back to DB-based governance service
+            this.fallbackToDbGovernance(desc, projectId);
+         }
+      });
+   }
+
+   /** Parse Dify Governance agent response into ReadinessResult */
+   private parseGovernanceAgentResponse(res: any): ReadinessResult | null {
+      try {
+         const output = res?.data?.outputs || res?.outputs || res;
+         const text = output?.text || output?.result || res?.answer || '';
+
+         // Try to parse structured JSON from agent output
+         const jsonMatch = text.match(/\{[\s\S]*"score"[\s\S]*\}/);
+         if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return {
+               isReady: (parsed.score || 0) >= 85,
+               score: parsed.score || 0,
+               overallAssessment: parsed.assessment || parsed.overallAssessment || '',
+               domains: (parsed.domains || []).map((d: any) => ({
+                  name: d.name || d.domain,
+                  status: d.status || 'PENDING',
+                  observation: d.observation || d.finding || ''
+               }))
+            };
+         }
+
+         // If no structured JSON, build result from text
+         if (text.length > 20) {
+            const score = this.getOverallCompletion();
+            return {
+               isReady: score >= 85,
+               score,
+               overallAssessment: text.substring(0, 500),
+               domains: [
+                  { name: 'Governance Agent Assessment', status: score >= 85 ? 'PASS' : 'FAIL', observation: text.substring(0, 300) }
+               ]
+            };
+         }
+
+         return null;
+      } catch {
+         return null;
+      }
+   }
+
+   /** Fallback: try DB governance service, then local generation */
+   private fallbackToDbGovernance(desc: string, projectId: string | undefined) {
       this.governanceService.analyzeReadiness(desc, projectId).subscribe({
          next: (result) => {
             this.validationResult = result;
@@ -1311,23 +1405,27 @@ export class NpaTemplateEditorComponent implements OnInit {
          },
          error: () => {
             this.isRunningGovernance = false;
-            // Fallback: show a simulated result based on field completion
+            // Final fallback: generate from field stats
             this.validationResult = this.generateFallbackGovernanceResult();
             this.showValidationModal = true;
          }
       });
    }
 
-   /** Fallback governance result when API is unavailable */
+   /** Final fallback governance result when both agent and DB are unavailable */
    private generateFallbackGovernanceResult(): ReadinessResult {
       const completion = this.getOverallCompletion();
       const autoCount = this.getLineageCount('AUTO');
+      const adaptedCount = this.getLineageCount('ADAPTED');
+      const manualCount = this.getLineageCount('MANUAL');
       const emptyCount = this.getTotalFieldCount() - this.getFilledFieldCount();
       const score = Math.min(completion, 100);
       return {
          isReady: score >= 85,
          score,
-         overallAssessment: score >= 85 ? 'Draft appears sufficiently complete for review.' : 'Several fields remain incomplete. Address gaps before submitting.',
+         overallAssessment: score >= 85
+            ? `Draft is ${score}% complete with ${autoCount} AI-filled, ${adaptedCount} adapted, and ${manualCount} manual entries. Appears sufficiently complete for review.`
+            : `Draft is only ${score}% complete with ${emptyCount} empty fields remaining. Address gaps before submitting for governance review.`,
          domains: [
             { name: 'Product Specifications', status: completion > 60 ? 'PASS' : 'FAIL', observation: `${completion}% of fields completed across template.` },
             { name: 'Risk Assessment', status: autoCount > 10 ? 'PASS' : 'MISSING', observation: `${autoCount} fields auto-filled by agent. Review for accuracy.` },
