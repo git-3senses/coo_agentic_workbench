@@ -115,18 +115,6 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
             <!-- ====== DOCUMENT VIEW (Template Tree) ====== -->
             <ng-container *ngIf="viewMode === 'document'">
 
-            <!-- Document header — Confluence-style clean white header -->
-            <div class="bg-white border-b border-gray-200" style="max-width:900px; margin:0 auto; padding: 28px 40px 20px;">
-               <h1 class="text-xl font-bold text-gray-900 leading-snug mb-1">{{ getDocTitle() }}</h1>
-               <p class="text-[13px] text-gray-500 leading-relaxed mb-3">New Product Approval &mdash; Draft &middot; v1.0</p>
-               <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-gray-500 pt-2 border-t border-gray-100">
-                  <span><strong class="text-gray-700">Status:</strong> Draft</span>
-                  <span><strong class="text-gray-700">Created:</strong> {{ getDocDate() }}</span>
-                  <span><strong class="text-gray-700">Owner:</strong> {{ getDocOwner() }}</span>
-                  <span class="ml-auto px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px] font-semibold">Full NPA</span>
-               </div>
-            </div>
-
             <!-- Part C — Template tree renderer -->
             <div class="bg-white npa-doc-body">
 
@@ -317,18 +305,6 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
 
             <!-- ====== FORM VIEW (Template Tree — same hierarchy as Doc View) ====== -->
             <ng-container *ngIf="viewMode === 'form'">
-
-            <!-- Document header — same as Doc View -->
-            <div class="bg-white border-b border-gray-200" style="max-width:960px; margin:0 auto; padding: 28px 40px 20px;">
-               <h1 class="text-xl font-bold text-gray-900 leading-snug mb-1">{{ getDocTitle() }}</h1>
-               <p class="text-[13px] text-gray-500 leading-relaxed mb-3">New Product Approval &mdash; Draft &middot; v1.0</p>
-               <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-gray-500 pt-2 border-t border-gray-100">
-                  <span><strong class="text-gray-700">Status:</strong> Draft</span>
-                  <span><strong class="text-gray-700">Created:</strong> {{ getDocDate() }}</span>
-                  <span><strong class="text-gray-700">Owner:</strong> {{ getDocOwner() }}</span>
-                  <span class="ml-auto px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px] font-semibold">Form Edit Mode</span>
-               </div>
-            </div>
 
             <div class="npa-form-body">
 
@@ -524,11 +500,9 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
 
          </div>
 
-         <!-- RIGHT SIDEBAR — Summary Dashboard / Source Inspector -->
-         <div class="w-72 bg-white border-l border-gray-200 flex-none flex flex-col overflow-y-auto hidden lg:flex">
+         <!-- RIGHT SIDEBAR — Source Inspector (only visible when field focused) -->
+         <div *ngIf="focusedField" class="w-72 bg-white border-l border-gray-200 flex-none flex flex-col overflow-y-auto hidden lg:flex">
 
-            <!-- If a field is focused: Source Inspector -->
-            <ng-container *ngIf="focusedField">
                <div class="h-11 border-b border-gray-100 flex items-center justify-between px-4 bg-gray-50 flex-none">
                    <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                       <lucide-icon name="eye" class="w-3.5 h-3.5"></lucide-icon> Source Inspector
@@ -578,18 +552,6 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
                       </div>
                    </div>
                </div>
-            </ng-container>
-
-            <!-- Default state: Minimal prompt to select a field -->
-            <ng-container *ngIf="!focusedField">
-               <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
-                  <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                     <lucide-icon name="eye" class="w-5 h-5 text-gray-400"></lucide-icon>
-                  </div>
-                  <h4 class="text-sm font-semibold text-gray-600 mb-1">Source Inspector</h4>
-                  <p class="text-[12px] text-gray-400 leading-relaxed">Click any field to view its lineage, source data, and confidence score.</p>
-               </div>
-            </ng-container>
          </div>
 
     </div>
@@ -676,8 +638,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
 
     /* ===== Confluence-style NPA Document Layout ===== */
     .npa-doc-body {
-      max-width: 900px;
-      margin: 0 auto;
+      margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
       color: #172b4d;
     }
@@ -835,8 +796,7 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
 
     /* ===== Form View — Template Tree Layout ===== */
     .npa-form-body {
-      max-width: 960px;
-      margin: 0 auto;
+      margin: 0;
       padding: 0 0 40px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
     }

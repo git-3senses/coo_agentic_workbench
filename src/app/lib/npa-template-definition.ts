@@ -747,9 +747,10 @@ export function getNavSections(): { id: string; label: string; numbering: string
     }
   }
 
-  // Appendices
-  for (const app of NPA_APPENDICES_TEMPLATE) {
-    sections.push({ id: app.id, label: app.label, numbering: app.numbering });
+  // Appendices — use short numbering (A1, A2) for sidebar nav
+  for (let i = 0; i < NPA_APPENDICES_TEMPLATE.length; i++) {
+    const app = NPA_APPENDICES_TEMPLATE[i];
+    sections.push({ id: app.id, label: app.label, numbering: `A${i + 1}` });
   }
 
   return sections;
