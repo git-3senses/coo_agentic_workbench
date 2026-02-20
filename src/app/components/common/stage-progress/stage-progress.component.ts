@@ -21,15 +21,15 @@ import { LucideAngularModule } from 'lucide-angular';
                 
                 <lucide-icon *ngIf="i < currentStageIndex" name="check" class="w-4 h-4"></lucide-icon>
                 <span *ngIf="i === currentStageIndex" class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-                <span *ngIf="i > currentStageIndex" class="text-[10px] font-bold text-gray-600">{{i + 1}}</span>
+                <span *ngIf="i > currentStageIndex" class="text-[10px] font-bold text-slate-600">{{i + 1}}</span>
              </div>
 
              <div class="pt-1">
                 <h4 class="text-sm font-medium transition-colors"
-                    [ngClass]="i === currentStageIndex ? 'text-white' : i < currentStageIndex ? 'text-gray-300' : 'text-gray-600'">
+                    [ngClass]="i === currentStageIndex ? 'text-white' : i < currentStageIndex ? 'text-slate-300' : 'text-slate-600'">
                     {{ stage.label }}
                 </h4>
-                <p class="text-[10px] text-gray-500 mt-0.5" *ngIf="stage.description">{{ stage.description }}</p>
+                <p class="text-[10px] text-slate-500 mt-0.5" *ngIf="stage.description">{{ stage.description }}</p>
                 
                 <!-- Agent vs Human Indicators -->
                 <div class="flex items-center gap-2 mt-2" *ngIf="i === currentStageIndex">
@@ -58,7 +58,7 @@ export class StageProgressComponent {
         } else if (index === this.currentStageIndex) {
             return 'bg-[#0e0e0e] border-blue-500 text-white ring-2 ring-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.3)]';
         } else {
-            return 'bg-[#0e0e0e] border-[#2e2e2e] text-gray-600';
+            return 'bg-[#0e0e0e] border-[#2e2e2e] text-slate-600';
         }
     }
 }

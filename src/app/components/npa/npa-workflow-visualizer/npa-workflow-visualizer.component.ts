@@ -22,7 +22,7 @@ export interface WorkflowStage {
       <!-- HORIZONTAL STEPPER (Macro View) -->
       <div class="relative flex items-center justify-between mb-12 px-4">
         <!-- Connecting Line -->
-        <div class="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-gray-100 -z-10 rounded-full"></div>
+        <div class="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-slate-100 -z-10 rounded-full"></div>
         <div class="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-blue-600 transition-all duration-1000 ease-out -z-10 rounded-full" [style.width]="progressPercentage + '%'"></div>
 
         <!-- Steps -->
@@ -37,8 +37,8 @@ export interface WorkflowStage {
           <!-- Label -->
           <div class="absolute top-14 w-32 text-center transition-all duration-300"
                [ngClass]="stage.status === 'PENDING' ? 'opacity-50 grayscale' : 'opacity-100'">
-            <p class="text-sm font-bold text-gray-900">{{ stage.label }}</p>
-            <p *ngIf="stage.date" class="text-[10px] text-gray-500 mt-0.5 font-mono">{{ stage.date | date:'MMM d' }}</p>
+            <p class="text-sm font-bold text-slate-900">{{ stage.label }}</p>
+            <p *ngIf="stage.date" class="text-[10px] text-slate-500 mt-0.5 font-mono">{{ stage.date | date:'MMM d' }}</p>
             <p *ngIf="stage.status === 'IN_PROGRESS'" class="text-[10px] text-blue-600 font-bold uppercase tracking-wider animate-pulse mt-0.5">Active</p>
           </div>
 
@@ -46,30 +46,30 @@ export interface WorkflowStage {
       </div>
 
       <!-- DETAILED SWIMLANES (Micro View for Active Stage) -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
           
           <!-- Header -->
-          <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+          <div class="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
               <div>
-                  <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                     Current Phase: {{ currentStage?.label }}
                     <span *ngIf="currentStage?.status === 'IN_PROGRESS'" class="relative flex h-2.5 w-2.5 ml-1">
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                       <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
                     </span>
                   </h3>
-                  <p class="text-sm text-gray-500 mt-1">Target Completion: {{ targetCompletion | date:'mediumDate' }} • <span class="text-amber-600 font-semibold">2 Blockers</span> detected</p>
+                  <p class="text-sm text-slate-500 mt-1">Target Completion: {{ targetCompletion | date:'mediumDate' }} • <span class="text-amber-600 font-semibold">2 Blockers</span> detected</p>
               </div>
               <div class="flex items-center gap-2">
-                  <span class="text-xs font-semibold text-gray-500 uppercase">Total Velocity</span>
-                  <div class="h-2 w-24 bg-gray-100 rounded-full overflow-hidden">
+                  <span class="text-xs font-semibold text-slate-500 uppercase">Total Velocity</span>
+                  <div class="h-2 w-24 bg-slate-100 rounded-full overflow-hidden">
                       <div class="h-full bg-green-500 w-2/3 rounded-full"></div>
                   </div>
               </div>
           </div>
 
           <!-- Task List -->
-          <div class="divide-y divide-gray-100">
+          <div class="divide-y divide-slate-100">
              <div *ngFor="let task of currentStage?.subTasks" class="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group">
                  
                  <!-- Status Icon -->
@@ -80,15 +80,15 @@ export interface WorkflowStage {
                     <div *ngIf="task.status === 'IN_PROGRESS'" class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center animate-pulse">
                         <lucide-icon name="loader-2" class="w-3.5 h-3.5 animate-spin"></lucide-icon>
                     </div>
-                     <div *ngIf="task.status === 'PENDING'" class="w-6 h-6 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center">
+                     <div *ngIf="task.status === 'PENDING'" class="w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
                         <lucide-icon name="circle" class="w-3.5 h-3.5"></lucide-icon>
                     </div>
                  </div>
 
                  <!-- Content -->
                  <div class="flex-1">
-                     <p class="text-sm font-medium text-gray-900" [class.line-through]="task.status === 'COMPLETED'" [class.text-gray-400]="task.status === 'COMPLETED'">{{ task.label }}</p>
-                     <p *ngIf="task.assignee" class="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                     <p class="text-sm font-medium text-slate-900" [class.line-through]="task.status === 'COMPLETED'" [class.text-slate-400]="task.status === 'COMPLETED'">{{ task.label }}</p>
+                     <p *ngIf="task.assignee" class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
                         <lucide-icon name="user" class="w-3 h-3"></lucide-icon> {{ task.assignee }}
                      </p>
                  </div>
@@ -104,7 +104,7 @@ export interface WorkflowStage {
           </div>
           
           <!-- Footer -->
-          <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-center text-gray-500">
+          <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs text-center text-slate-500">
               Process ID: NPA_WF_v2.4 • SLA Policy: Global Markets Standard
           </div>
 
@@ -159,7 +159,7 @@ export class NpaWorkflowVisualizerComponent implements OnInit {
         switch (status) {
             case 'COMPLETED': return 'bg-green-600 text-white border-green-600';
             case 'IN_PROGRESS': return 'bg-white text-blue-600 border-blue-600 shadow-blue-200 shadow-lg scale-110';
-            case 'PENDING': return 'bg-white text-gray-300 border-gray-200';
+            case 'PENDING': return 'bg-white text-slate-300 border-slate-200';
             case 'BLOCKED': return 'bg-white text-red-500 border-red-500';
             default: return '';
         }

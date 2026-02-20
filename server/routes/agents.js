@@ -243,20 +243,21 @@ router.post('/sessions/:id/messages/batch', async (req, res) => {
         // Delete existing messages for this session (full replace)
         await db.query('DELETE FROM agent_messages WHERE session_id = ?', [req.params.id]);
 
-        // Insert all messages
+        // Insert all messages (with original timestamps to preserve order)
         const values = messages.map(m => [
             req.params.id,
             m.role,
             m.content,
             m.agent_identity_id || null,
+            m.timestamp || new Date().toISOString(),
             m.metadata ? JSON.stringify(m.metadata) : null
         ]);
 
         if (values.length > 0) {
-            const placeholders = values.map(() => '(?, ?, ?, ?, ?)').join(', ');
+            const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
             const flatValues = values.flat();
             await db.query(
-                `INSERT INTO agent_messages (session_id, role, content, agent_identity_id, metadata)
+                `INSERT INTO agent_messages (session_id, role, content, agent_identity_id, timestamp, metadata)
                  VALUES ${placeholders}`,
                 flatValues
             );

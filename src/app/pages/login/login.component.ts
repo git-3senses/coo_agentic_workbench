@@ -24,7 +24,7 @@ interface UserOption {
 
         <!-- Logo + Title -->
         <div class="text-center mb-8">
-          <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-600/30">
+          <div class="w-16 h-16 bg-dbs-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-600/30">
             <lucide-icon name="shield-check" class="w-8 h-8 text-white"></lucide-icon>
           </div>
           <h1 class="text-2xl font-bold text-white tracking-tight">COO Agentic Workbench</h1>
@@ -33,8 +33,8 @@ interface UserOption {
 
         <!-- Login Card -->
         <div class="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 class="text-lg font-bold text-gray-900 mb-1">Sign In</h2>
-          <p class="text-sm text-gray-500 mb-6">Select your role to continue</p>
+          <h2 class="text-lg font-bold text-slate-900 mb-1">Sign In</h2>
+          <p class="text-sm text-slate-500 mb-6">Select your role to continue</p>
 
           <!-- User List -->
           <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
@@ -43,7 +43,7 @@ interface UserOption {
                     class="w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left"
                     [ngClass]="selectedUser?.id === user.id
                       ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'">
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'">
               <div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold"
                    [ngClass]="{
                      'bg-emerald-100 text-emerald-700': user.role === 'MAKER',
@@ -55,8 +55,8 @@ interface UserOption {
                 {{ getInitials(user.full_name) }}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-gray-900 truncate">{{ user.full_name }}</div>
-                <div class="text-xs text-gray-500 truncate">{{ user.department }} &middot; {{ user.role }}</div>
+                <div class="text-sm font-semibold text-slate-900 truncate">{{ user.full_name }}</div>
+                <div class="text-xs text-slate-500 truncate">{{ user.department }} &middot; {{ user.role }}</div>
               </div>
               <lucide-icon *ngIf="selectedUser?.id === user.id" name="check-circle" class="w-5 h-5 text-blue-600 flex-none"></lucide-icon>
             </button>
@@ -65,7 +65,7 @@ interface UserOption {
           <!-- Login Button -->
           <button (click)="login()"
                   [disabled]="!selectedUser || loading"
-                  class="w-full mt-6 px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  class="w-full mt-6 px-4 py-3 bg-dbs-primary text-white rounded-xl font-semibold text-sm hover:bg-dbs-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             <lucide-icon *ngIf="loading" name="loader-2" class="w-4 h-4 animate-spin"></lucide-icon>
             {{ loading ? 'Signing in...' : 'Sign In as ' + (selectedUser?.full_name || '...') }}
           </button>

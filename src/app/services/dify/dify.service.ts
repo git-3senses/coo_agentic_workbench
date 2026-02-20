@@ -519,6 +519,43 @@ export class DifyService {
         }
 
         if (markerStartIndex === -1 || !markers['NPA_ACTION']) {
+            // ── Text-based delegation detection ──
+            // Dify chatflow agents don't always emit [NPA_ACTION] markers.
+            // Detect delegation intent from natural language patterns so the
+            // frontend can switch the active agent even without formal markers.
+            const lowerAnswer = rawAnswer.toLowerCase();
+
+            // Map of Dify app names / keywords → internal agent IDs
+            // Patterns must be broad: LLM agents phrase routing decisions many ways
+            // e.g. "routing you to CF_NPA_Ideation", "I need to route this to CF_NPA_Ideation",
+            //      "Let me proceed" (after mentioning ideation), "initiating ideation session"
+            const delegationPatterns: { pattern: RegExp; agentId: string; intent: string }[] = [
+                { pattern: /(?:rout(?:e|ing)\b.*?cf_npa_ideation|rout(?:e|ing)\b.*?ideation\s+agent)|initiating\s+ideation\s+session|starting\s+(?:the\s+)?ideation\s+interview|delegate.*ideation|conduct\s+(?:the\s+)?structured\s+intake.*ideation/i, agentId: 'IDEATION', intent: 'create_npa' },
+                { pattern: /(?:rout(?:e|ing)\b.*?(?:the\s+)?classifier)|starting\s+classification|initiating\s+classification/i, agentId: 'CLASSIFIER', intent: 'classify_product' },
+                { pattern: /(?:rout(?:e|ing)\b.*?(?:the\s+)?risk\s+assess)|starting\s+risk\s+assessment|initiating\s+risk/i, agentId: 'RISK', intent: 'assess_risk' },
+                { pattern: /(?:rout(?:e|ing)\b.*?(?:the\s+)?autofill)|starting\s+(?:template\s+)?autofill|initiating\s+autofill/i, agentId: 'AUTOFILL', intent: 'autofill_template' },
+                { pattern: /(?:rout(?:e|ing)\b.*?(?:the\s+)?governance)|starting\s+governance\s+check/i, agentId: 'GOVERNANCE', intent: 'governance_check' },
+                { pattern: /(?:rout(?:e|ing)\b.*?(?:the\s+)?sign.?off)|starting\s+sign.?off\s+orchestration/i, agentId: 'SIGNOFF', intent: 'signoff_routing' },
+                { pattern: /(?:rout(?:e|ing)\b.*?cf_npa_query_assistant)|(?:rout(?:e|ing)\b.*?(?:the\s+)?diligence)/i, agentId: 'DILIGENCE', intent: 'query_kb' },
+            ];
+
+            for (const dp of delegationPatterns) {
+                if (dp.pattern.test(rawAnswer)) {
+                    console.log(`[DifyService] Text-based delegation detected → ${dp.agentId} (intent: ${dp.intent})`);
+                    return {
+                        agent_action: 'DELEGATE_AGENT',
+                        agent_id: this._activeAgentId || 'NPA_ORCHESTRATOR',
+                        payload: {
+                            target_agent: dp.agentId,
+                            intent: dp.intent,
+                            reason: 'Text-based delegation detected from agent response'
+                        },
+                        trace: {},
+                        _cleanAnswer: rawAnswer
+                    };
+                }
+            }
+
             return {
                 agent_action: 'SHOW_RAW_RESPONSE', agent_id: 'UNKNOWN',
                 payload: { raw_answer: rawAnswer }, trace: {},

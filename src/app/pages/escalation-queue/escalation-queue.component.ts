@@ -9,16 +9,16 @@ import { EscalationService, Escalation } from '../../services/escalation.service
     standalone: true,
     imports: [CommonModule, LucideAngularModule, FormsModule],
     template: `
-    <div class="h-full flex flex-col bg-gray-50 font-sans text-gray-900">
+    <div class="h-full flex flex-col bg-slate-50 font-sans text-slate-900">
 
       <!-- HEADER -->
-      <div class="flex-none bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shadow-sm">
+      <div class="flex-none bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shadow-sm">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <lucide-icon name="alert-triangle" class="w-6 h-6 text-rose-600"></lucide-icon>
             Escalation Queue
           </h1>
-          <p class="text-sm text-gray-500 mt-1">Dispute resolution and escalated issues requiring COO attention.</p>
+          <p class="text-sm text-slate-500 mt-1">Dispute resolution and escalated issues requiring COO attention.</p>
         </div>
         <div class="flex items-center gap-3">
           <div class="bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-xs font-bold border border-rose-100">
@@ -28,15 +28,15 @@ import { EscalationService, Escalation } from '../../services/escalation.service
       </div>
 
       <!-- TABS -->
-      <div class="flex-none bg-white border-b border-gray-200 px-8">
+      <div class="flex-none bg-white border-b border-slate-200 px-8">
         <div class="flex gap-6">
           <button *ngFor="let tab of tabs" (click)="activeTab = tab.key"
-                  class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-gray-900 transition-colors"
-                  [class.border-gray-900]="activeTab === tab.key" [class.text-gray-900]="activeTab === tab.key"
-                  [class.border-transparent]="activeTab !== tab.key" [class.text-gray-500]="activeTab !== tab.key">
+                  class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors"
+                  [class.border-slate-900]="activeTab === tab.key" [class.text-slate-900]="activeTab === tab.key"
+                  [class.border-transparent]="activeTab !== tab.key" [class.text-slate-500]="activeTab !== tab.key">
             {{ tab.label }}
             <span *ngIf="tab.count > 0" class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                  [ngClass]="tab.key === 'active' ? 'bg-rose-100 text-rose-600' : 'bg-gray-100 text-gray-500'">{{ tab.count }}</span>
+                  [ngClass]="tab.key === 'active' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'">{{ tab.count }}</span>
           </button>
         </div>
       </div>
@@ -45,7 +45,7 @@ import { EscalationService, Escalation } from '../../services/escalation.service
       <div class="flex-1 overflow-auto p-8">
         <div class="max-w-5xl mx-auto space-y-4">
 
-          <div *ngFor="let esc of filteredEscalations" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+          <div *ngFor="let esc of filteredEscalations" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
             <div class="p-6">
               <div class="flex items-start justify-between mb-4">
                 <div class="flex items-start gap-4">
@@ -59,11 +59,11 @@ import { EscalationService, Escalation } from '../../services/escalation.service
                     L{{ esc.escalation_level }}
                   </div>
                   <div>
-                    <h3 class="text-lg font-bold text-gray-900 leading-tight">{{ esc.npa_title }}</h3>
-                    <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
-                      <span class="bg-gray-100 px-2 py-0.5 rounded font-mono">{{ esc.project_id }}</span>
+                    <h3 class="text-lg font-bold text-slate-900 leading-tight">{{ esc.npa_title }}</h3>
+                    <div class="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
+                      <span class="bg-slate-100 px-2 py-0.5 rounded font-mono">{{ esc.project_id }}</span>
                       <span>{{ esc.npa_type }}</span>
-                      <span class="text-gray-300">|</span>
+                      <span class="text-slate-300">|</span>
                       <span>Stage: {{ esc.current_stage }}</span>
                     </div>
                   </div>
@@ -81,21 +81,21 @@ import { EscalationService, Escalation } from '../../services/escalation.service
               </div>
 
               <!-- Trigger Detail -->
-              <div class="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-100">
-                <h4 class="text-xs font-bold text-gray-500 uppercase mb-1">Escalation Reason</h4>
-                <p class="text-sm text-gray-700">{{ parseReason(esc.trigger_detail) }}</p>
+              <div class="bg-slate-50 rounded-lg p-3 mb-4 border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-500 uppercase mb-1">Escalation Reason</h4>
+                <p class="text-sm text-slate-700">{{ parseReason(esc.trigger_detail) }}</p>
               </div>
 
               <!-- Meta Row -->
-              <div class="flex items-center justify-between text-xs text-gray-500">
+              <div class="flex items-center justify-between text-xs text-slate-500">
                 <div class="flex items-center gap-4">
                   <span class="flex items-center gap-1.5">
                     <lucide-icon name="user" class="w-3.5 h-3.5"></lucide-icon>
-                    Escalated by: <strong class="text-gray-700">{{ esc.escalated_by }}</strong>
+                    Escalated by: <strong class="text-slate-700">{{ esc.escalated_by }}</strong>
                   </span>
                   <span class="flex items-center gap-1.5">
                     <lucide-icon name="arrow-up-right" class="w-3.5 h-3.5"></lucide-icon>
-                    To: <strong class="text-gray-700">{{ esc.escalated_to }}</strong>
+                    To: <strong class="text-slate-700">{{ esc.escalated_to }}</strong>
                   </span>
                   <span class="flex items-center gap-1.5">
                     <lucide-icon name="clock" class="w-3.5 h-3.5"></lucide-icon>
@@ -126,12 +126,12 @@ import { EscalationService, Escalation } from '../../services/escalation.service
           </div>
 
           <!-- EMPTY STATE -->
-          <div *ngIf="filteredEscalations.length === 0" class="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+          <div *ngIf="filteredEscalations.length === 0" class="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
             <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 mb-4">
               <lucide-icon name="check-circle" class="w-8 h-8 text-green-400"></lucide-icon>
             </div>
-            <h3 class="text-lg font-medium text-gray-900">No {{ activeTab }} escalations</h3>
-            <p class="text-gray-500 mt-2">All clear! No issues require attention right now.</p>
+            <h3 class="text-lg font-medium text-slate-900">No {{ activeTab }} escalations</h3>
+            <p class="text-slate-500 mt-2">All clear! No issues require attention right now.</p>
           </div>
         </div>
       </div>
@@ -139,34 +139,34 @@ import { EscalationService, Escalation } from '../../services/escalation.service
       <!-- RESOLVE MODAL -->
       <div *ngIf="resolveModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-          <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-gray-900">Resolve Escalation</h2>
-            <button (click)="resolveModal = null" class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+          <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-slate-900">Resolve Escalation</h2>
+            <button (click)="resolveModal = null" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400">
               <lucide-icon name="x" class="w-5 h-5"></lucide-icon>
             </button>
           </div>
           <div class="p-6 space-y-4">
             <div>
-              <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Decision</label>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5">Decision</label>
               <div class="flex gap-3">
                 <button (click)="resolveDecision = 'PROCEED'" class="flex-1 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors"
-                        [ngClass]="resolveDecision === 'PROCEED' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'">
+                        [ngClass]="resolveDecision === 'PROCEED' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
                   Proceed with NPA
                 </button>
                 <button (click)="resolveDecision = 'REJECT'" class="flex-1 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors"
-                        [ngClass]="resolveDecision === 'REJECT' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'">
+                        [ngClass]="resolveDecision === 'REJECT' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
                   Reject NPA
                 </button>
               </div>
             </div>
             <div>
-              <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">Resolution Notes</label>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5">Resolution Notes</label>
               <textarea [(ngModel)]="resolveNotes" rows="3" placeholder="Enter resolution details..."
-                        class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"></textarea>
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"></textarea>
             </div>
           </div>
-          <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-            <button (click)="resolveModal = null" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200">Cancel</button>
+          <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+            <button (click)="resolveModal = null" class="px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-lg border border-dbs-border">Cancel</button>
             <button (click)="submitResolve()" [disabled]="!resolveNotes || !resolveDecision"
                     class="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Resolve

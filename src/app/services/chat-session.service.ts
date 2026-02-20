@@ -365,6 +365,7 @@ export class ChatSessionService {
             role: m.role,
             content: m.content,
             agent_identity_id: m.agentIdentityId || null,
+            timestamp: m.timestamp || new Date().toISOString(),
             metadata: {
                 cardType: m.cardType || null,
                 cardData: m.cardData || null,

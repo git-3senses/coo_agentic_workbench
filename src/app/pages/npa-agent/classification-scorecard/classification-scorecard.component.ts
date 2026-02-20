@@ -32,7 +32,7 @@ export interface ClassificationCriterion {
     <div [ngClass]="embedded ? 'h-full flex flex-col bg-slate-50' : 'fixed inset-0 z-[200] bg-slate-50 flex flex-col'" class="font-sans text-slate-900">
         
         <!-- HEADER -->
-        <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+        <div class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
             <div>
                 <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                     <lucide-icon name="scale" class="w-5 h-5 text-indigo-600"></lucide-icon>
@@ -51,7 +51,7 @@ export interface ClassificationCriterion {
                     {{ isScanning ? 'Scanning Brief...' : 'AI Risk Scan' }}
                 </button>
 
-                <div class="h-8 w-px bg-gray-200"></div>
+                <div class="h-8 w-px bg-slate-200"></div>
 
                 <!-- TIER DISPLAY -->
                 <div class="text-right">
@@ -69,18 +69,18 @@ export interface ClassificationCriterion {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto">
                 
                 <!-- CATEGORY BLOCK -->
-                <div *ngFor="let cat of categories" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-                    <div class="bg-slate-50 px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <div *ngFor="let cat of categories" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                    <div class="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wide flex items-center gap-2">
                             <lucide-icon [name]="cat.icon" class="w-4 h-4 text-slate-400"></lucide-icon>
                             {{ cat.name }}
                         </h3>
-                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white border border-gray-200 text-slate-500">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">
                             {{ getCategoryScore(cat.id) }}/5
                         </span>
                     </div>
                     
-                    <div class="divide-y divide-gray-50">
+                    <div class="divide-y divide-slate-50">
                         <div *ngFor="let criterion of getCriteria(cat.id)" 
                              class="p-4 hover:bg-slate-50/50 transition-colors group relative">
                             
@@ -89,7 +89,7 @@ export interface ClassificationCriterion {
                                     <input type="checkbox" 
                                            [(ngModel)]="criterion.met" 
                                            (change)="calculateTier()"
-                                           class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                                           class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
                                 </div>
                                 <div class="flex-1">
                                     <p class="text-sm font-medium text-slate-700 leading-snug" 
@@ -112,7 +112,7 @@ export interface ClassificationCriterion {
         </div>
 
         <!-- FOOTER -->
-        <div class="bg-white border-t border-gray-200 p-4 flex justify-between items-center shrink-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div class="bg-white border-t border-slate-200 p-4 flex justify-between items-center shrink-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <div class="flex items-center gap-4 text-xs text-slate-500">
                 <div class="flex items-center gap-1.5">
                      <div class="w-2 h-2 rounded-full bg-emerald-500"></div> Lite (0-9)

@@ -9,16 +9,16 @@ import { PirService, PirItem } from '../../services/pir.service';
     standalone: true,
     imports: [CommonModule, LucideAngularModule, FormsModule],
     template: `
-    <div class="h-full flex flex-col bg-gray-50 font-sans text-gray-900">
+    <div class="h-full flex flex-col bg-slate-50 font-sans text-slate-900">
 
       <!-- HEADER -->
-      <div class="flex-none bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shadow-sm">
+      <div class="flex-none bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shadow-sm">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <lucide-icon name="clipboard-check" class="w-6 h-6 text-purple-600"></lucide-icon>
             Post-Implementation Reviews
           </h1>
-          <p class="text-sm text-gray-500 mt-1">Track and manage PIR submissions for launched products.</p>
+          <p class="text-sm text-slate-500 mt-1">Track and manage PIR submissions for launched products.</p>
         </div>
         <div class="flex items-center gap-3">
           <div class="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-100"
@@ -32,27 +32,27 @@ import { PirService, PirItem } from '../../services/pir.service';
       </div>
 
       <!-- KPI STRIP -->
-      <div class="flex-none bg-white border-b border-gray-200 px-8 py-4">
+      <div class="flex-none bg-white border-b border-slate-200 px-8 py-4">
         <div class="flex gap-8 text-sm">
           <div class="flex items-center gap-2">
             <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-            <span class="text-gray-500">Overdue:</span>
-            <span class="font-bold text-gray-900">{{ overdueCount }}</span>
+            <span class="text-slate-500">Overdue:</span>
+            <span class="font-bold text-slate-900">{{ overdueCount }}</span>
           </div>
           <div class="flex items-center gap-2">
             <div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-            <span class="text-gray-500">Due < 30d:</span>
-            <span class="font-bold text-gray-900">{{ dueSoonCount }}</span>
+            <span class="text-slate-500">Due < 30d:</span>
+            <span class="font-bold text-slate-900">{{ dueSoonCount }}</span>
           </div>
           <div class="flex items-center gap-2">
             <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-            <span class="text-gray-500">Submitted:</span>
-            <span class="font-bold text-gray-900">{{ submittedCount }}</span>
+            <span class="text-slate-500">Submitted:</span>
+            <span class="font-bold text-slate-900">{{ submittedCount }}</span>
           </div>
           <div class="flex items-center gap-2">
             <div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-            <span class="text-gray-500">Completed:</span>
-            <span class="font-bold text-gray-900">{{ completedCount }}</span>
+            <span class="text-slate-500">Completed:</span>
+            <span class="font-bold text-slate-900">{{ completedCount }}</span>
           </div>
         </div>
       </div>
@@ -60,9 +60,9 @@ import { PirService, PirItem } from '../../services/pir.service';
       <!-- TABLE -->
       <div class="flex-1 overflow-auto p-8">
         <div class="max-w-6xl mx-auto">
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table class="w-full text-left text-xs">
-              <thead class="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase tracking-wider font-semibold">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                 <tr>
                   <th class="px-6 py-3">Product</th>
                   <th class="px-6 py-3">Type</th>
@@ -72,14 +72,14 @@ import { PirService, PirItem } from '../../services/pir.service';
                   <th class="px-6 py-3 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let item of items" class="hover:bg-gray-50 transition-colors">
+              <tbody class="divide-y divide-slate-100">
+                <tr *ngFor="let item of items" class="hover:bg-slate-50 transition-colors">
                   <td class="px-6 py-4">
-                    <div class="font-bold text-gray-900 text-sm">{{ item.title }}</div>
-                    <div class="text-[10px] text-gray-400 font-mono mt-0.5">{{ item.id }}</div>
+                    <div class="font-bold text-slate-900 text-sm">{{ item.title }}</div>
+                    <div class="text-[10px] text-slate-400 font-mono mt-0.5">{{ item.id }}</div>
                   </td>
                   <td class="px-6 py-4">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-gray-50 text-gray-600 border-gray-200">{{ item.npa_type }}</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-slate-50 text-slate-600 border-slate-200">{{ item.npa_type }}</span>
                   </td>
                   <td class="px-6 py-4">
                     <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border"
@@ -99,14 +99,14 @@ import { PirService, PirItem } from '../../services/pir.service';
                       {{ item.pir_status }}
                     </span>
                   </td>
-                  <td class="px-6 py-4 text-gray-600 font-mono text-[11px]">
+                  <td class="px-6 py-4 text-slate-600 font-mono text-[11px]">
                     {{ item.pir_due_date | date:'mediumDate' }}
                   </td>
                   <td class="px-6 py-4 text-right font-mono font-medium"
                       [ngClass]="{
                         'text-red-600': item.days_until_due < 0,
                         'text-amber-600': item.days_until_due >= 0 && item.days_until_due <= 30,
-                        'text-gray-500': item.days_until_due > 30
+                        'text-slate-500': item.days_until_due > 30
                       }">
                     {{ item.days_until_due < 0 ? item.days_until_due + 'd' : '+' + item.days_until_due + 'd' }}
                   </td>
@@ -114,7 +114,7 @@ import { PirService, PirItem } from '../../services/pir.service';
                     <div class="flex items-center justify-center gap-2">
                       <button *ngIf="item.pir_status === 'PENDING' || item.pir_status === 'OVERDUE'"
                               (click)="submitPir(item)"
-                              class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] font-semibold hover:bg-blue-700 transition-colors">
+                              class="px-3 py-1.5 bg-dbs-primary text-white rounded-lg text-xs font-semibold hover:bg-dbs-primary-hover transition-colors">
                         Submit PIR
                       </button>
                       <button *ngIf="item.pir_status === 'SUBMITTED'"
@@ -124,7 +124,7 @@ import { PirService, PirItem } from '../../services/pir.service';
                       </button>
                       <button *ngIf="item.pir_status !== 'COMPLETED'"
                               (click)="extendPir(item)"
-                              class="px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg text-[11px] font-semibold hover:bg-gray-50 transition-colors">
+                              class="px-3 py-1.5 bg-white text-slate-700 border border-dbs-border rounded-lg text-xs font-semibold hover:bg-slate-50 transition-colors">
                         Extend
                       </button>
                     </div>
@@ -135,9 +135,9 @@ import { PirService, PirItem } from '../../services/pir.service';
 
             <!-- EMPTY STATE -->
             <div *ngIf="items.length === 0" class="text-center py-20">
-              <lucide-icon name="clipboard-check" class="w-12 h-12 text-gray-300 mx-auto mb-4"></lucide-icon>
-              <h3 class="text-lg font-medium text-gray-900">No PIRs pending</h3>
-              <p class="text-gray-500 mt-2">All launched products have completed their reviews.</p>
+              <lucide-icon name="clipboard-check" class="w-12 h-12 text-slate-300 mx-auto mb-4"></lucide-icon>
+              <h3 class="text-lg font-medium text-slate-900">No PIRs pending</h3>
+              <p class="text-slate-500 mt-2">All launched products have completed their reviews.</p>
             </div>
           </div>
         </div>

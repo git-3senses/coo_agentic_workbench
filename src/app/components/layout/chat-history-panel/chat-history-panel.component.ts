@@ -13,19 +13,19 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
     <div class="flex flex-col h-full bg-[#f9f9f9] overflow-hidden">
 
         <!-- Header -->
-        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200/60">
-            <h3 class="text-sm font-bold text-gray-900 flex items-center gap-2">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200/60">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <lucide-icon name="message-square" class="w-4 h-4 text-violet-600"></lucide-icon>
                 Chat History
             </h3>
             <div class="flex items-center gap-1">
                 <button (click)="onNewChat.emit()"
-                        class="p-1.5 rounded-md hover:bg-violet-50 text-gray-500 hover:text-violet-600 transition-colors"
+                        class="p-1.5 rounded-md hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition-colors"
                         title="New Chat">
                     <lucide-icon name="plus" class="w-4 h-4"></lucide-icon>
                 </button>
                 <button (click)="onClose.emit()"
-                        class="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                        class="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
                         title="Close panel">
                     <lucide-icon name="panel-left" class="w-4 h-4"></lucide-icon>
                 </button>
@@ -33,30 +33,30 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
         </div>
 
         <!-- Search -->
-        <div class="px-3 py-2 border-b border-gray-200/40">
+        <div class="px-3 py-2 border-b border-slate-200/40">
             <div class="relative">
-                <lucide-icon name="search" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2"></lucide-icon>
+                <lucide-icon name="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></lucide-icon>
                 <input type="text"
                        [(ngModel)]="searchQuery"
                        placeholder="Search chats..."
-                       class="w-full bg-white text-xs rounded-lg pl-8 pr-3 py-2 border border-gray-200 focus:border-violet-300 focus:ring-1 focus:ring-violet-200 focus:outline-none transition-all placeholder:text-gray-400">
+                       class="w-full bg-white text-xs rounded-lg pl-8 pr-3 py-2 border border-slate-200 focus:border-violet-300 focus:ring-1 focus:ring-violet-200 focus:outline-none transition-all placeholder:text-slate-400">
             </div>
         </div>
 
         <!-- Session List -->
         <div class="flex-1 overflow-y-auto scrollbar-thin">
             <div *ngIf="filteredGroups().length === 0" class="flex flex-col items-center justify-center h-full text-center px-6 py-12">
-                <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                    <lucide-icon name="message-square" class="w-5 h-5 text-gray-400"></lucide-icon>
+                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                    <lucide-icon name="message-square" class="w-5 h-5 text-slate-400"></lucide-icon>
                 </div>
-                <p class="text-sm text-gray-500 font-medium">No conversations yet</p>
-                <p class="text-xs text-gray-400 mt-1">Start chatting with the COO Agent</p>
+                <p class="text-sm text-slate-500 font-medium">No conversations yet</p>
+                <p class="text-xs text-slate-400 mt-1">Start chatting with the COO Agent</p>
             </div>
 
             <div *ngFor="let group of filteredGroups()" class="py-1">
                 <!-- Group Label -->
                 <div class="px-4 py-1.5">
-                    <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{{ group.label }}</span>
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{{ group.label }}</span>
                 </div>
 
                 <!-- Session Items -->
@@ -68,7 +68,7 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
                             class="w-full text-left px-3 py-2.5 rounded-lg transition-all text-[13px] flex items-start gap-2.5"
                             [ngClass]="session.id === activeSessionId()
                                 ? 'bg-violet-50 border border-violet-200'
-                                : 'hover:bg-gray-100/80 border border-transparent'">
+                                : 'hover:bg-slate-100/80 border border-transparent'">
 
                         <!-- Agent dot -->
                         <div class="w-5 h-5 rounded-md flex-none flex items-center justify-center mt-0.5"
@@ -80,7 +80,7 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
                         <div class="flex-1 min-w-0">
                             <!-- Title (editable on double-click) -->
                             <div *ngIf="editingId !== session.id"
-                                 class="font-medium text-gray-900 truncate leading-snug"
+                                 class="font-medium text-slate-900 truncate leading-snug"
                                  (dblclick)="startRename(session)">
                                 {{ session.title }}
                             </div>
@@ -92,7 +92,7 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
                                    #renameInput>
 
                             <!-- Preview -->
-                            <p class="text-[11px] text-gray-400 truncate leading-tight mt-0.5">
+                            <p class="text-[11px] text-slate-400 truncate leading-tight mt-0.5">
                                 {{ session.messageCount }} messages
                                 <span class="mx-1">&middot;</span>
                                 {{ formatTime(session.updatedAt) }}
@@ -102,14 +102,14 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
 
                     <!-- Actions (on hover) -->
                     <div *ngIf="hoveredId === session.id"
-                         class="absolute right-2 top-2 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm rounded-md border border-gray-200 shadow-sm px-0.5 py-0.5 z-10">
+                         class="absolute right-2 top-2 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm rounded-md border border-slate-200 shadow-sm px-0.5 py-0.5 z-10">
                         <button (click)="startRename(session); $event.stopPropagation()"
-                                class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                                class="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
                                 title="Rename">
                             <lucide-icon name="edit-3" class="w-3 h-3"></lucide-icon>
                         </button>
                         <button (click)="deleteSession(session.id); $event.stopPropagation()"
-                                class="p-1 rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
+                                class="p-1 rounded hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors"
                                 title="Delete">
                             <lucide-icon name="x" class="w-3 h-3"></lucide-icon>
                         </button>
@@ -119,10 +119,10 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
         </div>
 
         <!-- Footer -->
-        <div class="p-3 border-t border-gray-200/60 flex-none">
+        <div class="p-3 border-t border-slate-200/60 flex-none">
             <button *ngIf="sessionService.sessions().length > 0"
                     (click)="sessionService.clearAll()"
-                    class="w-full text-xs text-gray-400 hover:text-red-500 py-1.5 rounded-md hover:bg-red-50/50 transition-colors font-medium">
+                    class="w-full text-xs text-slate-400 hover:text-red-500 py-1.5 rounded-md hover:bg-red-50/50 transition-colors font-medium">
                 Clear All History
             </button>
         </div>

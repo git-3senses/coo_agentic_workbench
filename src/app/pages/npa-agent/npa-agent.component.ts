@@ -30,7 +30,7 @@ import { LayoutService } from '../../services/layout.service';
     </div>
 
     <!-- VIEW 2: Chat Interface (Agent-First Mode) -->
-    <div *ngIf="viewMode === 'IDEATION'" class="h-[calc(100vh-64px)] w-full border-t border-gray-200 bg-white">
+    <div *ngIf="viewMode === 'IDEATION'" class="h-[calc(100vh-64px)] w-full border-t border-slate-200 bg-white">
        <app-chat-interface
            (onBack)="goToDashboard()"
            (onComplete)="goToDraftWithData($event)">

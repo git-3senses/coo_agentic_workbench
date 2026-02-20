@@ -40,28 +40,28 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
     <div class="fixed inset-0 z-[100] flex flex-col h-screen w-screen bg-slate-50 overscroll-none font-sans">
       
       <!-- HEADER -->
-      <div class="flex-none bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm z-20">
+      <div class="flex-none bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm z-20">
         <div class="flex items-center gap-4">
           <!-- Back Button -->
-          <button (click)="onBack.emit()" class="group flex items-center justify-center p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          <button (click)="onBack.emit()" class="group flex items-center justify-center p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
             <lucide-icon name="arrow-left" class="w-6 h-6 stroke-[1.5] group-hover:-translate-x-0.5 transition-transform"></lucide-icon>
           </button>
           
           <div>
-            <div class="flex items-center gap-3 text-xs text-gray-500 mb-2">
-              <span class="font-medium text-gray-400">NPA Pipeline</span>
-              <lucide-icon name="chevron-right" class="w-3 h-3 text-gray-300"></lucide-icon>
-               <span class="font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{{ projectData?.id || projectId }}</span>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-2">
+              <span class="font-medium text-slate-400">NPA Pipeline</span>
+              <lucide-icon name="chevron-right" class="w-3 h-3 text-slate-300"></lucide-icon>
+               <span class="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{{ projectData?.id || projectId }}</span>
                <span class="flex items-center gap-1.5 ml-2">
                  <lucide-icon name="user" class="w-3 h-3"></lucide-icon>
-                 <span class="font-medium text-gray-700">Sarah Lim (SG FX Desk)</span>
+                 <span class="font-medium text-slate-700">{{ projectData?.submitted_by || projectData?.product_manager || 'Unknown' }}</span>
                </span>
-               <span class="text-gray-300">|</span>
-               <span class="text-gray-400">Sub: Dec 16, 09:42 AM</span>
+               <span class="text-slate-300">|</span>
+               <span class="text-slate-400">Sub: {{ formatSubmittedDate(projectData?.created_at) }}</span>
             </div>
             
             <div class="flex items-center gap-3">
-              <h1 class="text-lg font-bold text-gray-900 tracking-tight">
+              <h1 class="text-lg font-bold text-slate-900 tracking-tight">
                 {{ projectData?.title || 'Loading Project...' }}
               </h1>
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
@@ -91,19 +91,19 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
              <lucide-icon name="refresh-cw" class="w-4 h-4"></lucide-icon>
              Refresh Analysis
            </button>
-           <button class="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 hover:border-gray-300 flex items-center gap-2">
+           <button class="px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors border border-slate-200 hover:border-slate-300 flex items-center gap-2">
              <lucide-icon name="help-circle" class="w-4 h-4"></lucide-icon>
              Help
            </button>
-           <button class="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 hover:border-gray-300 flex items-center gap-2">
+           <button class="px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors border border-slate-200 hover:border-slate-300 flex items-center gap-2">
              <lucide-icon name="save" class="w-4 h-4"></lucide-icon>
              Save Draft
            </button>
-           <div class="h-6 w-px bg-gray-300 mx-1"></div>
+           <div class="h-6 w-px bg-slate-300 mx-1"></div>
            <button class="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100/50">
              Reject
            </button>
-           <button class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 shadow-blue-200">
+           <button class="px-4 py-2 text-sm font-semibold text-white bg-dbs-primary hover:bg-dbs-primary-hover rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 shadow-blue-200">
              Approve & Sign-Off
            </button>
         </div>
@@ -114,12 +114,12 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
         <div class="grid grid-cols-1 lg:grid-cols-12 h-full">
           
           <!-- LEFT COLUMN: Document Preview (4 cols) -->
-          <div class="lg:col-span-4 flex flex-col h-full border-r border-gray-200 bg-white p-0 overflow-hidden">
+          <div class="lg:col-span-4 flex flex-col h-full border-r border-slate-200 bg-white p-0 overflow-hidden">
             
             <!-- Preview Header -->
-             <div class="flex-none p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                <h3 class="font-semibold text-sm flex items-center gap-2 text-gray-900">
-                   <div class="p-1.5 bg-white border border-gray-200 rounded-md shadow-sm text-red-500">
+             <div class="flex-none p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 class="font-semibold text-sm flex items-center gap-2 text-slate-900">
+                   <div class="p-1.5 bg-white border border-slate-200 rounded-md shadow-sm text-red-500">
                       <lucide-icon name="file-text" class="w-4 h-4"></lucide-icon>
                    </div>
                    Document Preview
@@ -132,29 +132,29 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                  
                  <!-- Hover Overlay -->
                  <div class="absolute inset-0 bg-white/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center z-10 cursor-pointer">
-                     <div class="bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm font-medium shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                     <div class="bg-slate-900 text-white px-5 py-2.5 rounded-full text-sm font-medium shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
                         Click to expand view
                      </div>
                  </div>
                  
-                 <div class="w-48 h-64 bg-white shadow-2xl shadow-gray-300/50 border border-gray-200 rounded-lg p-6 relative transform group-hover:scale-105 transition-transform duration-500 ease-out">
+                 <div class="w-48 h-64 bg-white shadow-2xl shadow-slate-300/50 border border-slate-200 rounded-lg p-6 relative transform group-hover:scale-105 transition-transform duration-500 ease-out">
                     <!-- Paper Content Mock -->
                     <div class="space-y-3 opacity-60">
-                       <div class="h-2 w-1/3 bg-gray-800 rounded mb-4"></div>
-                       <div class="h-1.5 w-full bg-gray-200 rounded"></div>
-                       <div class="h-1.5 w-full bg-gray-200 rounded"></div>
-                       <div class="h-1.5 w-5/6 bg-gray-200 rounded"></div>
-                       <div class="h-1.5 w-full bg-gray-200 rounded mt-4"></div>
+                       <div class="h-2 w-1/3 bg-slate-800 rounded mb-4"></div>
+                       <div class="h-1.5 w-full bg-slate-200 rounded"></div>
+                       <div class="h-1.5 w-full bg-slate-200 rounded"></div>
+                       <div class="h-1.5 w-5/6 bg-slate-200 rounded"></div>
+                       <div class="h-1.5 w-full bg-slate-200 rounded mt-4"></div>
                        <div class="h-32 w-full bg-blue-50/50 border border-blue-100 rounded mt-2"></div>
                     </div>
                  </div>
-                 <p class="mt-6 text-sm font-medium text-gray-500">FX_Option_Term_Sheet_v1.pdf</p>
+                 <p class="mt-6 text-sm font-medium text-slate-500">FX_Option_Term_Sheet_v1.pdf</p>
              </div>
 
              <!-- File List (Enriched) -->
-             <div class="flex-none bg-white border-t border-gray-200 h-1/3 flex flex-col">
-                <div class="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                   <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Attachments (13)</h4>
+             <div class="flex-none bg-white border-t border-slate-200 h-1/3 flex flex-col">
+                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                   <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Attachments (13)</h4>
                    <button class="p-1 hover:bg-blue-50 text-blue-600 rounded">
                       <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
                    </button>
@@ -162,54 +162,54 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                 <div class="overflow-y-auto p-2 space-y-1">
                    
                    <!-- File Item: Valid -->
-                   <div class="flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer group transition-colors border border-transparent hover:border-gray-200">
+                   <div class="flex items-center p-2 rounded-lg hover:bg-slate-50 cursor-pointer group transition-colors border border-transparent hover:border-slate-200">
                       <div class="w-8 h-8 rounded bg-red-50 text-red-500 flex items-center justify-center mr-3 border border-red-100">
                          <lucide-icon name="file-text" class="w-4 h-4"></lucide-icon>
                       </div>
                       <div class="flex-1 min-w-0">
                          <div class="flex items-center justify-between">
-                            <p class="text-sm font-medium text-gray-900 truncate">Term_Sheet_Final.pdf</p>
+                            <p class="text-sm font-medium text-slate-900 truncate">Term_Sheet_Final.pdf</p>
                             <lucide-icon name="check-circle-2" class="w-3.5 h-3.5 text-green-500"></lucide-icon>
                          </div>
-                         <p class="text-xs text-gray-500 flex items-center gap-2">
+                         <p class="text-xs text-slate-500 flex items-center gap-2">
                             <span>2.4 MB</span>
-                            <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                            <span class="w-1 h-1 rounded-full bg-slate-300"></span>
                             <span>Product Specs</span>
                          </p>
                       </div>
                    </div>
 
                    <!-- File Item: Warning -->
-                   <div class="flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer group transition-colors">
+                   <div class="flex items-center p-2 rounded-lg hover:bg-slate-50 cursor-pointer group transition-colors">
                       <div class="w-8 h-8 rounded bg-blue-50 text-blue-500 flex items-center justify-center mr-3 border border-blue-100">
                          <lucide-icon name="file-bar-chart-2" class="w-4 h-4"></lucide-icon>
                       </div>
                       <div class="flex-1 min-w-0">
                          <div class="flex items-center justify-between">
-                            <p class="text-sm font-medium text-gray-900 truncate">Risk_Assessment_Draft.docx</p>
+                            <p class="text-sm font-medium text-slate-900 truncate">Risk_Assessment_Draft.docx</p>
                             <lucide-icon name="alert-triangle" class="w-3.5 h-3.5 text-amber-500"></lucide-icon>
                          </div>
-                         <p class="text-xs text-gray-500 flex items-center gap-2">
+                         <p class="text-xs text-slate-500 flex items-center gap-2">
                             <span>1.1 MB</span>
-                            <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                            <span class="w-1 h-1 rounded-full bg-slate-300"></span>
                             <span>Risk Analysis</span>
                          </p>
                       </div>
                    </div>
 
                     <!-- File Item -->
-                   <div class="flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer group transition-colors">
+                   <div class="flex items-center p-2 rounded-lg hover:bg-slate-50 cursor-pointer group transition-colors">
                       <div class="w-8 h-8 rounded bg-green-50 text-green-600 flex items-center justify-center mr-3 border border-green-100">
                          <lucide-icon name="file-check" class="w-4 h-4"></lucide-icon>
                       </div>
                       <div class="flex-1 min-w-0">
                          <div class="flex items-center justify-between">
-                            <p class="text-sm font-medium text-gray-900 truncate">Pricing_Model_v2.xlsx</p>
+                            <p class="text-sm font-medium text-slate-900 truncate">Pricing_Model_v2.xlsx</p>
                             <lucide-icon name="check-circle-2" class="w-3.5 h-3.5 text-green-500"></lucide-icon>
                          </div>
-                         <p class="text-xs text-gray-500 flex items-center gap-2">
+                         <p class="text-xs text-slate-500 flex items-center gap-2">
                             <span>8.5 MB</span>
-                            <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                            <span class="w-1 h-1 rounded-full bg-slate-300"></span>
                             <span>Finance</span>
                          </p>
                       </div>
@@ -223,17 +223,17 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
           <div class="lg:col-span-8 flex flex-col h-full bg-slate-50/50 overflow-hidden relative">
              
              <!-- Tabs Header -->
-             <div class="flex-none flex items-center px-3 border-b border-gray-200 bg-white gap-1 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+             <div class="flex-none flex items-center px-3 border-b border-slate-200 bg-white gap-1 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                 <button
                   *ngFor="let tab of tabs"
                   (click)="activeTab = tab.id"
                   [class]="activeTab === tab.id ?
                     'border-blue-600 text-blue-700 font-semibold' :
-                    'border-transparent text-gray-500 hover:text-gray-800 font-medium hover:bg-gray-50'"
+                    'border-transparent text-slate-500 hover:text-slate-800 font-medium hover:bg-slate-50'"
                   class="flex items-center gap-1.5 py-3 border-b-2 text-xs transition-all whitespace-nowrap px-2 rounded-t">
-                   <lucide-icon [name]="tab.icon" [class]="activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'" class="w-3.5 h-3.5"></lucide-icon>
+                   <lucide-icon [name]="tab.icon" [class]="activeTab === tab.id ? 'text-blue-600' : 'text-slate-400'" class="w-3.5 h-3.5"></lucide-icon>
                    {{ tab.label }}
-                   <span *ngIf="tab.badge" [class]="getBadgeColor(tab.id)" class="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-gray-100 text-gray-600 font-bold border border-gray-200/50">
+                   <span *ngIf="tab.badge" [class]="getBadgeColor(tab.id)" class="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-slate-100 text-slate-600 font-bold border border-slate-200/50">
                      {{ tab.badge }}
                    </span>
                 </button>
@@ -260,9 +260,9 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
 
                    <!-- Quick Summary Card -->
-                   <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                   <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                       <div class="flex items-center justify-between mb-6">
-                         <h2 class="text-lg font-bold text-gray-900">Product Attributes</h2>
+                         <h2 class="text-lg font-bold text-slate-900">Product Attributes</h2>
                          <div class="flex items-center gap-2">
                             <span class="text-xs font-medium text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-100">
                                ✅ Auto-Filled
@@ -272,12 +272,12 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
 
                       <div class="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-8">
                          <div *ngFor="let attr of productAttributes" class="group">
-                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                {{ attr.label }}
                                <lucide-icon *ngIf="attr.confidence > 90" name="sparkles" class="w-3 h-3 text-amber-400 opacity-60"></lucide-icon>
                             </p>
                             <div class="flex items-center gap-2">
-                               <p class="text-base font-semibold text-gray-900">{{ attr.value }}</p>
+                               <p class="text-base font-semibold text-slate-900">{{ attr.value }}</p>
                                <div class="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
                                   {{ attr.confidence }}%
                                </div>
@@ -287,8 +287,8 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
 
                    <!-- AutoFill Agent Results — Donut + Stats (clickable to open NPA Draft overlay) -->
-                   <div *ngIf="autoFillSummary" class="mt-6 pt-6 border-t border-gray-200">
-                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <div *ngIf="autoFillSummary" class="mt-6 pt-6 border-t border-slate-200">
+                      <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                          <lucide-icon name="file-edit" class="w-4 h-4 text-blue-500"></lucide-icon>
                          Template AutoFill Agent
                       </h4>
@@ -306,11 +306,11 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
 
                    <!-- Loading State: AutoFill agent running -->
                    <div *ngIf="!autoFillSummary" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div (click)="showTemplateEditor = true" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
-                         <h3 class="text-sm font-bold text-gray-900 mb-4 group-hover:text-blue-700">NPA Draft</h3>
+                      <div (click)="showTemplateEditor = true" class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
+                         <h3 class="text-sm font-bold text-slate-900 mb-4 group-hover:text-blue-700">NPA Draft</h3>
                          <div *ngIf="agentLoading['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
                             <lucide-icon name="loader-2" class="w-8 h-8 text-blue-400 animate-spin"></lucide-icon>
-                            <p class="mt-4 text-center text-sm text-gray-500">AutoFill agent populating NPA draft...</p>
+                            <p class="mt-4 text-center text-sm text-slate-500">AutoFill agent populating NPA draft...</p>
                          </div>
                          <div *ngIf="agentErrors['AUTOFILL']" class="text-center py-6">
                             <lucide-icon name="alert-circle" class="w-6 h-6 mx-auto mb-2 text-red-400"></lucide-icon>
@@ -318,8 +318,8 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                             <button (click)="retryAgent('AUTOFILL'); $event.stopPropagation()" class="mt-2 text-xs text-red-700 bg-red-100 px-3 py-1 rounded-lg hover:bg-red-200">Retry</button>
                          </div>
                          <div *ngIf="!agentLoading['AUTOFILL'] && !agentErrors['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
-                            <lucide-icon name="file-edit" class="w-8 h-8 text-gray-300"></lucide-icon>
-                            <p class="mt-3 text-sm text-gray-400">Click to view NPA Draft</p>
+                            <lucide-icon name="file-edit" class="w-8 h-8 text-slate-300"></lucide-icon>
+                            <p class="mt-3 text-sm text-slate-400">Click to view NPA Draft</p>
                          </div>
                       </div>
                       <div class="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100 p-6 flex items-center justify-center">
@@ -327,7 +327,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                             <lucide-icon name="loader-2" class="w-6 h-6 mx-auto text-blue-400 animate-spin"></lucide-icon>
                             <p class="text-xs text-blue-600 mt-2">Searching knowledge base...</p>
                          </div>
-                         <div *ngIf="!agentLoading['AUTOFILL']" class="text-center text-gray-400">
+                         <div *ngIf="!agentLoading['AUTOFILL']" class="text-center text-slate-400">
                             <lucide-icon name="database" class="w-6 h-6 mx-auto"></lucide-icon>
                             <p class="text-xs mt-2">KB Source Match</p>
                          </div>
@@ -335,21 +335,21 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
 
                    <!-- Classification Agent Result -->
-                   <div *ngIf="classificationResult" class="mt-8 pt-8 border-t border-gray-200">
-                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <div *ngIf="classificationResult" class="mt-8 pt-8 border-t border-slate-200">
+                      <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                          <lucide-icon name="git-branch" class="w-4 h-4 text-purple-500"></lucide-icon>
                          Classification Agent
                       </h4>
                       <app-classification-result [result]="classificationResult"></app-classification-result>
                    </div>
-                   <div *ngIf="!classificationResult && agentLoading['CLASSIFIER']" class="mt-8 pt-8 border-t border-gray-200">
-                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <div *ngIf="!classificationResult && agentLoading['CLASSIFIER']" class="mt-8 pt-8 border-t border-slate-200">
+                      <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                          <lucide-icon name="git-branch" class="w-4 h-4 text-purple-500"></lucide-icon>
                          Classification Agent
                       </h4>
-                      <div class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center">
-                         <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-400 animate-spin"></lucide-icon>
-                         <p class="text-sm font-medium text-gray-500">Classification agent analyzing product type...</p>
+                      <div class="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center">
+                         <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-slate-400 animate-spin"></lucide-icon>
+                         <p class="text-sm font-medium text-slate-500">Classification agent analyzing product type...</p>
                       </div>
                    </div>
                 </div>
@@ -359,14 +359,14 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    <app-document-dependency-matrix [npaContext]="npaContext"></app-document-dependency-matrix>
 
                    <!-- Document Lifecycle Agent Results -->
-                   <div class="mt-8 pt-6 border-t border-gray-200">
-                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <div class="mt-8 pt-6 border-t border-slate-200">
+                       <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                            <lucide-icon name="scan-search" class="w-4 h-4 text-teal-500"></lucide-icon>
                            Document Lifecycle Agent
                        </h4>
                        <app-doc-completeness *ngIf="docCompleteness" [result]="docCompleteness"></app-doc-completeness>
-                       <div *ngIf="!docCompleteness" class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center text-gray-500">
-                           <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-400 animate-spin"></lucide-icon>
+                       <div *ngIf="!docCompleteness" class="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+                           <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-slate-400 animate-spin"></lucide-icon>
                            <p class="text-sm font-medium">Document completeness analysis will appear once the agent runs.</p>
                        </div>
                    </div>
@@ -377,7 +377,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    
                    <!-- RISK ANALYSIS SECTION -->
                    <div>
-                       <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                       <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                            <lucide-icon name="shield-alert" class="w-5 h-5 text-slate-500"></lucide-icon>
                            Risk Analysis
                        </h3>
@@ -403,7 +403,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
 
                    <!-- OPERATIONAL READINESS SECTION -->
                    <div>
-                       <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                       <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                            <lucide-icon name="settings" class="w-5 h-5 text-slate-500"></lucide-icon>
                            Operational Readiness
                        </h3>
@@ -428,26 +428,26 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
 
                    <!-- AI PREDICTION (Agent-Driven) -->
-                   <div class="mt-8 pt-8 border-t border-gray-200">
-                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <div class="mt-8 pt-8 border-t border-slate-200">
+                       <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                            <lucide-icon name="trending-up" class="w-4 h-4 text-amber-500"></lucide-icon>
                            ML Prediction Agent
                        </h4>
                        <app-ml-prediction-result *ngIf="mlPrediction" [result]="mlPrediction"></app-ml-prediction-result>
-                       <div *ngIf="!mlPrediction" class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center text-gray-500">
-                           <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-gray-400 animate-spin"></lucide-icon>
+                       <div *ngIf="!mlPrediction" class="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+                           <lucide-icon name="loader-2" class="w-6 h-6 mx-auto mb-2 text-slate-400 animate-spin"></lucide-icon>
                            <p class="text-sm font-medium">ML Prediction results will appear here once the agent runs.</p>
                        </div>
                    </div>
 
                    <!-- Risk Agent (4-Layer Cascade) -->
-                   <div class="mt-8 pt-8 border-t border-gray-200">
-                       <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <div class="mt-8 pt-8 border-t border-slate-200">
+                       <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                            <lucide-icon name="shield-alert" class="w-4 h-4 text-red-500"></lucide-icon>
                            Risk Agent — 4-Layer Cascade
                        </h4>
                        <app-risk-assessment-result *ngIf="riskAssessmentResult" [result]="riskAssessmentResult"></app-risk-assessment-result>
-                       <div *ngIf="!riskAssessmentResult" class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                       <div *ngIf="!riskAssessmentResult" class="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center text-slate-500">
                            <p class="text-sm font-medium">Risk assessment will appear here once the agent runs.</p>
                        </div>
                    </div>
@@ -458,7 +458,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
 
                    <!-- Governance Agent Results -->
                    <div *ngIf="governanceState">
-                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                          <lucide-icon name="workflow" class="w-4 h-4 text-slate-500"></lucide-icon>
                          Governance Agent — Sign-Off Status
                       </h4>
@@ -466,10 +466,10 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
 
                    <!-- Loading State -->
-                   <div *ngIf="!governanceState && agentLoading['GOVERNANCE']" class="bg-gray-50 rounded-xl border border-gray-200 p-12 text-center">
-                      <lucide-icon name="loader-2" class="w-8 h-8 mx-auto mb-3 text-gray-400 animate-spin"></lucide-icon>
-                      <p class="text-sm font-medium text-gray-500">Governance agent is analyzing sign-off requirements...</p>
-                      <p class="text-xs text-gray-400 mt-1">This may take 30-60 seconds</p>
+                   <div *ngIf="!governanceState && agentLoading['GOVERNANCE']" class="bg-slate-50 rounded-xl border border-slate-200 p-12 text-center">
+                      <lucide-icon name="loader-2" class="w-8 h-8 mx-auto mb-3 text-slate-400 animate-spin"></lucide-icon>
+                      <p class="text-sm font-medium text-slate-500">Governance agent is analyzing sign-off requirements...</p>
+                      <p class="text-xs text-slate-400 mt-1">This may take 30-60 seconds</p>
                    </div>
 
                    <!-- Error State -->
@@ -486,8 +486,8 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
 
                    <!-- Fallback: Not yet run -->
                    <div *ngIf="!governanceState && !agentLoading['GOVERNANCE'] && !agentErrors['GOVERNANCE']"
-                        class="bg-gray-50 rounded-xl border border-gray-200 p-12 text-center text-gray-500">
-                      <lucide-icon name="workflow" class="w-8 h-8 mx-auto mb-3 text-gray-300"></lucide-icon>
+                        class="bg-slate-50 rounded-xl border border-slate-200 p-12 text-center text-slate-500">
+                      <lucide-icon name="workflow" class="w-8 h-8 mx-auto mb-3 text-slate-300"></lucide-icon>
                       <p class="text-sm font-medium">Governance analysis has not yet run for this NPA.</p>
                    </div>
                 </div>
@@ -505,7 +505,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
 
                    <!-- Monitoring Agent Results (takes priority) -->
                    <div *ngIf="monitoringResult">
-                      <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                          <lucide-icon name="activity" class="w-4 h-4 text-emerald-500"></lucide-icon>
                          Post-Launch Monitoring Agent
                       </h4>
@@ -513,9 +513,9 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    </div>
 
                    <!-- Loading State -->
-                   <div *ngIf="!monitoringResult && agentLoading['MONITORING']" class="bg-gray-50 rounded-xl border border-gray-200 p-12 text-center">
-                      <lucide-icon name="loader-2" class="w-8 h-8 mx-auto mb-3 text-gray-400 animate-spin"></lucide-icon>
-                      <p class="text-sm font-medium text-gray-500">Monitoring agent analyzing post-launch metrics...</p>
+                   <div *ngIf="!monitoringResult && agentLoading['MONITORING']" class="bg-slate-50 rounded-xl border border-slate-200 p-12 text-center">
+                      <lucide-icon name="loader-2" class="w-8 h-8 mx-auto mb-3 text-slate-400 animate-spin"></lucide-icon>
+                      <p class="text-sm font-medium text-slate-500">Monitoring agent analyzing post-launch metrics...</p>
                    </div>
 
                    <!-- Error State -->
@@ -529,33 +529,33 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                    <!-- Fallback: Static metrics when agent hasn't returned -->
                    <div *ngIf="!monitoringResult && !agentLoading['MONITORING'] && !agentErrors['MONITORING']">
                       <div>
-                         <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                         <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                             <lucide-icon name="bar-chart-2" class="w-4 h-4 text-blue-500"></lucide-icon>
                             Performance Metrics
                          </h3>
                          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div *ngFor="let metric of monitoringMetrics" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
+                            <div *ngFor="let metric of monitoringMetrics" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
                                <div class="flex items-center justify-between mb-3">
                                   <div class="p-1.5 rounded-lg" [ngClass]="'bg-' + metric.color + '-50 text-' + metric.color + '-600'">
                                      <lucide-icon [name]="metric.icon" class="w-4 h-4"></lucide-icon>
                                   </div>
                                </div>
-                               <div class="text-2xl font-bold text-gray-900 mb-1">{{ metric.value }}</div>
-                               <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{{ metric.label }}</div>
+                               <div class="text-2xl font-bold text-slate-900 mb-1">{{ metric.value }}</div>
+                               <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{{ metric.label }}</div>
                             </div>
                          </div>
                       </div>
                    </div>
 
                    <!-- Conversational Analytics -->
-                   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                      <h3 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                   <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                      <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                          <lucide-icon name="message-square" class="w-4 h-4 text-indigo-500"></lucide-icon>
                          Ask the Monitoring Agent
                       </h3>
-                      <p class="text-sm text-gray-500 mb-4">Query real-time monitoring data, ask about breaches, or request analytics.</p>
+                      <p class="text-sm text-slate-500 mb-4">Query real-time monitoring data, ask about breaches, or request analytics.</p>
                       <div class="relative">
-                         <input type="text" placeholder="e.g. What caused the volume breach on Jan 15?" class="w-full pl-4 pr-12 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm bg-gray-50">
+                         <input type="text" placeholder="e.g. What caused the volume breach on Jan 15?" class="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm bg-slate-50">
                          <button class="absolute right-2 top-2 p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg">
                             <lucide-icon name="send" class="w-4 h-4"></lucide-icon>
                          </button>
@@ -817,17 +817,14 @@ export class NpaDetailComponent implements OnInit {
          const warningDocs = data.documents.filter((d: any) => d.validation_status === 'WARNING' || d.validation_status === 'PENDING');
          this.docCompleteness = {
             completenessPercent: Math.round((validDocs.length / Math.max(data.documents.length, 1)) * 100),
-            totalRequired: data.documents.length + 2, // assume 2 still missing
+            totalRequired: data.documents.length,
             totalPresent: data.documents.length,
             totalValid: validDocs.length,
-            missingDocs: [
-               { docType: 'ISDA Master Agreement', reason: 'Required for cross-border counterparty', priority: 'BLOCKING' as const },
-               { docType: 'PRIIPs KID', reason: 'Required for London institutional client', priority: 'WARNING' as const }
-            ],
+            missingDocs: [],
             invalidDocs: warningDocs.map((d: any) => ({
                docType: d.document_type,
                docName: d.document_name,
-               reason: 'Validation pending or warning'
+               reason: d.notes || 'Validation pending or warning'
             })),
             conditionalRules: [],
             expiringDocs: [],
@@ -967,7 +964,7 @@ export class NpaDetailComponent implements OnInit {
          case 'PASS': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
          case 'WARN': return 'bg-amber-50 text-amber-700 border-amber-100';
          case 'FAIL': return 'bg-rose-50 text-rose-700 border-rose-100';
-         default: return 'bg-gray-50 text-gray-700 border-gray-100';
+         default: return 'bg-slate-50 text-slate-700 border-slate-100';
       }
    }
 
@@ -1036,22 +1033,31 @@ export class NpaDetailComponent implements OnInit {
    breaches: any[] = [];
 
    monitoringMetrics = [
-      { label: 'Days Since Launch', value: '42', icon: 'calendar', color: 'blue' },
-      { label: 'Total Volume', value: '$2.4B', icon: 'bar-chart-2', color: 'indigo' },
-      { label: 'Realized P&L', value: '+$3.2M', icon: 'trending-up', color: 'emerald' },
-      { label: 'Active Breaches', value: '2', icon: 'alert-triangle', color: 'rose' },
-      { label: 'Counterparty Exposure', value: '$87M', icon: 'users', color: 'purple' },
-      { label: 'VaR Utilization', value: '68%', icon: 'gauge', color: 'amber' },
-      { label: 'Collateral Posted', value: '$12.5M', icon: 'shield', color: 'cyan' },
-      { label: 'Next Review', value: 'Feb 28', icon: 'clock', color: 'slate' }
+      { label: 'Days Since Launch', value: '—', icon: 'calendar', color: 'blue' },
+      { label: 'Total Volume', value: '—', icon: 'bar-chart-2', color: 'indigo' },
+      { label: 'Realized P&L', value: '—', icon: 'trending-up', color: 'emerald' },
+      { label: 'Active Breaches', value: '0', icon: 'alert-triangle', color: 'rose' },
+      { label: 'Counterparty Exposure', value: '—', icon: 'users', color: 'purple' },
+      { label: 'VaR Utilization', value: '—', icon: 'gauge', color: 'amber' },
+      { label: 'Collateral Posted', value: '—', icon: 'shield', color: 'cyan' },
+      { label: 'Next Review', value: '—', icon: 'clock', color: 'slate' }
    ];
+
+   formatSubmittedDate(dateStr: string | undefined): string {
+      if (!dateStr) return '—';
+      try {
+         const d = new Date(dateStr);
+         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' +
+                d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      } catch { return dateStr; }
+   }
 
    getBadgeColor(tabId: string): string {
       switch (tabId) {
          case 'ANALYSIS': return 'text-green-600 bg-green-100 border-green-200';
          case 'APPROVALS': return 'text-amber-600 bg-amber-100 border-amber-200';
          case 'MONITORING': return 'text-rose-600 bg-rose-100 border-rose-200';
-         default: return 'text-gray-600 bg-gray-100';
+         default: return 'text-slate-600 bg-slate-100';
       }
    }
 

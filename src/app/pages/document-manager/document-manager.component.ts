@@ -10,16 +10,16 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
     standalone: true,
     imports: [CommonModule, LucideAngularModule, FormsModule],
     template: `
-    <div class="h-full flex flex-col bg-gray-50 font-sans text-gray-900">
+    <div class="h-full flex flex-col bg-slate-50 font-sans text-slate-900">
 
       <!-- HEADER -->
-      <div class="flex-none bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shadow-sm">
+      <div class="flex-none bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shadow-sm">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <lucide-icon name="file-stack" class="w-6 h-6 text-blue-600"></lucide-icon>
             Document Manager
           </h1>
-          <p class="text-sm text-gray-500 mt-1">
+          <p class="text-sm text-slate-500 mt-1">
             {{ npaId ? 'Documents for NPA ' + npaId : 'Upload and manage NPA documents.' }}
           </p>
         </div>
@@ -31,17 +31,17 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
       </div>
 
       <!-- UPLOAD BAR -->
-      <div class="flex-none bg-white border-b border-gray-200 px-8 py-4">
+      <div class="flex-none bg-white border-b border-slate-200 px-8 py-4">
         <div class="flex items-center gap-4">
           <div *ngIf="npaId" class="flex-1 flex items-center gap-3">
             <input #fileInput type="file" (change)="onFileSelected($event)" class="hidden"
                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.png,.jpg,.jpeg">
             <button (click)="fileInput.click()"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2">
+                    class="px-4 py-2 bg-dbs-primary text-white rounded-lg text-sm font-semibold hover:bg-dbs-primary-hover transition-colors flex items-center gap-2">
               <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
               Upload Document
             </button>
-            <select [(ngModel)]="uploadDocType" class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <select [(ngModel)]="uploadDocType" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
               <option value="OTHER">Type: Other</option>
               <option value="TERM_SHEET">Term Sheet</option>
               <option value="RISK_ASSESSMENT">Risk Assessment</option>
@@ -54,10 +54,10 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
               Uploading...
             </span>
           </div>
-          <div *ngIf="!npaId" class="text-sm text-gray-500">
+          <div *ngIf="!npaId" class="text-sm text-slate-500">
             Select an NPA to manage documents.
-            <input [(ngModel)]="npaIdInput" placeholder="Enter NPA ID (e.g. NPA-001)" class="ml-3 px-3 py-1.5 border border-gray-200 rounded-lg text-sm w-48">
-            <button (click)="loadNpa()" class="ml-2 px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-semibold">Load</button>
+            <input [(ngModel)]="npaIdInput" placeholder="Enter NPA ID (e.g. NPA-001)" class="ml-3 px-3 py-1.5 border border-slate-200 rounded-lg text-sm w-48">
+            <button (click)="loadNpa()" class="ml-2 px-3 py-1.5 bg-dbs-primary text-white rounded-lg text-xs font-semibold hover:bg-dbs-primary-hover transition-colors">Load</button>
           </div>
         </div>
       </div>
@@ -65,9 +65,9 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
       <!-- TABLE -->
       <div class="flex-1 overflow-auto p-8">
         <div class="max-w-5xl mx-auto">
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table class="w-full text-left text-xs">
-              <thead class="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase tracking-wider font-semibold">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                 <tr>
                   <th class="px-6 py-3">Document</th>
                   <th class="px-6 py-3">Type</th>
@@ -77,8 +77,8 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
                   <th class="px-6 py-3 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let doc of documents" class="hover:bg-gray-50 transition-colors">
+              <tbody class="divide-y divide-slate-100">
+                <tr *ngFor="let doc of documents" class="hover:bg-slate-50 transition-colors">
                   <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
                       <div class="w-8 h-8 rounded flex items-center justify-center text-[10px] font-bold"
@@ -86,15 +86,15 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
                         {{ (doc.file_extension || '').replace('.','').toUpperCase() || '?' }}
                       </div>
                       <div>
-                        <div class="font-bold text-gray-900 text-sm">{{ doc.document_name }}</div>
-                        <div class="text-[10px] text-gray-400 mt-0.5">{{ doc.category || 'Uncategorized' }}</div>
+                        <div class="font-bold text-slate-900 text-sm">{{ doc.document_name }}</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">{{ doc.category || 'Uncategorized' }}</div>
                       </div>
                     </div>
                   </td>
                   <td class="px-6 py-4">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200">{{ doc.document_type }}</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">{{ doc.document_type }}</span>
                   </td>
-                  <td class="px-6 py-4 text-gray-500 font-mono text-[11px]">{{ doc.file_size }}</td>
+                  <td class="px-6 py-4 text-slate-500 font-mono text-[11px]">{{ doc.file_size }}</td>
                   <td class="px-6 py-4 text-center">
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
                           [ngClass]="{
@@ -114,8 +114,8 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
                     </span>
                   </td>
                   <td class="px-6 py-4">
-                    <div class="text-gray-600 text-[11px]">{{ doc.uploaded_by }}</div>
-                    <div class="text-gray-400 text-[10px]">{{ doc.uploaded_at | date:'short' }}</div>
+                    <div class="text-slate-600 text-[11px]">{{ doc.uploaded_by }}</div>
+                    <div class="text-slate-400 text-[10px]">{{ doc.uploaded_at | date:'short' }}</div>
                   </td>
                   <td class="px-6 py-4 text-center">
                     <div class="flex items-center justify-center gap-1">
@@ -127,7 +127,7 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
                               class="p-1.5 hover:bg-red-50 rounded text-red-600" title="Mark Invalid">
                         <lucide-icon name="x" class="w-3.5 h-3.5"></lucide-icon>
                       </button>
-                      <button (click)="deleteDoc(doc)" class="p-1.5 hover:bg-gray-100 rounded text-gray-400" title="Delete">
+                      <button (click)="deleteDoc(doc)" class="p-1.5 hover:bg-slate-100 rounded text-slate-400" title="Delete">
                         <lucide-icon name="trash-2" class="w-3.5 h-3.5"></lucide-icon>
                       </button>
                     </div>
@@ -137,9 +137,9 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
             </table>
 
             <div *ngIf="documents.length === 0" class="text-center py-20">
-              <lucide-icon name="file-plus" class="w-12 h-12 text-gray-300 mx-auto mb-4"></lucide-icon>
-              <h3 class="text-lg font-medium text-gray-900">No documents yet</h3>
-              <p class="text-gray-500 mt-2">{{ npaId ? 'Upload documents for this NPA.' : 'Enter an NPA ID to get started.' }}</p>
+              <lucide-icon name="file-plus" class="w-12 h-12 text-slate-300 mx-auto mb-4"></lucide-icon>
+              <h3 class="text-lg font-medium text-slate-900">No documents yet</h3>
+              <p class="text-slate-500 mt-2">{{ npaId ? 'Upload documents for this NPA.' : 'Enter an NPA ID to get started.' }}</p>
             </div>
           </div>
         </div>
@@ -226,6 +226,6 @@ export class DocumentManagerComponent implements OnInit {
         if (e.includes('xls')) return 'bg-green-50 text-green-600 border border-green-100';
         if (e.includes('ppt')) return 'bg-orange-50 text-orange-600 border border-orange-100';
         if (e.includes('png') || e.includes('jpg') || e.includes('jpeg')) return 'bg-purple-50 text-purple-600 border border-purple-100';
-        return 'bg-gray-50 text-gray-600 border border-gray-100';
+        return 'bg-slate-50 text-slate-600 border border-slate-100';
     }
 }

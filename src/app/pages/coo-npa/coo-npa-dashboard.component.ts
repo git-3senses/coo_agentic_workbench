@@ -48,7 +48,7 @@ interface NpaItem {
     <div class="h-full w-full bg-slate-50/50 flex flex-col font-sans text-slate-900 group/dashboard relative overflow-hidden">
 
       <!-- HEADER -->
-      <div class="bg-white border-b border-gray-200 pt-8 pb-10 px-6 sm:px-10 shadow-sm relative overflow-hidden flex-none">
+      <div class="bg-white border-b border-slate-200 pt-8 pb-10 px-6 sm:px-10 shadow-sm relative overflow-hidden flex-none">
         <!-- Background Decoration -->
         <div class="absolute top-0 right-0 w-96 h-96 bg-blue-50 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
@@ -100,15 +100,15 @@ interface NpaItem {
 
           <!-- Primary CTA -->
           <div class="flex flex-col gap-3 w-full md:w-auto">
-             <button (click)="navigateToCreate()" class="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-lg shadow-xl shadow-slate-200 transition-all transform hover:-translate-y-0.5 active:translate-y-0 focus:ring-4 focus:ring-slate-100">
+             <button (click)="navigateToCreate()" class="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-dbs-primary hover:bg-dbs-primary-hover text-white rounded-xl font-bold text-lg shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 focus:ring-4 focus:ring-blue-100">
                 <lucide-icon name="plus" class="w-6 h-6"></lucide-icon>
                 Create NPA
              </button>
              <div class="grid grid-cols-2 gap-2">
-                <button class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
+                <button class="px-4 py-2 bg-white border border-dbs-border text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
                    <lucide-icon name="download" class="w-3.5 h-3.5"></lucide-icon> Export
                 </button>
-                <button class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
+                <button class="px-4 py-2 bg-white border border-dbs-border text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
                    <lucide-icon name="filter" class="w-3.5 h-3.5"></lucide-icon> Filter
                 </button>
              </div>
@@ -232,7 +232,7 @@ interface NpaItem {
              
              <!-- LEFT: Donut Chart (Classification) -->
              <div class="col-span-3 bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
-                 <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-6 flex items-center gap-2">
+                 <h3 class="text-sm font-bold text-slate-700 uppercase tracking-widest mb-6 flex items-center gap-2">
                     <lucide-icon name="pie-chart" class="w-4 h-4 text-slate-400"></lucide-icon> Mix by Class
                  </h3>
                  
@@ -276,7 +276,7 @@ interface NpaItem {
              <!-- MIDDLE: Pipeline Flow (Visual) -->
              <div class="col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
                  <div class="flex items-center justify-between mb-8">
-                     <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                     <h3 class="text-sm font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
                         <lucide-icon name="git-merge" class="w-4 h-4 text-slate-400"></lucide-icon> Pipeline Health
                      </h3>
                      <div class="flex gap-2">
@@ -320,7 +320,7 @@ interface NpaItem {
 
              <!-- RIGHT: Bar Chart (Ageing) -->
              <div class="col-span-3 bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
-                 <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-6 flex items-center gap-2">
+                 <h3 class="text-sm font-bold text-slate-700 uppercase tracking-widest mb-6 flex items-center gap-2">
                     <lucide-icon name="clock" class="w-4 h-4 text-slate-400"></lucide-icon> Ageing Analysis
                  </h3>
                  
@@ -340,7 +340,7 @@ interface NpaItem {
              <!-- Market Clusters -->
              <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
                  <div class="flex items-center justify-between mb-6">
-                     <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                     <h3 class="text-sm font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
                         <lucide-icon name="layout-grid" class="w-4 h-4 text-slate-400"></lucide-icon> Market Clusters
                      </h3>
                      <span class="text-xs font-semibold text-slate-500">Theme Concentration</span>
@@ -369,7 +369,7 @@ interface NpaItem {
              <!-- Product Opportunities (Prospects) -->
              <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
                  <div class="flex items-center justify-between mb-6">
-                     <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                     <h3 class="text-sm font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
                         <lucide-icon name="telescope" class="w-4 h-4 text-slate-400"></lucide-icon> Product Opportunities
                      </h3>
                      <button class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
@@ -482,8 +482,8 @@ interface NpaItem {
                  <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
                      <span class="text-xs text-slate-500 font-medium">Showing 6 of 14 items</span>
                      <div class="flex gap-2">
-                         <button class="px-3 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 text-xs font-semibold text-slate-600 disabled:opacity-50">Previous</button>
-                         <button class="px-3 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 text-xs font-semibold text-slate-600">Next</button>
+                         <button class="px-3 py-1 bg-white border border-dbs-border rounded-lg hover:bg-slate-50 text-xs font-semibold text-slate-700 disabled:opacity-50">Previous</button>
+                         <button class="px-3 py-1 bg-white border border-dbs-border rounded-lg hover:bg-slate-50 text-xs font-semibold text-slate-700">Next</button>
                      </div>
                  </div>
              </div>
@@ -494,7 +494,7 @@ interface NpaItem {
                      <div class="absolute top-0 right-0 p-24 bg-indigo-600/20 rounded-full blur-3xl -mr-12 -mt-12"></div>
                      
                      <div class="px-6 py-5 border-b border-white/10 relative z-10 flex justify-between items-center">
-                         <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                         <h3 class="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                             <lucide-icon name="gem" class="w-4 h-4 text-emerald-400"></lucide-icon> Top Revenue
                          </h3>
                          <span class="text-[10px] font-bold text-slate-400 bg-white/10 px-2 py-1 rounded">PROJ. REVENUE</span>
@@ -529,7 +529,7 @@ interface NpaItem {
                  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                       <div class="flex items-center gap-2 mb-4">
                           <lucide-icon name="bell" class="w-4 h-4 text-slate-400"></lucide-icon>
-                          <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Recent Alerts</h4>
+                          <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Recent Alerts</h4>
                       </div>
                       <div class="space-y-3">
                           <div class="flex gap-3 items-start">
@@ -572,7 +572,7 @@ interface NpaItem {
                         <button class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-900 transition-colors">
                             <lucide-icon name="filter" class="w-4 h-4"></lucide-icon>
                         </button>
-                        <button class="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
+                        <button class="px-3 py-1.5 bg-white border border-dbs-border text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
                             <lucide-icon name="download" class="w-3.5 h-3.5"></lucide-icon> Export
                         </button>
                     </div>
@@ -667,8 +667,8 @@ interface NpaItem {
                 <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
                     <span class="text-xs text-slate-500 font-medium">Showing {{ npaPool.length }} of {{ npaPool.length }} items</span>
                     <div class="flex gap-2">
-                        <button class="px-3 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 text-xs font-semibold text-slate-600 disabled:opacity-50" disabled>Previous</button>
-                        <button class="px-3 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 text-xs font-semibold text-slate-600" disabled>Next</button>
+                        <button class="px-3 py-1 bg-white border border-dbs-border rounded-lg hover:bg-slate-50 text-xs font-semibold text-slate-700 disabled:opacity-50" disabled>Previous</button>
+                        <button class="px-3 py-1 bg-white border border-dbs-border rounded-lg hover:bg-slate-50 text-xs font-semibold text-slate-700" disabled>Next</button>
                     </div>
                 </div>
             </div>

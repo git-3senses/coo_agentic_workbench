@@ -35,8 +35,8 @@ export interface SubAgent {
           <p class="text-sm text-muted-foreground line-clamp-2">{{ subAgent.description }}</p>
         </div>
         
-        <button class="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors">
-          <lucide-icon name="more-horizontal" class="h-4 w-4 text-gray-500"></lucide-icon>
+        <button class="h-8 w-8 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors">
+          <lucide-icon name="more-horizontal" class="h-4 w-4 text-slate-500"></lucide-icon>
         </button>
       </div>
 
@@ -88,7 +88,7 @@ export class SubAgentCardComponent {
       Validate: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
       Monitor: 'bg-rose-500/10 text-rose-600 border-rose-500/20'
     };
-    return config[type] || 'bg-gray-100 text-gray-600 border-gray-200';
+    return config[type] || 'bg-slate-100 text-slate-600 border-slate-200';
   }
 
   getStateClasses(state: string): string {

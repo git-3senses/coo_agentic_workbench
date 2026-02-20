@@ -49,7 +49,7 @@ interface AgentIdentity {
              GovernanceStatusComponent, DocCompletenessComponent, MonitoringAlertsComponent],
     template: `
     <!-- ═══════ VIEW: LANDING (Overview + Chat Input) — only if config.showLanding ═══════ -->
-    <div *ngIf="config.showLanding && viewMode === 'LANDING'" class="min-h-full flex flex-col items-center justify-center px-8 bg-white text-gray-900 relative overflow-hidden h-full">
+    <div *ngIf="config.showLanding && viewMode === 'LANDING'" class="min-h-full flex flex-col items-center justify-center px-8 bg-white text-slate-900 relative overflow-hidden h-full">
 
       <!-- Animated Blobs Background -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -68,10 +68,10 @@ interface AgentIdentity {
           </div>
 
           <!-- Main Hero Text -->
-          <h1 class="text-6xl font-bold tracking-tight mb-4 text-center text-gray-900">
+          <h1 class="text-6xl font-bold tracking-tight mb-4 text-center text-slate-900">
             {{ config.title }}
           </h1>
-          <p class="text-xl text-gray-500 font-normal mb-12 text-center max-w-2xl">
+          <p class="text-xl text-slate-500 font-normal mb-12 text-center max-w-2xl">
             Orchestrating complex operations across Trading & Markets with intelligent, task-aware agents.
           </p>
 
@@ -86,25 +86,25 @@ interface AgentIdentity {
                     <div class="w-14 h-14 rounded-2xl bg-red-50/80 border border-red-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
                         <lucide-icon name="bot" class="w-7 h-7 text-[#FF3E3E]"></lucide-icon>
                     </div>
-                    <h3 class="text-xl font-bold mb-3 text-gray-900">Functional Agents</h3>
-                    <p class="text-base text-gray-500 leading-relaxed">
+                    <h3 class="text-xl font-bold mb-3 text-slate-900">Functional Agents</h3>
+                    <p class="text-base text-slate-500 leading-relaxed">
                         Specialized agents for Ideation, Risk, Finance, and Tech approvals.
                     </p>
                 </div>
                 <div class="mt-6">
-                    <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-pointer hover:bg-red-50/30 transition-colors group/item" [routerLink]="['/agents/npa']">
+                    <div class="border-t border-slate-100/50 flex items-center justify-between px-8 py-5 cursor-pointer hover:bg-red-50/30 transition-colors group/item" [routerLink]="['/agents/npa']">
                         <div class="flex items-center gap-3">
                              <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                             <span class="text-sm font-semibold text-gray-700">Product Ideation Agent</span>
+                             <span class="text-sm font-semibold text-slate-700">Product Ideation Agent</span>
                         </div>
                         <lucide-icon name="arrow-right" class="w-4 h-4 text-[#FF3E3E] opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all duration-300"></lucide-icon>
                     </div>
-                     <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-not-allowed opacity-40">
+                     <div class="border-t border-slate-100/50 flex items-center justify-between px-8 py-5 cursor-not-allowed opacity-40">
                         <div class="flex items-center gap-3">
-                             <div class="w-2 h-2 rounded-full bg-gray-300"></div>
-                             <span class="text-sm font-semibold text-gray-700">Risk Control Agent</span>
+                             <div class="w-2 h-2 rounded-full bg-slate-300"></div>
+                             <span class="text-sm font-semibold text-slate-700">Risk Control Agent</span>
                         </div>
-                        <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">Soon</span>
+                        <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">Soon</span>
                     </div>
                 </div>
             </div>
@@ -112,22 +112,22 @@ interface AgentIdentity {
             <!-- Work Items Card -->
             <div class="bg-white/60 backdrop-blur-xl rounded-xl flex flex-col shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 overflow-hidden border border-white/50 group">
                 <div class="p-8 pb-4 flex-1">
-                    <div class="w-14 h-14 rounded-2xl bg-gray-50/80 border border-gray-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                        <lucide-icon name="layers" class="w-7 h-7 text-gray-800"></lucide-icon>
+                    <div class="w-14 h-14 rounded-2xl bg-slate-50/80 border border-slate-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
+                        <lucide-icon name="layers" class="w-7 h-7 text-slate-800"></lucide-icon>
                     </div>
-                    <h3 class="text-xl font-bold mb-3 text-gray-900">Work Items</h3>
-                    <p class="text-base text-gray-500 leading-relaxed">
+                    <h3 class="text-xl font-bold mb-3 text-slate-900">Work Items</h3>
+                    <p class="text-base text-slate-500 leading-relaxed">
                         Track cross-functional workflows, approvals, and exceptions in real-time.
                     </p>
                 </div>
                 <div class="mt-6">
-                    <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-pointer hover:bg-gray-50/50 transition-colors group/item" [routerLink]="['/workspace/inbox']">
-                         <span class="text-sm font-semibold text-gray-700">My Dashboard</span>
-                         <lucide-icon name="arrow-right" class="w-4 h-4 text-gray-500 opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all duration-300"></lucide-icon>
+                    <div class="border-t border-slate-100/50 flex items-center justify-between px-8 py-5 cursor-pointer hover:bg-slate-50/50 transition-colors group/item" [routerLink]="['/workspace/inbox']">
+                         <span class="text-sm font-semibold text-slate-700">My Dashboard</span>
+                         <lucide-icon name="arrow-right" class="w-4 h-4 text-slate-500 opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all duration-300"></lucide-icon>
                     </div>
-                    <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-not-allowed opacity-40">
-                         <span class="text-sm font-semibold text-gray-700">Exception Queue</span>
-                         <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">Soon</span>
+                    <div class="border-t border-slate-100/50 flex items-center justify-between px-8 py-5 cursor-not-allowed opacity-40">
+                         <span class="text-sm font-semibold text-slate-700">Exception Queue</span>
+                         <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">Soon</span>
                     </div>
                 </div>
             </div>
@@ -138,19 +138,19 @@ interface AgentIdentity {
                     <div class="w-14 h-14 rounded-2xl bg-orange-50/80 border border-orange-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
                         <lucide-icon name="brain-circuit" class="w-7 h-7 text-orange-600"></lucide-icon>
                     </div>
-                    <h3 class="text-xl font-bold mb-3 text-gray-900">Intelligence</h3>
-                    <p class="text-base text-gray-500 leading-relaxed">
+                    <h3 class="text-xl font-bold mb-3 text-slate-900">Intelligence</h3>
+                    <p class="text-base text-slate-500 leading-relaxed">
                         Centralized Knowledge Base (SOPs), Policy Engine, and Audit Trails.
                     </p>
                 </div>
                  <div class="mt-6">
-                    <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-pointer hover:bg-orange-50/50 transition-colors group/item" [routerLink]="['/knowledge/base']">
-                        <span class="text-sm font-semibold text-gray-700">Knowledge Base</span>
+                    <div class="border-t border-slate-100/50 flex items-center justify-between px-8 py-5 cursor-pointer hover:bg-orange-50/50 transition-colors group/item" [routerLink]="['/knowledge/base']">
+                        <span class="text-sm font-semibold text-slate-700">Knowledge Base</span>
                         <lucide-icon name="arrow-right" class="w-4 h-4 text-orange-500 opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all duration-300"></lucide-icon>
                     </div>
-                     <div class="border-t border-gray-100/50 flex items-center justify-between px-8 py-5 cursor-not-allowed opacity-40">
-                        <span class="text-sm font-semibold text-gray-700">Audit Logs</span>
-                        <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">Soon</span>
+                     <div class="border-t border-slate-100/50 flex items-center justify-between px-8 py-5 cursor-not-allowed opacity-40">
+                        <span class="text-sm font-semibold text-slate-700">Audit Logs</span>
+                        <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">Soon</span>
                     </div>
                 </div>
             </div>
@@ -168,7 +168,7 @@ interface AgentIdentity {
                          (focus)="inputFocused = true"
                          (blur)="inputFocused = false"
                          placeholder="Ask the COO Agent — NPA, Risk, Operations, Desk Support..."
-                         class="w-full bg-white/80 backdrop-blur-sm text-gray-900 text-sm rounded-2xl pl-12 pr-14 py-4 border border-gray-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none transition-all placeholder:text-gray-400 shadow-lg hover:shadow-xl focus:shadow-xl">
+                         class="w-full bg-white/80 backdrop-blur-sm text-slate-900 text-sm rounded-2xl pl-12 pr-14 py-4 border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none transition-all placeholder:text-slate-400 shadow-lg hover:shadow-xl focus:shadow-xl">
                   <button (click)="startChatFromLanding()"
                           [disabled]="!landingInput.trim()"
                           class="absolute right-2 p-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
@@ -177,14 +177,14 @@ interface AgentIdentity {
               </div>
               <div class="flex items-center justify-center gap-4 mt-4">
                   <button *ngFor="let hint of quickHints" (click)="startChatFromHint(hint.prompt)"
-                          class="text-[11px] text-gray-400 hover:text-violet-600 font-medium px-3 py-1.5 rounded-full border border-gray-100 hover:border-violet-200 hover:bg-violet-50/50 transition-all cursor-pointer">
+                          class="text-[11px] text-slate-400 hover:text-violet-600 font-medium px-3 py-1.5 rounded-full border border-slate-100 hover:border-violet-200 hover:bg-violet-50/50 transition-all cursor-pointer">
                       {{ hint.label }}
                   </button>
               </div>
           </div>
 
           <!-- Footer Status -->
-          <div class="mt-10 text-xs text-gray-400 font-mono">
+          <div class="mt-10 text-xs text-slate-400 font-mono">
              System Status: <span class="text-green-600">Online</span> &bull; Dify API: <span class="text-green-600">Connected</span> &bull; v0.1.0-alpha
           </div>
       </div>
@@ -208,17 +208,17 @@ interface AgentIdentity {
                 <div class="w-16 h-16 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center mb-5">
                     <lucide-icon name="message-square" class="w-8 h-8 text-violet-400"></lucide-icon>
                 </div>
-                <h3 class="text-lg font-bold text-gray-800 mb-1">Start a conversation</h3>
-                <p class="text-sm text-gray-400 mb-6 max-w-sm">{{ config.context === 'NPA_AGENT' ? 'Ask the NPA Agent about product approvals, risk, classification, or compliance.' : 'Ask the COO Agent about operations, risk, compliance, or knowledge base.' }}</p>
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Start a conversation</h3>
+                <p class="text-sm text-slate-400 mb-6 max-w-sm">{{ config.context === 'NPA_AGENT' ? 'Ask the NPA Agent about product approvals, risk, classification, or compliance.' : 'Ask the COO Agent about operations, risk, compliance, or knowledge base.' }}</p>
                 <div class="flex flex-wrap justify-center gap-2 max-w-lg">
                     <button *ngFor="let chip of suggestionChips"
                             (click)="processMessage(chip.prompt)"
-                            class="text-xs text-gray-500 hover:text-violet-700 font-medium px-3 py-2 rounded-lg border border-gray-200 hover:border-violet-300 hover:bg-violet-50/50 transition-all cursor-pointer flex items-center gap-1.5">
-                        <lucide-icon [name]="chip.icon" class="w-3.5 h-3.5 text-gray-400"></lucide-icon>
+                            class="text-xs text-slate-500 hover:text-violet-700 font-medium px-3 py-2 rounded-lg border border-slate-200 hover:border-violet-300 hover:bg-violet-50/50 transition-all cursor-pointer flex items-center gap-1.5">
+                        <lucide-icon [name]="chip.icon" class="w-3.5 h-3.5 text-slate-400"></lucide-icon>
                         {{ chip.label }}
                     </button>
                 </div>
-                <p class="text-[10px] text-gray-300 mt-6 font-mono">Press Enter to send &middot; Shift+Enter for newline</p>
+                <p class="text-[10px] text-slate-300 mt-6 font-mono">Press Enter to send &middot; Shift+Enter for newline</p>
              </div>
 
              <div *ngFor="let msg of messages" class="flex gap-4 group" [ngClass]="{'flex-row-reverse': msg.role === 'user'}">
@@ -236,14 +236,14 @@ interface AgentIdentity {
                     </span>
 
                     <div class="rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm relative group/msg"
-                         [ngClass]="msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm'">
+                         [ngClass]="msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'">
                        <markdown *ngIf="msg.content" [data]="msg.content" class="agent-markdown"></markdown>
                        <span *ngIf="msg.isStreaming" class="inline-block w-2 h-4 bg-violet-500 animate-pulse ml-0.5 rounded-sm align-text-bottom"></span>
-                       <div *ngIf="!msg.isStreaming" class="flex items-center justify-between mt-2 pt-1.5" [ngClass]="msg.role === 'user' ? 'border-t border-indigo-500/30' : 'border-t border-gray-100'">
-                           <span class="text-[9px] font-mono" [ngClass]="msg.role === 'user' ? 'text-indigo-200' : 'text-gray-400'">{{ msg.timestamp | date:'shortTime' }}</span>
+                       <div *ngIf="!msg.isStreaming" class="flex items-center justify-between mt-2 pt-1.5" [ngClass]="msg.role === 'user' ? 'border-t border-indigo-500/30' : 'border-t border-slate-100'">
+                           <span class="text-[9px] font-mono" [ngClass]="msg.role === 'user' ? 'text-indigo-200' : 'text-slate-400'">{{ msg.timestamp | date:'shortTime' }}</span>
                            <button *ngIf="msg.role === 'agent'"
                                    (click)="copyMessage(msg.content)"
-                                   class="opacity-0 group-hover/msg:opacity-100 text-gray-300 hover:text-violet-600 transition-all p-1 rounded"
+                                   class="opacity-0 group-hover/msg:opacity-100 text-slate-300 hover:text-violet-600 transition-all p-1 rounded"
                                    title="Copy response">
                                <lucide-icon [name]="copiedMessageId === msg.timestamp.getTime() ? 'check' : 'clipboard-list'" class="w-3.5 h-3.5"></lucide-icon>
                            </button>
@@ -261,8 +261,8 @@ interface AgentIdentity {
                                 <lucide-icon [name]="msg.cardData.icon" class="w-5 h-5"></lucide-icon>
                             </div>
                             <div class="flex-1">
-                                <h4 class="text-sm font-bold text-gray-900">{{ msg.cardData.name }}</h4>
-                                <p class="text-[10px] text-gray-500">{{ msg.cardData.description }}</p>
+                                <h4 class="text-sm font-bold text-slate-900">{{ msg.cardData.name }}</h4>
+                                <p class="text-[10px] text-slate-500">{{ msg.cardData.description }}</p>
                             </div>
                             <lucide-icon name="check-circle" class="w-4 h-4 text-green-500"></lucide-icon>
                         </div>
@@ -312,9 +312,9 @@ interface AgentIdentity {
                             <div><p class="text-sm font-semibold text-emerald-800">NPA Record Created</p><p class="text-xs text-emerald-600">{{ msg.cardData.npaId }}</p></div>
                         </div>
                         <div class="grid grid-cols-2 gap-2 text-xs">
-                            <div class="bg-white/60 rounded-lg px-3 py-2"><span class="text-gray-500">Title</span><p class="font-medium text-gray-800 truncate">{{ msg.cardData.title }}</p></div>
-                            <div class="bg-white/60 rounded-lg px-3 py-2"><span class="text-gray-500">Stage</span><p class="font-medium text-gray-800">{{ msg.cardData.stage }}</p></div>
-                            <div class="bg-white/60 rounded-lg px-3 py-2"><span class="text-gray-500">Status</span><p class="font-medium text-emerald-700">{{ msg.cardData.status }}</p></div>
+                            <div class="bg-white/60 rounded-lg px-3 py-2"><span class="text-slate-500">Title</span><p class="font-medium text-slate-800 truncate">{{ msg.cardData.title }}</p></div>
+                            <div class="bg-white/60 rounded-lg px-3 py-2"><span class="text-slate-500">Stage</span><p class="font-medium text-slate-800">{{ msg.cardData.stage }}</p></div>
+                            <div class="bg-white/60 rounded-lg px-3 py-2"><span class="text-slate-500">Status</span><p class="font-medium text-emerald-700">{{ msg.cardData.status }}</p></div>
                             <div class="bg-white/60 rounded-lg px-3 py-2"><button (click)="navigateToDomain('/agents/npa')" class="text-emerald-600 hover:text-emerald-800 font-medium underline underline-offset-2">View in Dashboard</button></div>
                         </div>
                     </div>
@@ -337,15 +337,15 @@ interface AgentIdentity {
                         </div>
                         <div class="grid grid-cols-3 gap-2 text-xs mb-4">
                             <div class="bg-white/70 rounded-lg px-3 py-2">
-                                <span class="text-gray-500 block">Product</span>
-                                <p class="font-medium text-gray-800 truncate">{{ msg.cardData.title }}</p>
+                                <span class="text-slate-500 block">Product</span>
+                                <p class="font-medium text-slate-800 truncate">{{ msg.cardData.title }}</p>
                             </div>
                             <div class="bg-white/70 rounded-lg px-3 py-2">
-                                <span class="text-gray-500 block">Stage</span>
+                                <span class="text-slate-500 block">Stage</span>
                                 <p class="font-medium text-emerald-700">{{ msg.cardData.stage }}</p>
                             </div>
                             <div class="bg-white/70 rounded-lg px-3 py-2">
-                                <span class="text-gray-500 block">Status</span>
+                                <span class="text-slate-500 block">Status</span>
                                 <p class="font-medium text-emerald-700">{{ msg.cardData.status }}</p>
                             </div>
                         </div>
@@ -395,18 +395,18 @@ interface AgentIdentity {
           <!-- Generate Work Item Button -->
           <div *ngIf="showGenerateButton" class="px-4 py-3 border-t border-indigo-100 bg-indigo-50/50 flex-none">
              <button (click)="navigateToDomain(activeDomainRoute)"
-                     class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 transform active:scale-95">
+                     class="w-full py-3 bg-dbs-primary hover:bg-dbs-primary-hover text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 transform active:scale-95">
                 <lucide-icon name="file-plus-2" class="w-4 h-4"></lucide-icon>
                 Open in {{ activeDomainAgent?.name || 'Domain Agent' }}
              </button>
           </div>
 
           <!-- Chat Input -->
-          <div class="p-4 bg-gray-50 border-t border-gray-200 flex-none">
+          <div class="p-4 bg-slate-50 border-t border-slate-200 flex-none">
              <div class="flex items-center justify-between mb-3 px-1">
                  <div class="flex items-center gap-2">
                      <span class="w-2 h-2 rounded-full animate-pulse" [ngClass]="activeDomainAgent ? 'bg-green-500' : 'bg-violet-500'"></span>
-                     <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">{{ activeDomainAgent ? activeDomainAgent.name : 'Master COO Orchestrator' }}</span>
+                     <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ activeDomainAgent ? activeDomainAgent.name : 'Master COO Orchestrator' }}</span>
                  </div>
              </div>
              <div class="relative flex items-end">
@@ -414,7 +414,7 @@ interface AgentIdentity {
                         [(ngModel)]="userInput"
                         (keydown)="handleKeyDown($event)"
                         [placeholder]="config.context === 'NPA_AGENT' ? 'Ask me anything about your NPA...' : 'Ask the COO Agent — NPA, Risk, Operations, Desk Support...'"
-                        class="w-full bg-white text-gray-900 text-sm rounded-lg pl-4 pr-12 py-3 border border-gray-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none transition-all placeholder:text-gray-400 shadow-sm chat-textarea"
+                        class="w-full bg-white text-slate-900 text-sm rounded-lg pl-4 pr-12 py-3 border border-slate-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none transition-all placeholder:text-slate-400 shadow-sm chat-textarea"
                         ></textarea>
                  <button *ngIf="!isThinking"
                          (click)="sendMessage()"
@@ -436,14 +436,14 @@ interface AgentIdentity {
         <div *ngIf="chatTab === 'TEMPLATES'" class="flex-1 flex flex-col h-full bg-slate-50 relative">
 
           <!-- Category Filter -->
-          <div class="w-full bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 overflow-x-auto scrollbar-hide flex-none relative category-bar">
-             <div class="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-wider mr-2 flex-none">
+          <div class="w-full bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 overflow-x-auto scrollbar-hide flex-none relative category-bar">
+             <div class="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mr-2 flex-none">
                 <lucide-icon name="filter" class="w-3.5 h-3.5"></lucide-icon> Categories:
              </div>
              <button *ngFor="let cat of filteredCategories"
                      (click)="selectedCategory = cat.id"
                      class="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border flex-none"
-                     [ngClass]="selectedCategory === cat.id ? 'bg-violet-50 text-violet-700 border-violet-200 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'">
+                     [ngClass]="selectedCategory === cat.id ? 'bg-violet-50 text-violet-700 border-violet-200 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'">
                  {{ cat.name }}
              </button>
           </div>
@@ -452,29 +452,29 @@ interface AgentIdentity {
           <div class="flex-1 overflow-y-auto p-6 md:p-8">
              <div class="max-w-5xl mx-auto space-y-6">
                 <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                         {{ getCategoryName(selectedCategory) }}
-                        <span class="text-gray-400 font-normal text-sm">({{ getTemplatesByCategory(selectedCategory).length }} templates)</span>
+                        <span class="text-slate-400 font-normal text-sm">({{ getTemplatesByCategory(selectedCategory).length }} templates)</span>
                     </h3>
                     <div class="relative w-64">
-                        <lucide-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></lucide-icon>
-                        <input type="text" [(ngModel)]="templateSearchQuery" placeholder="Filter templates..." class="w-full text-sm pl-9 pr-3 py-2 rounded-lg border border-gray-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none shadow-sm">
+                        <lucide-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></lucide-icon>
+                        <input type="text" [(ngModel)]="templateSearchQuery" placeholder="Filter templates..." class="w-full text-sm pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none shadow-sm">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                    <div *ngFor="let t of getTemplatesByCategory(selectedCategory)"
-                        class="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-violet-300 transition-all cursor-pointer group flex flex-col h-full"
+                        class="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-violet-300 transition-all cursor-pointer group flex flex-col h-full"
                         (click)="handleTemplateClick(t)">
                       <div class="flex items-start justify-between mb-3">
                          <div class="p-2 rounded-lg" [ngClass]="t.iconBg">
                             <lucide-icon [name]="t.icon" class="w-5 h-5"></lucide-icon>
                          </div>
-                         <lucide-icon name="arrow-right" class="w-4 h-4 text-gray-300 group-hover:text-violet-500 transition-colors"></lucide-icon>
+                         <lucide-icon name="arrow-right" class="w-4 h-4 text-slate-300 group-hover:text-violet-500 transition-colors"></lucide-icon>
                       </div>
-                      <h4 class="text-sm font-bold text-gray-900 mb-1 group-hover:text-violet-700 transition-colors">{{ t.title }}</h4>
-                      <p class="text-xs text-gray-500 mb-4 line-clamp-2 flex-1">{{ t.description }}</p>
-                      <div *ngIf="t.successRate || t.avgTime" class="flex items-center gap-3 text-[10px] font-medium pt-3 border-t border-gray-100">
+                      <h4 class="text-sm font-bold text-slate-900 mb-1 group-hover:text-violet-700 transition-colors">{{ t.title }}</h4>
+                      <p class="text-xs text-slate-500 mb-4 line-clamp-2 flex-1">{{ t.description }}</p>
+                      <div *ngIf="t.successRate || t.avgTime" class="flex items-center gap-3 text-[10px] font-medium pt-3 border-t border-slate-100">
                          <span *ngIf="t.avgTime" class="text-slate-600 flex items-center gap-1">
                             <lucide-icon name="clock" class="w-3 h-3 text-slate-400"></lucide-icon> {{ t.avgTime }}
                          </span>
@@ -488,10 +488,10 @@ interface AgentIdentity {
           </div>
 
           <!-- Right Panel: Template Form (Slide Over) — only in form mode -->
-          <div *ngIf="config.showTemplateForm && activeTemplate" class="w-96 border-l border-gray-200 bg-white flex-none flex flex-col shadow-2xl absolute right-0 top-0 bottom-0 z-30 animate-slide-in">
-             <div class="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-                <h3 class="text-sm font-bold text-gray-900 truncate pr-4">Configure Template</h3>
-                <button (click)="activeTemplate = null" class="text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full p-1 transition-colors">
+          <div *ngIf="config.showTemplateForm && activeTemplate" class="w-96 border-l border-slate-200 bg-white flex-none flex flex-col shadow-2xl absolute right-0 top-0 bottom-0 z-30 animate-slide-in">
+             <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <h3 class="text-sm font-bold text-slate-900 truncate pr-4">Configure Template</h3>
+                <button (click)="activeTemplate = null" class="text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full p-1 transition-colors">
                    <lucide-icon name="x" class="w-5 h-5"></lucide-icon>
                 </button>
              </div>
@@ -502,8 +502,8 @@ interface AgentIdentity {
                          <lucide-icon [name]="activeTemplate.icon" class="w-5 h-5"></lucide-icon>
                       </div>
                       <div>
-                         <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Selected</label>
-                         <p class="text-sm font-bold text-gray-900 leading-tight">{{ activeTemplate.title }}</p>
+                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Selected</label>
+                         <p class="text-sm font-bold text-slate-900 leading-tight">{{ activeTemplate.title }}</p>
                       </div>
                    </div>
                    <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-800">
@@ -511,19 +511,19 @@ interface AgentIdentity {
                    </div>
                    <div class="space-y-4 pt-2">
                       <div *ngFor="let field of activeTemplate.inputs; let i = index">
-                         <label class="block text-xs font-semibold text-gray-700 mb-1.5">{{ field.label }} <span *ngIf="field.required" class="text-red-500">*</span></label>
+                         <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ field.label }} <span *ngIf="field.required" class="text-red-500">*</span></label>
                          <input *ngIf="field.type !== 'textarea'" [type]="field.type || 'text'" [placeholder]="field.placeholder"
                                 [(ngModel)]="templateFormValues[i]"
-                                class="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-shadow bg-white hover:bg-gray-50 focus:bg-white">
+                                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-shadow bg-white hover:bg-slate-50 focus:bg-white">
                          <textarea *ngIf="field.type === 'textarea'" [placeholder]="field.placeholder" rows="3"
                                    [(ngModel)]="templateFormValues[i]"
-                                   class="w-full text-sm px-3 py-2 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-shadow bg-white hover:bg-gray-50 focus:bg-white"></textarea>
+                                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-shadow bg-white hover:bg-slate-50 focus:bg-white"></textarea>
                       </div>
                    </div>
                 </div>
              </div>
-             <div class="p-4 border-t border-gray-200 bg-gray-50">
-                <button (click)="submitTemplateForm()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 transform active:scale-95">
+             <div class="p-4 border-t border-slate-200 bg-slate-50">
+                <button (click)="submitTemplateForm()" class="w-full py-3 bg-dbs-primary hover:bg-dbs-primary-hover text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 transform active:scale-95">
                    <lucide-icon name="sparkles" class="w-4 h-4"></lucide-icon> Generate with AI
                 </button>
              </div>
@@ -960,7 +960,7 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
             this.messages.push({ role: 'agent', content: res.answer, timestamp: new Date(), agentIdentity: identity, cardType, cardData, agentAction: action });
         }
 
-        // Instant agent switch with local greeting
+        // Instant agent switch with local greeting + context forwarding
         if (routing?.shouldSwitch && routing.targetAgent) {
             const targetId = routing.targetAgent;
             const targetAgent = this.AGENTS[targetId];
@@ -969,13 +969,53 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                 this.activeDomainAgent = { id: targetId, name: targetAgent.name, icon: targetAgent.icon, color: targetAgent.color };
                 this.layoutService.updateChatSubtitle(targetAgent.name);
             }
-            const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
-            const agentName = targetAgent?.name || targetId;
-            const intentLine = intent ? `\n\nI understand you'd like to **${intent}**. ` : '\n\n';
-            const localGreeting = `**${agentName}** is ready.${intentLine}Go ahead and describe your product idea or requirement — I'll guide you through the process step by step.`;
-            this.messages.push({ role: 'agent', content: localGreeting, timestamp: new Date(), agentIdentity: greetIdentity });
-            this.isThinking = false;
-            this.stopThinkingTimer();
+
+            // For DELEGATE_AGENT: forward the orchestrator's answer as context
+            // to the new agent so it has full product details from the conversation.
+            if (action === 'DELEGATE_AGENT' && targetId) {
+                const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
+                const agentName = targetAgent?.name || targetId;
+                // Show a delegation card instead of a generic greeting
+                this.messages.push({
+                    role: 'agent',
+                    content: `**${agentName}** is now connected. Forwarding context from the orchestrator...`,
+                    timestamp: new Date(),
+                    agentIdentity: greetIdentity,
+                    cardType: 'INFO',
+                    cardData: { title: 'Agent Handoff', description: `${agentName} is taking over with full product context.` }
+                });
+
+                // Auto-send the orchestrator's last response as context to the new agent
+                // This gives the Ideation agent all the product details captured so far
+                this.isThinking = true;
+                this.startThinkingTimer(`${agentName} is loading context...`);
+                const contextSummary = this._buildDelegationContext(res.answer);
+                this.currentSubscription?.unsubscribe();
+                this.currentSubscription = this.difyService.sendMessageStreamed(
+                    contextSummary,
+                    { orchestrator_message: res.answer.substring(0, 4000) },
+                    targetId
+                ).subscribe({
+                    next: (evt) => {
+                        if (evt.type === 'done') {
+                            this.handleResponse(evt.response);
+                        }
+                    },
+                    error: () => {
+                        this.isThinking = false;
+                        this.stopThinkingTimer();
+                    }
+                });
+            } else {
+                // Standard routing (ROUTE_DOMAIN etc.) — show local greeting
+                const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
+                const agentName = targetAgent?.name || targetId;
+                const intentLine = intent ? `\n\nI understand you'd like to **${intent}**. ` : '\n\n';
+                const localGreeting = `**${agentName}** is ready.${intentLine}Go ahead and describe your product idea or requirement — I'll guide you through the process step by step.`;
+                this.messages.push({ role: 'agent', content: localGreeting, timestamp: new Date(), agentIdentity: greetIdentity });
+                this.isThinking = false;
+                this.stopThinkingTimer();
+            }
         } else {
             this.isThinking = false;
             this.stopThinkingTimer();
@@ -997,6 +1037,22 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
     // ─── Session Management ──────────────────────────────────────
 
     private sessionDirty = false;
+
+    /**
+     * Build a concise context message to send to the delegated agent.
+     * Extracts key product details from the orchestrator's final response
+     * so the specialist agent (e.g., Ideation) has full context.
+     */
+    private _buildDelegationContext(orchestratorAnswer: string): string {
+        // Extract the most relevant parts — trim to avoid sending the entire verbose response
+        const trimmed = orchestratorAnswer.substring(0, 3000);
+        // Collect user messages from the conversation as context
+        const userMessages = this.messages
+            .filter(m => m.role === 'user')
+            .map(m => m.content)
+            .join('\n');
+        return `[CONTEXT FROM ORCHESTRATOR]\nThe following product details were gathered during the routing phase. Please use this context to begin the structured interview — do not re-ask questions already answered.\n\nUser's original request:\n${userMessages.substring(0, 2000)}\n\nOrchestrator summary:\n${trimmed}`;
+    }
 
     private autoSaveSession(): void {
         if (this.messages.length === 0 || !this.sessionDirty) return;
@@ -1229,7 +1285,7 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
     getAvatarClasses(identity?: AgentIdentity): string {
         if (!identity) return 'bg-violet-50 border border-violet-200 text-violet-600';
         const parts = identity.color.split(' ');
-        return `${parts[0] || 'bg-violet-50'} border border-gray-200 ${parts[1] || 'text-violet-600'}`;
+        return `${parts[0] || 'bg-violet-50'} border border-slate-200 ${parts[1] || 'text-violet-600'}`;
     }
 
     getAgentLabelClass(identity?: AgentIdentity): string {

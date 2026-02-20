@@ -53,7 +53,7 @@ interface CheckQuestion {
       
       <!-- STEP 1: INITIAL IDEA INPUT -->
       <div *ngIf="step === 'INPUT'" [@fadeIn] class="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50">
-         <div class="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+         <div class="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
              <div class="p-10">
                  <div class="flex items-center gap-4 mb-8">
                      <div class="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
@@ -69,13 +69,13 @@ interface CheckQuestion {
                      <div>
                          <label class="block text-sm font-semibold text-slate-700 mb-2">Product Name</label>
                          <input type="text" [(ngModel)]="projectTitle" placeholder="e.g., Cross-Border QR Payment Link" 
-                                class="w-full px-4 py-3 rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-lg placeholder:text-slate-300">
+                                class="w-full px-4 py-3 rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-lg placeholder:text-slate-300">
                      </div>
 
                      <div>
                          <label class="block text-sm font-semibold text-slate-700 mb-2">Brief Description / Concept</label>
                          <textarea [(ngModel)]="projectDescription" rows="5" placeholder="Describe the product features, target market, and technology..." 
-                                   class="w-full px-4 py-3 rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-base placeholder:text-slate-300"></textarea>
+                                   class="w-full px-4 py-3 rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-base placeholder:text-slate-300"></textarea>
                          <p class="text-xs text-slate-400 mt-2 text-right">0/500 characters</p>
                      </div>
                  </div>
@@ -84,7 +84,7 @@ interface CheckQuestion {
                      <button (click)="cancel.emit()" class="px-6 py-3 text-slate-500 font-medium hover:text-slate-800 transition-colors">Cancel</button>
                      <button (click)="startAnalysis()" 
                              [disabled]="!projectTitle || !projectDescription"
-                             class="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                             class="px-8 py-3 bg-dbs-primary text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-dbs-primary-hover transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
                          <lucide-icon name="bot" class="w-5 h-5"></lucide-icon>
                          Run AI Readiness Check
                      </button>
@@ -111,7 +111,7 @@ interface CheckQuestion {
       <!-- STEP 3: THE READINESS CHECKLIST (Pre-Filled) -->
       <div *ngIf="step === 'CHECKLIST'" class="flex flex-col h-full"> 
           <!-- HEADER -->
-          <div class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
+          <div class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
             <div class="flex items-center gap-4">
               <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-indigo-100 shadow-md">
                 <lucide-icon name="shield-check" class="w-5 h-5"></lucide-icon>
@@ -128,7 +128,7 @@ interface CheckQuestion {
             
             <div class="flex items-center gap-6">
                <!-- LEGENDS MOVED HERE -->
-               <div class="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-wide border-r border-gray-100 pr-6 mr-2">
+               <div class="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-wide border-r border-slate-100 pr-6 mr-2">
                  <div class="flex items-center gap-1.5 opacity-60">
                      <div class="w-2 h-2 rounded-full bg-rose-500"></div>
                      <span>Unready</span>
@@ -171,7 +171,7 @@ interface CheckQuestion {
           <!-- MAIN CONTENT -->
           <div class="flex-1 overflow-hidden flex">
             <!-- SIDEBAR -->
-            <div class="w-72 bg-white border-r border-gray-200 overflow-y-auto custom-scrollbar">
+            <div class="w-72 bg-white border-r border-slate-200 overflow-y-auto custom-scrollbar">
               <div class="p-4">
                  <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 pl-1">Assessment Domains</h3>
                  <div class="space-y-1.5">
@@ -205,7 +205,7 @@ interface CheckQuestion {
                <div [@fadeIn] class="max-w-3xl mx-auto pb-10">
                   
                   <div class="mb-6 flex items-start gap-4">
-                      <div class="w-12 h-12 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-indigo-600 shrink-0">
+                      <div class="w-12 h-12 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-indigo-600 shrink-0">
                          <lucide-icon [name]="activeCategory.icon" class="w-6 h-6"></lucide-icon>
                       </div>
                       <div>
@@ -217,7 +217,7 @@ interface CheckQuestion {
                   <!-- QUESTIONS LIST -->
                   <div class="space-y-4">
                       <div *ngFor="let q of activeCategory.questions" 
-                           class="bg-white rounded-xl shadow-sm border border-gray-200 transition-all hover:shadow-md relative overflow-hidden"
+                           class="bg-white rounded-xl shadow-sm border border-slate-200 transition-all hover:shadow-md relative overflow-hidden"
                            [class.border-indigo-200]="q.checked && !q.isAiFilled"
                            [class.border-amber-200]="q.isAiFilled && q.checked">
                            
@@ -230,7 +230,7 @@ interface CheckQuestion {
                           <div class="p-4 flex items-start gap-3">
                               <div class="pt-0.5">
                                   <input type="checkbox" [(ngModel)]="q.checked" (change)="calculateScore()"
-                                         class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer transition-colors">
+                                         class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer transition-colors">
                               </div>
                               <div class="flex-1">
                                   <div class="flex items-center justify-between pr-24">
@@ -254,7 +254,7 @@ interface CheckQuestion {
                                               </label>
                                               <textarea [(ngModel)]="q.evidence" 
                                                         rows="2" 
-                                                        class="w-full text-sm rounded-md border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 bg-white placeholder:text-slate-400"
+                                                        class="w-full text-sm rounded-md border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 bg-white placeholder:text-slate-400"
                                                         [class.bg-amber-50]="q.isAiFilled"
                                                         [class.border-amber-200]="q.isAiFilled"
                                                         placeholder="Describe how this requirement is met..."></textarea>
@@ -264,7 +264,7 @@ interface CheckQuestion {
                                           <div>
                                               <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Supporting Documents</label>
                                               <div class="flex flex-wrap gap-2">
-                                                  <div *ngFor="let file of q.attachments" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-md border border-gray-200 shadow-sm text-xs text-slate-600">
+                                                  <div *ngFor="let file of q.attachments" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-md border border-slate-200 shadow-sm text-xs text-slate-600">
                                                       <lucide-icon name="file" class="w-3 h-3 text-slate-400"></lucide-icon>
                                                       {{ file }}
                                                       <button (click)="removeFile(q, file)" class="ml-1 text-slate-400 hover:text-red-500">
@@ -272,7 +272,7 @@ interface CheckQuestion {
                                                       </button>
                                                   </div>
 
-                                                  <button (click)="mockUpload(q)" class="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-indigo-50 border border-dashed border-gray-300 hover:border-indigo-300 rounded-md text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                                                  <button (click)="mockUpload(q)" class="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-indigo-50 border border-dashed border-slate-300 hover:border-indigo-300 rounded-md text-xs text-slate-500 hover:text-indigo-600 transition-colors">
                                                       <lucide-icon name="upload-cloud" class="w-3 h-3"></lucide-icon>
                                                       Attach
                                                   </button>
@@ -298,7 +298,7 @@ interface CheckQuestion {
           </div>
           
            <!-- FOOTER -->
-          <div class="bg-white border-t border-gray-200 h-16 px-6 flex items-center justify-end z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <div class="bg-white border-t border-slate-200 h-16 px-6 flex items-center justify-end z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
              <button (click)="submit()" 
                      [disabled]="totalScore < 85"
                      class="px-8 py-3 rounded-lg font-bold text-white text-sm shadow-md transition-all transform active:scale-95 flex items-center gap-2"

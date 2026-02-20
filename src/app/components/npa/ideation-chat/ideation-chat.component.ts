@@ -41,13 +41,13 @@ interface AgentIdentity {
     template: `
     <div class="flex flex-col h-full bg-white relative">
       <!-- TOAST NOTIFICATION -->
-      <div *ngIf="showToast" class="absolute top-4 right-4 z-50 bg-white border-l-4 border-l-green-500 border-gray-200 shadow-xl p-4 rounded-lg animate-fade-in flex items-center gap-3 transition-all">
+      <div *ngIf="showToast" class="absolute top-4 right-4 z-50 bg-white border-l-4 border-l-green-500 border-slate-200 shadow-xl p-4 rounded-lg animate-fade-in flex items-center gap-3 transition-all">
           <div class="h-8 w-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
               <lucide-icon name="check" class="w-5 h-5"></lucide-icon>
           </div>
           <div>
-              <h4 class="font-bold text-gray-900 text-sm">Proposal Ready</h4>
-              <p class="text-xs text-gray-500">Draft generated successfully.</p>
+              <h4 class="font-bold text-slate-900 text-sm">Proposal Ready</h4>
+              <p class="text-xs text-slate-500">Draft generated successfully.</p>
           </div>
           <button (click)="onComplete.emit(routingPayload)" class="ml-4 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700 shadow-sm">
               View
@@ -60,7 +60,7 @@ interface AgentIdentity {
             
             <!-- Avatar -->
             <div class="flex-none w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm transition-all relative"
-                 [ngClass]="msg.role === 'user' ? 'bg-indigo-600 text-white chat-avatar-user' : 'bg-white border border-gray-200 text-indigo-600 chat-avatar-agent'">
+                 [ngClass]="msg.role === 'user' ? 'bg-indigo-600 text-white chat-avatar-user' : 'bg-white border border-slate-200 text-indigo-600 chat-avatar-agent'">
                <span *ngIf="msg.role === 'user'">V</span>
                <lucide-icon *ngIf="msg.role !== 'user'" name="bot" class="w-4 h-4"></lucide-icon>
             </div>
@@ -70,7 +70,7 @@ interface AgentIdentity {
                 
                 <!-- Text Bubble -->
                 <div class="rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm transition-all"
-                     [ngClass]="msg.role === 'user' ? 'bg-indigo-50 border border-indigo-100 text-gray-900 rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm'">
+                     [ngClass]="msg.role === 'user' ? 'bg-indigo-50 border border-indigo-100 text-slate-900 rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'">
                    <markdown [data]="msg.content"></markdown>
                    <span class="text-[9px] opacity-40 mt-1 block font-mono">{{ msg.timestamp | date:'shortTime' }}</span>
                 </div>
@@ -177,9 +177,9 @@ interface AgentIdentity {
       </div>
 
       <!-- Generate Work Item Button -->
-      <div *ngIf="showGenerateButton" class="px-4 py-3 border-t border-indigo-100 bg-indigo-50/50">
+      <div *ngIf="showGenerateButton" class="px-4 py-3 border-t border-blue-100 bg-blue-50/50">
          <button (click)="generateWorkItem()"
-                 class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 transform active:scale-95">
+                 class="w-full py-3 bg-dbs-primary hover:bg-dbs-primary-hover text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 transform active:scale-95">
             <lucide-icon name="file-plus-2" class="w-4 h-4"></lucide-icon>
             Generate Work Item
          </button>
@@ -198,7 +198,7 @@ interface AgentIdentity {
       </div>
 
       <!-- Input -->
-      <div class="p-4 bg-gray-50 border-t border-gray-200">
+      <div class="p-4 bg-slate-50 border-t border-slate-200">
          <!-- DRAFT READY BANNER (Contextual) -->
          <div *ngIf="isDraftReady" class="mb-3 px-1 flex items-center justify-between bg-green-50 p-3 rounded-xl border border-green-100 animate-fade-in">
              <div class="flex items-center gap-2">
@@ -216,7 +216,7 @@ interface AgentIdentity {
          <div *ngIf="!isDraftReady" class="flex items-center justify-between mb-3 px-1">
              <div class="flex items-center gap-2">
                  <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">AI Agent Active</span>
+                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">AI Agent Active</span>
              </div>
          </div>
          
@@ -225,7 +225,7 @@ interface AgentIdentity {
                     [(ngModel)]="userInput"
                     (keydown)="handleKeyDown($event)"
                     placeholder="Ask me anything about your NPA..."
-                    class="w-full bg-white text-gray-900 text-sm rounded-lg pl-4 pr-12 py-3 border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-gray-400 shadow-sm chat-textarea"
+                    class="w-full bg-white text-slate-900 text-sm rounded-lg pl-4 pr-12 py-3 border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-400 shadow-sm chat-textarea"
                     ></textarea>
 
              <button *ngIf="!isThinking"

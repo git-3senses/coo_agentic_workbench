@@ -20,18 +20,18 @@ export interface RequiredDocument {
    standalone: true,
    imports: [CommonModule, LucideAngularModule],
    template: `
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       
       <!-- Header / Summary -->
-      <div class="px-6 py-5 border-b border-gray-200 bg-gray-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="px-6 py-5 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-           <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+           <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
               Document Dependency Matrix
               <span class="px-2 py-0.5 rounded text-xs font-bold uppercase bg-blue-100 text-blue-700 border border-blue-200">
                  {{ npaType || 'NPA Full' }}
               </span>
            </h3>
-           <p class="text-sm text-gray-500 mt-1">
+           <p class="text-sm text-slate-500 mt-1">
               {{ completionPercentage }}% Complete • <span class="text-red-600 font-semibold">{{ criticalMissingCount }} Critical Missing</span>
            </p>
         </div>
@@ -40,7 +40,7 @@ export interface RequiredDocument {
         <div class="flex items-center gap-2">
            <button *ngFor="let cat of categories" 
                    (click)="activeCategory = cat"
-                   [class]="activeCategory === cat ? 'bg-white text-blue-700 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-100'"
+                   [class]="activeCategory === cat ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:bg-slate-100'"
                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
               {{ cat }}
            </button>
@@ -48,7 +48,7 @@ export interface RequiredDocument {
       </div>
 
       <!-- Matrix List -->
-      <div class="divide-y divide-gray-100">
+      <div class="divide-y divide-slate-100">
          <div *ngFor="let doc of filteredDocs" class="group hover:bg-slate-50 transition-colors p-4 flex items-center justify-between">
             
             <!-- Left: Icon & Info -->
@@ -59,13 +59,13 @@ export interface RequiredDocument {
                </div>
                
                <div>
-                  <h4 class="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
                      {{ doc.name }}
                      <span *ngIf="doc.isCriticalPath" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
                         CRITICAL
                      </span>
                   </h4>
-                  <div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                  <div class="flex items-center gap-3 text-xs text-slate-500 mt-1">
                      <span class="flex items-center gap-1">
                         <lucide-icon name="user" class="w-3 h-3"></lucide-icon>
                         {{ doc.owner || 'Unassigned' }}
@@ -87,7 +87,7 @@ export interface RequiredDocument {
                <span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getStatusBadge(doc.status)">
                   {{ doc.status.replace('_', ' ') }}
                </span>
-               <button class="p-2 text-gray-400 hover:text-blue-600 transition-colors">
+               <button class="p-2 text-slate-400 hover:text-blue-600 transition-colors">
                   <lucide-icon name="more-vertical" class="w-4 h-4"></lucide-icon>
                </button>
             </div>
@@ -96,7 +96,7 @@ export interface RequiredDocument {
       </div>
 
       <!-- Footer -->
-      <div class="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+      <div class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
          <span>Source: NPA_Documents_Required.md (v1.0)</span>
          <button class="font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
             Generate Missing Docs <lucide-icon name="arrow-right" class="w-3 h-3"></lucide-icon>
@@ -173,9 +173,9 @@ export class DocumentDependencyMatrixComponent implements OnInit, OnChanges {
          case 'COMPLETE': return 'bg-green-100 text-green-600';
          case 'IN_PROGRESS': return 'bg-blue-100 text-blue-600';
          case 'AT_RISK': return 'bg-amber-100 text-amber-600';
-         case 'NOT_STARTED': return 'bg-gray-100 text-gray-400';
+         case 'NOT_STARTED': return 'bg-slate-100 text-slate-400';
          case 'MISSING': return 'bg-red-100 text-red-600';
-         default: return 'bg-gray-100';
+         default: return 'bg-slate-100';
       }
    }
 
@@ -195,9 +195,9 @@ export class DocumentDependencyMatrixComponent implements OnInit, OnChanges {
          case 'COMPLETE': return 'bg-green-100 text-green-700';
          case 'IN_PROGRESS': return 'bg-blue-100 text-blue-700';
          case 'AT_RISK': return 'bg-amber-100 text-amber-800 animate-pulse';
-         case 'NOT_STARTED': return 'bg-gray-100 text-gray-600';
+         case 'NOT_STARTED': return 'bg-slate-100 text-slate-600';
          case 'MISSING': return 'bg-red-100 text-red-700 font-bold';
-         default: return 'bg-gray-100';
+         default: return 'bg-slate-100';
       }
    }
 

@@ -19,16 +19,16 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
    standalone: true,
    imports: [CommonModule, FormsModule, SharedIconsModule, LucideAngularModule],
    template: `
-    <div class="h-full flex flex-col bg-gray-50 font-sans text-gray-900">
+    <div class="h-full flex flex-col bg-slate-50 font-sans text-slate-900">
       
       <!-- HEADER -->
-      <div class="flex-none bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shadow-sm z-10">
+      <div class="flex-none bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shadow-sm z-10">
         <div>
-           <h1 class="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
+           <h1 class="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
               <lucide-icon [name]="headerIcon" class="w-6 h-6 text-indigo-600"></lucide-icon>
               {{ dashboardTitle }}
            </h1>
-           <p class="text-sm text-gray-500 mt-1">{{ dashboardSubtitle }}</p>
+           <p class="text-sm text-slate-500 mt-1">{{ dashboardSubtitle }}</p>
         </div>
         <div class="flex items-center gap-3">
            <div class="flex items-center gap-1.5 bg-slate-50 text-slate-600 px-3 py-1 rounded-full text-xs font-medium border border-slate-200">
@@ -47,7 +47,7 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
         <div class="max-w-6xl mx-auto space-y-6">
 
             <!-- LIST -->
-            <div *ngFor="let item of filteredItems()" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group relative">
+            <div *ngFor="let item of filteredItems()" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group relative">
                 
                 <!-- Rework Badge -->
                 <div *ngIf="item.stage === 'RETURNED_TO_MAKER' && currentView() === 'INBOX'" class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
@@ -73,16 +73,16 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
                    <!-- CONTENT -->
                    <div class="flex-1 min-w-0">
                       <div class="flex items-center justify-between mb-1">
-                          <span class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ item.type }}</span>
-                          <span class="text-xs text-gray-400">{{ item.submittedDate | date:'mediumDate' }}</span>
+                          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">{{ item.type }}</span>
+                          <span class="text-xs text-slate-400">{{ item.submittedDate | date:'mediumDate' }}</span>
                       </div>
-                      <h3 class="text-lg font-bold text-gray-900 mb-1 leading-tight group-hover:text-indigo-600 transition-colors cursor-pointer">
+                      <h3 class="text-lg font-bold text-slate-900 mb-1 leading-tight group-hover:text-indigo-600 transition-colors cursor-pointer">
                           {{ item.title }}
                       </h3>
-                      <p class="text-sm text-gray-600 mb-4 line-clamp-2">{{ item.description }}</p>
+                      <p class="text-sm text-slate-600 mb-4 line-clamp-2">{{ item.description }}</p>
                       
                       <div class="flex items-center gap-4 text-xs mb-4">
-                          <div class="flex items-center gap-1.5 text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                          <div class="flex items-center gap-1.5 text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100">
                               <lucide-icon name="user" class="w-3.5 h-3.5"></lucide-icon>
                               <span>{{ item.submittedBy }}</span>
                           </div>
@@ -96,15 +96,15 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
                               <span>{{ item.riskLevel }} Risk</span>
                           </div>
                            <!-- Stage Badge for generic views -->
-                          <div class="flex items-center gap-1.5 px-2 py-1 rounded border bg-gray-100 text-gray-700 font-medium">
+                          <div class="flex items-center gap-1.5 px-2 py-1 rounded border bg-slate-100 text-slate-700 font-medium">
                               <lucide-icon name="activity" class="w-3.5 h-3.5"></lucide-icon>
                               <span>{{ item.stage }}</span>
                           </div>
                       </div>
 
                       <!-- APPROVAL MATRIX VISUALIZATION (Detail View) -->
-                      <div *ngIf="shouldShowMatrix(item)" class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                          <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Sign-Off Status</h4>
+                      <div *ngIf="shouldShowMatrix(item)" class="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                          <h4 class="text-xs font-bold text-slate-500 uppercase mb-2">Sign-Off Status</h4>
                           <div class="flex flex-wrap gap-2">
                              <div *ngFor="let party of item.requiredSignOffs" class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border"
                                   [ngClass]="getBadgeClass(item.signOffMatrix[party]?.status || 'PENDING')">
@@ -130,8 +130,8 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
                            
                            <!-- MAKER -->
                            <ng-container *ngIf="userRole() === 'MAKER'">
-                               <button *ngIf="item.stage === 'RETURNED_TO_MAKER' || item.stage === 'DRAFT'" (click)="submit(item)" 
-                                       class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                               <button *ngIf="item.stage === 'RETURNED_TO_MAKER' || item.stage === 'DRAFT'" (click)="submit(item)"
+                                       class="w-full px-4 py-2 bg-dbs-primary hover:bg-dbs-primary-hover text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
                                    <lucide-icon name="send" class="w-3.5 h-3.5"></lucide-icon>
                                    <span>{{ item.stage === 'DRAFT' ? 'Submit' : 'Resubmit' }}</span>
                                </button>
@@ -181,7 +181,7 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
 
                        <!-- DRAFT ACTIONS -->
                        <ng-container *ngIf="currentView() === 'DRAFTS'">
-                           <button class="w-full px-4 py-2 bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                           <button class="w-full px-4 py-2 bg-white text-slate-700 border border-dbs-border hover:bg-slate-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
                                <lucide-icon name="pencil" class="w-3.5 h-3.5"></lucide-icon> Edit Draft
                            </button>
                        </ng-container>
@@ -189,7 +189,7 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
                        <!-- WATCHLIST ACTIONS -->
                        <ng-container *ngIf="currentView() === 'WATCHLIST'">
                             <!-- Status Badge is enough, maybe View Details again -->
-                           <button class="w-full px-4 py-2 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                           <button class="w-full px-4 py-2 bg-white text-slate-700 border border-dbs-border hover:bg-slate-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
                                <lucide-icon name="eye" class="w-3.5 h-3.5"></lucide-icon> View Status
                            </button>
                        </ng-container>
@@ -203,7 +203,7 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
                        </div>
 
                        <!-- VIEW DETAILS -->
-                       <button class="w-full px-4 py-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition-all flex items-center justify-center gap-2 mt-auto">
+                       <button class="w-full px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-all flex items-center justify-center gap-2 mt-auto">
                            <lucide-icon name="eye" class="w-3.5 h-3.5"></lucide-icon> Details
                        </button>
 
@@ -213,13 +213,13 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
             </div>
 
             <!-- EMPTY STATE -->
-            <div *ngIf="filteredItems().length === 0" class="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                     <lucide-icon [name]="emptyIcon" class="w-8 h-8 text-gray-400"></lucide-icon>
+            <div *ngIf="filteredItems().length === 0" class="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
+                 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
+                     <lucide-icon [name]="emptyIcon" class="w-8 h-8 text-slate-400"></lucide-icon>
                  </div>
-                 <h3 class="text-lg font-medium text-gray-900">{{ emptyTitle }}</h3>
-                 <p class="text-gray-500 max-w-sm mx-auto mt-2">{{ emptyMessage }}</p>
-                 <button *ngIf="userRole() === 'MAKER' && currentView() === 'DRAFTS'" class="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+                 <h3 class="text-lg font-medium text-slate-900">{{ emptyTitle }}</h3>
+                 <p class="text-slate-500 max-w-sm mx-auto mt-2">{{ emptyMessage }}</p>
+                 <button *ngIf="userRole() === 'MAKER' && currentView() === 'DRAFTS'" class="mt-6 px-4 py-2 bg-dbs-primary text-white rounded-lg hover:bg-dbs-primary-hover transition-colors text-sm font-semibold">
                      Create New Proposal
                  </button>
             </div>
@@ -600,8 +600,8 @@ export class ApprovalDashboardComponent {
          case 'APPROVED': return 'bg-green-50 text-green-700 border-green-200';
          case 'APPROVED_CONDITIONAL': return 'bg-teal-50 text-teal-700 border-teal-200';
          case 'REWORK_REQUIRED': return 'bg-red-50 text-red-700 border-red-200';
-         case 'REJECTED': return 'bg-gray-50 text-gray-700 border-gray-200';
-         default: return 'bg-gray-50 text-gray-500 border-gray-200'; // Pending
+         case 'REJECTED': return 'bg-slate-50 text-slate-700 border-slate-200';
+         default: return 'bg-slate-50 text-slate-500 border-slate-200'; // Pending
       }
    }
 
@@ -610,8 +610,8 @@ export class ApprovalDashboardComponent {
          case 'APPROVED': return 'bg-green-500';
          case 'APPROVED_CONDITIONAL': return 'bg-teal-500';
          case 'REWORK_REQUIRED': return 'bg-red-500';
-         case 'REJECTED': return 'bg-gray-500';
-         default: return 'bg-gray-300';
+         case 'REJECTED': return 'bg-slate-500';
+         default: return 'bg-slate-300';
       }
    }
 }

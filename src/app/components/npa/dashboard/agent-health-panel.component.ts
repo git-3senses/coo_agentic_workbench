@@ -13,7 +13,7 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
       <div class="bg-slate-50 px-6 py-3 border-b border-slate-200 flex items-center justify-between">
          <div class="flex items-center gap-2">
             <lucide-icon name="activity" class="w-4 h-4 text-slate-500"></lucide-icon>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">System Health & Performance</h3>
+            <h3 class="text-xs font-bold uppercase tracking-widest text-slate-600">System Health & Performance</h3>
          </div>
          <div class="flex items-center gap-2 text-xs">
             <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
@@ -26,48 +26,59 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
 
       <!-- Metrics Grid -->
       <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100">
-         
-         <!-- Metric 1: Latency -->
-         <div class="p-4 flex items-center gap-4">
-             <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                <lucide-icon name="zap" class="w-5 h-5"></lucide-icon>
-             </div>
-             <div>
-                <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.latency }}<span class="text-sm font-sans text-slate-500 font-normal ml-1">ms</span></p>
-                <p class="text-xs text-slate-500 font-medium uppercase">API Latency</p>
-             </div>
-         </div>
 
-         <!-- Metric 2: Uptime -->
+         <!-- Metric 1: Overall Agent Health -->
          <div class="p-4 flex items-center gap-4">
              <div class="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
-                <lucide-icon name="server" class="w-5 h-5"></lucide-icon>
-             </div>
-             <div>
-                <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.uptime }}<span class="text-sm font-sans text-slate-500 font-normal ml-1">%</span></p>
-                <p class="text-xs text-slate-500 font-medium uppercase">Uptime (24h)</p>
-             </div>
-         </div>
-
-          <!-- Metric 3: Active Agents -->
-         <div class="p-4 flex items-center gap-4">
-             <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
-                <lucide-icon name="bot" class="w-5 h-5"></lucide-icon>
+                <lucide-icon name="heart-pulse" class="w-5 h-5"></lucide-icon>
              </div>
              <div>
                 <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.activeAgents }}<span class="text-sm font-sans text-slate-500 font-normal ml-1">/ {{ metrics.totalAgents || 13 }}</span></p>
-                <p class="text-xs text-slate-500 font-medium uppercase">Active Agents</p>
+                <p class="text-xs text-slate-500 font-medium uppercase">Agents Healthy</p>
+                <div class="flex items-center gap-1 mt-1">
+                   <div class="h-1.5 flex-1 bg-green-500 rounded-full" [style.width.%]="(metrics.activeAgents / (metrics.totalAgents || 13)) * 100"></div>
+                   <div class="h-1.5 bg-slate-200 rounded-full" [style.width.%]="100 - (metrics.activeAgents / (metrics.totalAgents || 13)) * 100"></div>
+                </div>
              </div>
          </div>
 
-         <!-- Metric 4: Throughput -->
+         <!-- Metric 2: Confidence Score -->
          <div class="p-4 flex items-center gap-4">
-             <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
-                <lucide-icon name="cpu" class="w-5 h-5"></lucide-icon>
+             <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <lucide-icon name="gauge" class="w-5 h-5"></lucide-icon>
              </div>
              <div>
-                <p class="text-2xl font-mono font-bold text-slate-900">{{ formatNumber(metrics.totalDecisions) }}</p>
-                <p class="text-xs text-slate-500 font-medium uppercase">Daily Decisions</p>
+                <p class="text-2xl font-mono font-bold text-slate-900">{{ confidenceScore }}<span class="text-sm font-sans text-slate-500 font-normal ml-1">%</span></p>
+                <p class="text-xs text-slate-500 font-medium uppercase">Confidence Score</p>
+                <div class="flex items-center gap-1 mt-1">
+                   <div class="h-1.5 rounded-full" [style.width.%]="confidenceScore"
+                        [ngClass]="confidenceScore >= 80 ? 'bg-green-500' : confidenceScore >= 60 ? 'bg-amber-500' : 'bg-rose-500'"></div>
+                   <div class="h-1.5 bg-slate-200 rounded-full" [style.width.%]="100 - confidenceScore"></div>
+                </div>
+             </div>
+         </div>
+
+          <!-- Metric 3: Tools Used -->
+         <div class="p-4 flex items-center gap-4">
+             <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                <lucide-icon name="wrench" class="w-5 h-5"></lucide-icon>
+             </div>
+             <div>
+                <p class="text-2xl font-mono font-bold text-slate-900">{{ toolsUsed }}</p>
+                <p class="text-xs text-slate-500 font-medium uppercase">Tools Connected</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">MCP, APIs, Workflows</p>
+             </div>
+         </div>
+
+         <!-- Metric 4: KBs Connected -->
+         <div class="p-4 flex items-center gap-4">
+             <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+                <lucide-icon name="book-open" class="w-5 h-5"></lucide-icon>
+             </div>
+             <div>
+                <p class="text-2xl font-mono font-bold text-slate-900">{{ kbsConnected }}</p>
+                <p class="text-xs text-slate-500 font-medium uppercase">KBs Connected</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">{{ kbRecords }} records indexed</p>
              </div>
          </div>
 
@@ -79,6 +90,11 @@ export class AgentHealthPanelComponent {
    @Input() metrics: HealthMetrics = {
       status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0
    };
+
+   confidenceScore = 87;
+   toolsUsed = 54;
+   kbsConnected = 4;
+   kbRecords = '2.1k';
 
    formatNumber(num: number): string {
       if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
