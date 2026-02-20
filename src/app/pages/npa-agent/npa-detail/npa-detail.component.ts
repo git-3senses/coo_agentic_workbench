@@ -633,6 +633,9 @@ export class NpaDetailComponent implements OnInit {
       const loadOnce = (id: string) => {
          if (this.projectId === id && this._agentsLaunched) return; // already loaded
          this.projectId = id;
+         // Enrich npaContext so template editor always has projectId / npaId
+         if (!this.npaContext) this.npaContext = {};
+         this.npaContext = { ...this.npaContext, npaId: id, projectId: id };
          this.loadProjectDetails(id);
       };
 
