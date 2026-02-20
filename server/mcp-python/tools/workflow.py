@@ -60,7 +60,7 @@ ADVANCE_WORKFLOW_STATE_SCHEMA = {
         "project_id": {"type": "string", "description": "NPA project ID"},
         "new_stage": {"type": "string", "description": "New workflow stage to advance to"},
         "reason": {"type": "string", "description": "Reason for the stage transition"},
-        "blockers": {"type": "array", "items": {"type": "string"}, "description": "List of any blockers for the new stage"},
+        "blockers": {"type": "string", "description": "Comma-separated list of any blockers for the new stage"},
     },
     "required": ["project_id", "new_stage"],
 }
@@ -81,7 +81,13 @@ async def advance_workflow_state_handler(inp: dict) -> ToolResult:
     )
 
     # Create new state
-    blockers_json = json.dumps(inp["blockers"]) if inp.get("blockers") else None
+    blockers_raw = inp.get("blockers")
+    if isinstance(blockers_raw, str) and blockers_raw:
+        blockers_json = json.dumps([b.strip() for b in blockers_raw.split(",") if b.strip()])
+    elif isinstance(blockers_raw, list):
+        blockers_json = json.dumps(blockers_raw) if blockers_raw else None
+    else:
+        blockers_json = None
     await execute(
         """INSERT INTO npa_workflow_states (project_id, stage_id, status, started_at, blockers)
            VALUES (%s, %s, 'IN_PROGRESS', NOW(), %s)""",
@@ -110,7 +116,7 @@ GET_SESSION_HISTORY_SCHEMA = {
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID to get session history for"},
         "agent_id": {"type": "string", "description": "Filter by specific agent identity"},
-        "limit": {"type": "integer", "description": "Max sessions to return", "default": 20},
+        "limit": {"type": "integer", "description": "Max sessions to return. Defaults to 20"},
     },
     "required": ["project_id"],
 }
@@ -155,15 +161,21 @@ LOG_ROUTING_DECISION_SCHEMA = {
         "source_agent": {"type": "string", "description": "Agent making the routing decision"},
         "target_agent": {"type": "string", "description": "Agent being routed to"},
         "routing_reason": {"type": "string", "description": "Why the routing decision was made"},
-        "confidence": {"type": "number", "minimum": 0, "maximum": 100, "description": "Confidence in routing decision"},
-        "context_payload": {"type": "object", "description": "Context to pass to the target agent"},
+        "confidence": {"type": "number", "description": "Confidence in routing decision 0-100"},
+        "context_payload_json": {"type": "string", "description": "JSON string of context to pass to the target agent"},
     },
     "required": ["source_agent", "target_agent", "routing_reason"],
 }
 
 
 async def log_routing_decision_handler(inp: dict) -> ToolResult:
-    context_json = json.dumps(inp["context_payload"]) if inp.get("context_payload") else None
+    context_raw = inp.get("context_payload_json") or inp.get("context_payload")
+    if isinstance(context_raw, str):
+        context_json = context_raw  # Already JSON string
+    elif isinstance(context_raw, dict):
+        context_json = json.dumps(context_raw)
+    else:
+        context_json = None
 
     row_id = await execute(
         """INSERT INTO npa_agent_routing_decisions

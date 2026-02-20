@@ -20,9 +20,9 @@ UPLOAD_DOCUMENT_METADATA_SCHEMA = {
         "file_extension": {"type": "string", "description": "File extension (e.g. 'pdf')"},
         "category": {"type": "string", "description": "Document category"},
         "uploaded_by": {"type": "string", "description": "Name of person uploading"},
-        "validation_status": {"type": "string", "enum": ["VALID", "PENDING", "INVALID", "WARNING"], "description": "Validation status", "default": "PENDING"},
+        "validation_status": {"type": "string", "description": "Validation status. Must be one of: VALID, PENDING, INVALID, WARNING. Defaults to PENDING"},
         "validation_stage": {"type": "string", "description": "Validation stage (AUTOMATED, BUSINESS, RISK, COMPLIANCE, LEGAL, FINAL)"},
-        "criticality": {"type": "string", "enum": ["CRITICAL", "IMPORTANT", "OPTIONAL"], "description": "Document criticality"},
+        "criticality": {"type": "string", "description": "Document criticality. Must be one of: CRITICAL, IMPORTANT, OPTIONAL"},
         "required_by_stage": {"type": "string", "description": "Stage this doc is required by (CHECKER, SIGN_OFF, LAUNCH)"},
         "doc_requirement_id": {"type": "integer", "description": "FK to ref_document_requirements"},
     },
@@ -140,7 +140,7 @@ async def check_document_completeness_handler(inp: dict) -> ToolResult:
 GET_DOCUMENT_REQUIREMENTS_SCHEMA = {
     "type": "object",
     "properties": {
-        "approval_track": {"type": "string", "description": "Filter by approval track (FULL_NPA, NPA_LITE, BUNDLING, EVERGREEN)", "default": "ALL"},
+        "approval_track": {"type": "string", "description": "Filter by approval track (FULL_NPA, NPA_LITE, BUNDLING, EVERGREEN). Defaults to ALL"},
         "category": {"type": "string", "description": "Filter by category (CORE, CONDITIONAL, SUPPLEMENTARY)"},
     },
 }
@@ -188,7 +188,7 @@ VALIDATE_DOCUMENT_SCHEMA = {
     "type": "object",
     "properties": {
         "document_id": {"type": "integer", "description": "Document ID to validate"},
-        "validation_status": {"type": "string", "enum": ["VALID", "INVALID", "WARNING"], "description": "Validation result"},
+        "validation_status": {"type": "string", "description": "Validation result. Must be one of: VALID, INVALID, WARNING"},
         "validation_stage": {"type": "string", "description": "Validation stage (AUTOMATED, BUSINESS, RISK, COMPLIANCE, LEGAL, FINAL)"},
         "validation_notes": {"type": "string", "description": "Notes about the validation result"},
         "validated_by": {"type": "string", "description": "Who performed the validation"},
@@ -231,28 +231,23 @@ DOC_LIFECYCLE_VALIDATE_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "validations": {
-            "type": "array",
-            "description": "Array of document validation results from the agent",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "document_id": {"type": "integer", "description": "Document ID"},
-                    "validation_status": {"type": "string", "enum": ["VALID", "INVALID", "WARNING"], "description": "Validation result"},
-                    "validation_stage": {"type": "string", "description": "Validation stage completed"},
-                    "validation_notes": {"type": "string", "description": "Notes / findings"},
-                },
-                "required": ["document_id", "validation_status"],
-            },
+        "validations_json": {
+            "type": "string",
+            "description": "JSON string array of document validation results. Each object requires: document_id (integer), validation_status (one of VALID, INVALID, WARNING). Optional: validation_stage (string), validation_notes (string). Example: [{\"document_id\":1,\"validation_status\":\"VALID\",\"validation_stage\":\"AUTOMATED\"}]",
         },
     },
-    "required": ["project_id", "validations"],
+    "required": ["project_id", "validations_json"],
 }
 
 
 async def doc_lifecycle_validate_handler(inp: dict) -> ToolResult:
+    # Accept validations as JSON string or direct array
+    validations_raw = inp.get("validations_json") or inp.get("validations", [])
+    if isinstance(validations_raw, str):
+        validations_raw = json.loads(validations_raw)
+
     results = []
-    for v in inp["validations"]:
+    for v in validations_raw:
         docs = await query("SELECT id, document_name, validation_status FROM npa_documents WHERE id = %s AND project_id = %s",
                            [v["document_id"], inp["project_id"]])
         if not docs:

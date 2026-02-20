@@ -15,30 +15,29 @@ ASSESS_DOMAINS_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID to assess"},
-        "assessments": {
-            "type": "array",
-            "description": "Array of domain assessments (typically 7 domains)",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "domain": {"type": "string", "enum": ["STRATEGIC", "RISK", "LEGAL", "OPS", "TECH", "DATA", "CLIENT"], "description": "Assessment domain"},
-                    "status": {"type": "string", "enum": ["PASS", "FAIL", "WARN"], "description": "Assessment result"},
-                    "score": {"type": "number", "minimum": 0, "maximum": 100, "description": "Readiness score 0-100"},
-                    "findings": {"type": "array", "items": {"type": "string"}, "description": "List of gaps or issues identified"},
-                },
-                "required": ["domain", "status", "score"],
-            },
+        "assessments_json": {
+            "type": "string",
+            "description": "JSON string array of domain assessments. Each object requires: domain (one of STRATEGIC, RISK, LEGAL, OPS, TECH, DATA, CLIENT), status (one of PASS, FAIL, WARN), score (number 0-100). Optional: findings (comma-separated string of gaps). Example: [{\"domain\":\"STRATEGIC\",\"status\":\"PASS\",\"score\":85,\"findings\":\"No gaps found\"}]",
         },
     },
-    "required": ["project_id", "assessments"],
+    "required": ["project_id", "assessments_json"],
 }
 
 
 async def classify_assess_domains_handler(inp: dict) -> ToolResult:
     VALID_STATUSES = {"PASS", "FAIL", "WARN"}
 
+    # Accept assessments as JSON string or direct array
+    assessments_raw = inp.get("assessments_json") or inp.get("assessments", [])
+    if isinstance(assessments_raw, str):
+        assessments_raw = json.loads(assessments_raw)
+    # Normalize findings from string to list if needed
+    for a in assessments_raw:
+        if isinstance(a.get("findings"), str):
+            a["findings"] = [f.strip() for f in a["findings"].split(",") if f.strip()]
+
     results = []
-    for a in inp["assessments"]:
+    for a in assessments_raw:
         # Validate status matches DB CHECK constraint: ('PASS','FAIL','WARN')
         status = a.get("status", "PASS").upper()
         if status not in VALID_STATUSES:
@@ -74,8 +73,8 @@ async def classify_assess_domains_handler(inp: dict) -> ToolResult:
             )
         results.append({"id": row_id, "domain": a["domain"], "status": status, "score": score})
 
-    avg_score = sum(a["score"] for a in inp["assessments"]) / len(inp["assessments"])
-    fail_count = sum(1 for a in inp["assessments"] if a["status"] == "FAIL")
+    avg_score = sum(a["score"] for a in assessments_raw) / len(assessments_raw)
+    fail_count = sum(1 for a in assessments_raw if a["status"] == "FAIL")
     overall = "NOT_READY" if fail_count > 0 else ("READY" if avg_score >= 70 else "NEEDS_WORK")
 
     return ToolResult(success=True, data={
@@ -86,8 +85,8 @@ async def classify_assess_domains_handler(inp: dict) -> ToolResult:
             "overall_status": overall,
             "domains_assessed": len(results),
             "fail_count": fail_count,
-            "warn_count": sum(1 for a in inp["assessments"] if a["status"] == "WARN"),
-            "pass_count": sum(1 for a in inp["assessments"] if a["status"] == "PASS"),
+            "warn_count": sum(1 for a in assessments_raw if a["status"] == "WARN"),
+            "pass_count": sum(1 for a in assessments_raw if a["status"] == "PASS"),
         },
     })
 
@@ -98,9 +97,9 @@ SCORE_NPA_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "total_score": {"type": "number", "minimum": 0, "maximum": 20, "description": "Total complexity score (0-20)"},
-        "calculated_tier": {"type": "string", "enum": ["NPA_LITE", "VARIATION", "FULL"], "description": "Determined classification tier"},
-        "breakdown": {"type": "object", "description": "Scoring factor breakdown (e.g., {\"new_market\": 5, \"regulatory_complexity\": 3})"},
+        "total_score": {"type": "number", "description": "Total complexity score 0-20"},
+        "calculated_tier": {"type": "string", "description": "Determined classification tier. Must be one of: NPA_LITE, VARIATION, FULL"},
+        "breakdown": {"type": "string", "description": "JSON string of scoring factor breakdown. Example: {\"new_market\":5,\"regulatory_complexity\":3}"},
         "override_reason": {"type": "string", "description": "Reason if human overrides AI classification"},
     },
     "required": ["project_id", "total_score", "calculated_tier", "breakdown"],
@@ -108,11 +107,16 @@ SCORE_NPA_SCHEMA = {
 
 
 async def classify_score_npa_handler(inp: dict) -> ToolResult:
+    # Accept breakdown as string or dict
+    breakdown = inp["breakdown"]
+    if isinstance(breakdown, str):
+        breakdown = json.loads(breakdown)
+
     scorecard_id = await execute(
         """INSERT INTO npa_classification_scorecards (project_id, total_score, calculated_tier, breakdown, override_reason, created_at)
            VALUES (%s, %s, %s, %s, %s, NOW())""",
         [inp["project_id"], inp["total_score"], inp["calculated_tier"],
-         json.dumps(inp["breakdown"]), inp.get("override_reason")],
+         json.dumps(breakdown), inp.get("override_reason")],
     )
 
     confidence = None if inp.get("override_reason") else 92.5
@@ -127,7 +131,7 @@ async def classify_score_npa_handler(inp: dict) -> ToolResult:
         "project_id": inp["project_id"],
         "total_score": inp["total_score"],
         "calculated_tier": inp["calculated_tier"],
-        "breakdown": inp["breakdown"],
+        "breakdown": breakdown,
         "classification_method": method,
     })
 
@@ -138,8 +142,8 @@ DETERMINE_TRACK_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "approval_track": {"type": "string", "enum": ["FULL_NPA", "NPA_LITE", "BUNDLING", "EVERGREEN", "PROHIBITED"], "description": "Determined approval track"},
-        "approval_track_subtype": {"type": "string", "enum": ["B1", "B2", "B3", "B4"], "description": "NPA Lite sub-type (B1=2 SOPs, B2=3, B3=4, B4=full). Only applicable when track is NPA_LITE."},
+        "approval_track": {"type": "string", "description": "Determined approval track. Must be one of: FULL_NPA, NPA_LITE, BUNDLING, EVERGREEN, PROHIBITED"},
+        "approval_track_subtype": {"type": "string", "description": "NPA Lite sub-type. Must be one of: B1, B2, B3, B4. Only applicable when track is NPA_LITE"},
         "reasoning": {"type": "string", "description": "Explanation for the track determination"},
     },
     "required": ["project_id", "approval_track", "reasoning"],

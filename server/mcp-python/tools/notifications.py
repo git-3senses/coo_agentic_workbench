@@ -17,7 +17,7 @@ GET_PENDING_NOTIFICATIONS_SCHEMA = {
     "properties": {
         "project_id": {"type": "string", "description": "Filter by NPA project ID"},
         "user_role": {"type": "string", "description": "Filter by user role (MAKER, CHECKER, APPROVER, COO, ADMIN)"},
-        "limit": {"type": "integer", "description": "Max notifications", "default": 20},
+        "limit": {"type": "integer", "description": "Max notifications. Defaults to 20"},
     },
 }
 
@@ -142,7 +142,7 @@ SEND_NOTIFICATION_SCHEMA = {
         "notification_type": {"type": "string", "description": "Type: SLA_BREACH, STAGE_CHANGE, APPROVAL_NEEDED, ESCALATION, SYSTEM_ALERT"},
         "title": {"type": "string", "description": "Notification title"},
         "message": {"type": "string", "description": "Notification message body"},
-        "severity": {"type": "string", "enum": ["CRITICAL", "WARNING", "INFO"], "description": "Severity level"},
+        "severity": {"type": "string", "description": "Severity level. Must be one of: CRITICAL, WARNING, INFO"},
         "recipient_role": {"type": "string", "description": "Target role (MAKER, CHECKER, APPROVER, COO)"},
     },
     "required": ["project_id", "notification_type", "title", "message"],

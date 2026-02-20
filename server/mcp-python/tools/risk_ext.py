@@ -13,7 +13,7 @@ from db import execute, query
 GET_PREREQUISITE_CATEGORIES_SCHEMA = {
     "type": "object",
     "properties": {
-        "include_checks": {"type": "boolean", "description": "Include individual checks within each category", "default": True},
+        "include_checks": {"type": "string", "description": "Include individual checks within each category. Use 'true' or 'false'. Defaults to true"},
     },
 }
 
@@ -25,7 +25,7 @@ async def get_prerequisite_categories_handler(inp: dict) -> ToolResult:
            ORDER BY order_index""",
     )
 
-    if inp.get("include_checks", True):
+    if str(inp.get("include_checks", "true")).lower() not in ("false", "0", "no"):
         for cat in categories:
             checks = await query(
                 """SELECT id, check_code, check_name, description, mandatory_for, is_critical, order_index
@@ -140,16 +140,22 @@ SAVE_RISK_CHECK_RESULT_SCHEMA = {
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
         "check_layer": {"type": "string", "description": "Risk check layer (e.g. PROHIBITED_LIST, SANCTIONS, AML, REPUTATIONAL)"},
-        "result": {"type": "string", "enum": ["PASS", "FAIL", "WARNING"], "description": "Check result"},
-        "matched_items": {"type": "array", "items": {"type": "string"}, "description": "Array of matched items (if any)"},
-        "checked_by": {"type": "string", "description": "Who performed the check", "default": "RISK_AGENT"},
+        "result": {"type": "string", "description": "Check result. Must be one of: PASS, FAIL, WARNING"},
+        "matched_items": {"type": "string", "description": "Comma-separated list of matched items (if any)"},
+        "checked_by": {"type": "string", "description": "Who performed the check. Defaults to RISK_AGENT"},
     },
     "required": ["project_id", "check_layer", "result"],
 }
 
 
 async def save_risk_check_result_handler(inp: dict) -> ToolResult:
-    matched_json = json.dumps(inp["matched_items"]) if inp.get("matched_items") else None
+    matched_raw = inp.get("matched_items")
+    if isinstance(matched_raw, str) and matched_raw:
+        matched_json = json.dumps([m.strip() for m in matched_raw.split(",") if m.strip()])
+    elif isinstance(matched_raw, list):
+        matched_json = json.dumps(matched_raw) if matched_raw else None
+    else:
+        matched_json = None
 
     row_id = await execute(
         """INSERT INTO npa_risk_checks

@@ -16,7 +16,7 @@ GET_PERFORMANCE_METRICS_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "limit": {"type": "integer", "description": "Max snapshots to return", "default": 10},
+        "limit": {"type": "integer", "description": "Max snapshots to return. Defaults to 10"},
     },
     "required": ["project_id"],
 }
@@ -126,7 +126,7 @@ CREATE_BREACH_ALERT_SCHEMA = {
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
         "title": {"type": "string", "description": "Alert title"},
-        "severity": {"type": "string", "enum": ["CRITICAL", "WARNING", "INFO"], "description": "Alert severity"},
+        "severity": {"type": "string", "description": "Alert severity. Must be one of: CRITICAL, WARNING, INFO"},
         "description": {"type": "string", "description": "Detailed description of the breach"},
         "threshold_value": {"type": "string", "description": "The threshold that was breached"},
         "actual_value": {"type": "string", "description": "The actual measured value"},
@@ -237,7 +237,7 @@ UPDATE_CONDITION_STATUS_SCHEMA = {
     "type": "object",
     "properties": {
         "condition_id": {"type": "integer", "description": "Post-launch condition ID"},
-        "status": {"type": "string", "enum": ["PENDING", "COMPLETED", "WAIVED"], "description": "New status"},
+        "status": {"type": "string", "description": "New status. Must be one of: PENDING, COMPLETED, WAIVED"},
     },
     "required": ["condition_id", "status"],
 }
@@ -267,7 +267,7 @@ DETECT_APPROXIMATE_BOOKING_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID to check for proxy trades"},
-        "lookback_days": {"type": "integer", "description": "Days to look back for suspicious trades", "default": 30},
+        "lookback_days": {"type": "integer", "description": "Days to look back for suspicious trades. Defaults to 30"},
     },
     "required": ["project_id"],
 }

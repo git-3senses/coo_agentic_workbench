@@ -18,13 +18,13 @@ CREATE_NPA_SCHEMA = {
     "properties": {
         "title": {"type": "string", "description": "Product/NPA title"},
         "description": {"type": "string", "description": "Product description"},
-        "npa_type": {"type": "string", "enum": ["New-to-Group", "Variation", "Existing"], "description": "NPA classification type"},
+        "npa_type": {"type": "string", "description": "NPA classification type. Must be one of: New-to-Group, Variation, Existing"},
         "product_category": {"type": "string", "description": "Product category (e.g., Fixed Income, FX, Crypto)"},
-        "risk_level": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"], "description": "Initial risk assessment level"},
-        "is_cross_border": {"type": "boolean", "description": "Whether this involves cross-border jurisdictions", "default": False},
+        "risk_level": {"type": "string", "description": "Initial risk assessment level. Must be one of: LOW, MEDIUM, HIGH"},
+        "is_cross_border": {"type": "string", "description": "Whether this involves cross-border jurisdictions. Use 'true' or 'false'. Defaults to false"},
         "notional_amount": {"type": "number", "description": "Estimated notional amount in USD"},
-        "currency": {"type": "string", "description": "Currency code", "default": "USD"},
-        "submitted_by": {"type": "string", "description": "Name of the submitter", "default": "AI-Agent"},
+        "currency": {"type": "string", "description": "Currency code. Defaults to USD"},
+        "submitted_by": {"type": "string", "description": "Name of the submitter. Defaults to AI-Agent"},
         "product_manager": {"type": "string", "description": "Assigned product manager"},
         "pm_team": {"type": "string", "description": "Product manager team"},
     },
@@ -42,8 +42,9 @@ async def ideation_create_npa_handler(inp: dict) -> ToolResult:
         [
             npa_id, inp["title"], inp.get("description"), inp["npa_type"],
             inp.get("product_category"), inp["risk_level"],
-            inp.get("is_cross_border", False), inp.get("notional_amount"),
-            inp.get("currency", "USD"), inp.get("submitted_by", "AI-Agent"),
+            1 if str(inp.get("is_cross_border", "false")).lower() in ("true", "1", "yes") else 0,
+            inp.get("notional_amount"),
+            inp.get("currency") or "USD", inp.get("submitted_by") or "AI-Agent",
             inp.get("product_manager"), inp.get("pm_team"),
         ],
     )
@@ -65,7 +66,7 @@ FIND_SIMILAR_SCHEMA = {
         "search_term": {"type": "string", "description": "Product name or description to search for"},
         "npa_type": {"type": "string", "description": "Filter by NPA type"},
         "product_category": {"type": "string", "description": "Filter by product category"},
-        "limit": {"type": "integer", "description": "Max results to return", "default": 10},
+        "limit": {"type": "integer", "description": "Max results to return. Defaults to 10"},
     },
     "required": ["search_term"],
 }
@@ -203,7 +204,7 @@ async def ideation_save_concept_handler(inp: dict) -> ToolResult:
 LIST_TEMPLATES_SCHEMA = {
     "type": "object",
     "properties": {
-        "active_only": {"type": "boolean", "description": "Only return active templates", "default": True},
+        "active_only": {"type": "string", "description": "Only return active templates. Use 'true' or 'false'. Defaults to true"},
     },
     "required": [],
 }
@@ -217,7 +218,8 @@ async def ideation_list_templates_handler(inp: dict) -> ToolResult:
              LEFT JOIN ref_npa_sections s ON s.template_id = t.id
              LEFT JOIN ref_npa_fields f ON f.section_id = s.id"""
 
-    if inp.get("active_only", True):
+    active_only = str(inp.get("active_only", "true")).lower() not in ("false", "0", "no")
+    if active_only:
         sql += " WHERE t.is_active = 1"
 
     sql += " GROUP BY t.id, t.name, t.version, t.is_active ORDER BY t.name"

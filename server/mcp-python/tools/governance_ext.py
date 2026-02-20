@@ -221,10 +221,10 @@ SAVE_APPROVAL_DECISION_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "approval_type": {"type": "string", "description": "Type of approval (CHECKER, GFM_COO, PAC)"},
+        "approval_type": {"type": "string", "description": "Type of approval. Must be one of: CHECKER, GFM_COO, PAC"},
         "approver_id": {"type": "string", "description": "Approver's user ID"},
         "approver_role": {"type": "string", "description": "Approver's role"},
-        "decision": {"type": "string", "enum": ["APPROVE", "REJECT", "CONDITIONAL_APPROVE"], "description": "Approval decision"},
+        "decision": {"type": "string", "description": "Approval decision. Must be one of: APPROVE, REJECT, CONDITIONAL_APPROVE"},
         "comments": {"type": "string", "description": "Approver's comments"},
         "conditions_imposed": {"type": "string", "description": "Any conditions for conditional approval"},
     },
@@ -266,12 +266,12 @@ ADD_COMMENT_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "comment_type": {"type": "string", "description": "Type: APPROVER_QUESTION, MAKER_RESPONSE, AI_ANSWER, SYSTEM_ALERT, CHECKER_NOTE"},
+        "comment_type": {"type": "string", "description": "Type of comment. Must be one of: APPROVER_QUESTION, MAKER_RESPONSE, AI_ANSWER, SYSTEM_ALERT, CHECKER_NOTE"},
         "comment_text": {"type": "string", "description": "The comment text"},
         "author_name": {"type": "string", "description": "Author's name"},
         "author_role": {"type": "string", "description": "Author's role"},
         "parent_comment_id": {"type": "integer", "description": "Parent comment ID for threading"},
-        "generated_by_ai": {"type": "boolean", "description": "Whether this was AI-generated", "default": False},
+        "generated_by_ai": {"type": "string", "description": "Whether this was AI-generated. Use 'true' or 'false'"},
         "ai_agent": {"type": "string", "description": "Which AI agent generated this"},
         "ai_confidence": {"type": "number", "description": "AI confidence score"},
     },
@@ -280,6 +280,11 @@ ADD_COMMENT_SCHEMA = {
 
 
 async def add_comment_handler(inp: dict) -> ToolResult:
+    # Handle generated_by_ai as string or boolean
+    gen_by_ai = inp.get("generated_by_ai", False)
+    if isinstance(gen_by_ai, str):
+        gen_by_ai = gen_by_ai.lower() in ("true", "1", "yes")
+
     row_id = await execute(
         """INSERT INTO npa_comments
                (project_id, comment_type, comment_text, author_name, author_role,
@@ -288,7 +293,7 @@ async def add_comment_handler(inp: dict) -> ToolResult:
         [inp["project_id"], inp["comment_type"], inp["comment_text"],
          inp.get("author_name"), inp.get("author_role"),
          inp.get("parent_comment_id"),
-         inp.get("generated_by_ai", False),
+         gen_by_ai,
          inp.get("ai_agent"), inp.get("ai_confidence")],
     )
 

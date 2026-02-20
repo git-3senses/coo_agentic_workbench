@@ -15,31 +15,30 @@ RUN_ASSESSMENT_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "risk_domains": {
-            "type": "array",
-            "description": "Array of risk domain assessments",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "domain": {"type": "string", "description": "Risk domain name (e.g., CREDIT, MARKET, OPERATIONAL, LIQUIDITY, LEGAL, REPUTATIONAL, CYBER)"},
-                    "status": {"type": "string", "enum": ["PASS", "FAIL", "WARN"], "description": "Assessment result"},
-                    "score": {"type": "number", "minimum": 0, "maximum": 100, "description": "Risk readiness score 0-100"},
-                    "findings": {"type": "array", "items": {"type": "string"}, "description": "Specific risk findings or gaps"},
-                },
-                "required": ["domain", "status", "score"],
-            },
+        "risk_domains_json": {
+            "type": "string",
+            "description": "JSON string array of risk domain assessments. Each object requires: domain (e.g. CREDIT, MARKET, OPERATIONAL, LIQUIDITY, LEGAL, REPUTATIONAL, CYBER), status (one of PASS, FAIL, WARN), score (number 0-100). Optional: findings (comma-separated string). Example: [{\"domain\":\"CREDIT\",\"status\":\"PASS\",\"score\":80}]",
         },
-        "overall_risk_rating": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"], "description": "Overall risk rating"},
+        "overall_risk_rating": {"type": "string", "description": "Overall risk rating. Must be one of: LOW, MEDIUM, HIGH, CRITICAL"},
     },
-    "required": ["project_id", "risk_domains", "overall_risk_rating"],
+    "required": ["project_id", "risk_domains_json", "overall_risk_rating"],
 }
 
 
 async def risk_run_assessment_handler(inp: dict) -> ToolResult:
     VALID_RESULTS = {"PASS", "FAIL", "WARNING"}
 
+    # Accept risk_domains as JSON string or direct array
+    domains_raw = inp.get("risk_domains_json") or inp.get("risk_domains", [])
+    if isinstance(domains_raw, str):
+        domains_raw = json.loads(domains_raw)
+    # Normalize findings from string to list if needed
+    for d in domains_raw:
+        if isinstance(d.get("findings"), str):
+            d["findings"] = [f.strip() for f in d["findings"].split(",") if f.strip()]
+
     results = []
-    for domain in inp["risk_domains"]:
+    for domain in domains_raw:
         # Resilient field mapping: accept 'status' or 'level' for backward compatibility
         status = domain.get("status") or domain.get("level", "PASS")
         status = status.upper()
@@ -72,7 +71,7 @@ async def risk_run_assessment_handler(inp: dict) -> ToolResult:
         "assessments": results,
         "overall_risk_rating": inp["overall_risk_rating"],
         "domains_assessed": len(results),
-        "critical_domains": [d["domain"] for d in inp["risk_domains"] if (d.get("status") or d.get("level", "")).upper() in ("FAIL", "HIGH", "CRITICAL")],
+        "critical_domains": [d["domain"] for d in domains_raw if (d.get("status") or d.get("level", "")).upper() in ("FAIL", "HIGH", "CRITICAL")],
     })
 
 
@@ -115,17 +114,33 @@ ADD_MARKET_FACTOR_SCHEMA = {
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
         "risk_factor": {"type": "string", "description": "Risk factor type (e.g., IR_DELTA, FX_VEGA, CRYPTO_DELTA, EQ_DELTA, CREDIT_SPREAD)"},
-        "is_applicable": {"type": "boolean", "description": "Whether this risk factor applies to the product"},
-        "sensitivity_report": {"type": "boolean", "description": "Whether sensitivity report is available", "default": False},
-        "var_capture": {"type": "boolean", "description": "Whether VaR model captures this risk", "default": False},
-        "stress_capture": {"type": "boolean", "description": "Whether stress testing captures this risk", "default": False},
+        "is_applicable": {"type": "string", "description": "Whether this risk factor applies to the product. Use 'true' or 'false'"},
+        "sensitivity_report": {"type": "string", "description": "Whether sensitivity report is available. Use 'true' or 'false'"},
+        "var_capture": {"type": "string", "description": "Whether VaR model captures this risk. Use 'true' or 'false'"},
+        "stress_capture": {"type": "string", "description": "Whether stress testing captures this risk. Use 'true' or 'false'"},
         "notes": {"type": "string", "description": "Additional notes about this risk factor"},
     },
     "required": ["project_id", "risk_factor", "is_applicable"],
 }
 
 
+def _to_bool(val, default=False):
+    """Convert string/bool to boolean."""
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() in ("true", "1", "yes")
+    return bool(val)
+
+
 async def risk_add_market_factor_handler(inp: dict) -> ToolResult:
+    is_applicable = _to_bool(inp.get("is_applicable"))
+    sensitivity_report = _to_bool(inp.get("sensitivity_report"))
+    var_capture = _to_bool(inp.get("var_capture"))
+    stress_capture = _to_bool(inp.get("stress_capture"))
+
     existing = await query(
         "SELECT id FROM npa_market_risk_factors WHERE project_id = %s AND risk_factor = %s",
         [inp["project_id"], inp["risk_factor"]],
@@ -136,8 +151,7 @@ async def risk_add_market_factor_handler(inp: dict) -> ToolResult:
             """UPDATE npa_market_risk_factors
                SET is_applicable = %s, sensitivity_report = %s, var_capture = %s, stress_capture = %s, notes = %s
                WHERE project_id = %s AND risk_factor = %s""",
-            [inp["is_applicable"], inp.get("sensitivity_report", False),
-             inp.get("var_capture", False), inp.get("stress_capture", False),
+            [is_applicable, sensitivity_report, var_capture, stress_capture,
              inp.get("notes"), inp["project_id"], inp["risk_factor"]],
         )
         return ToolResult(success=True, data={
@@ -147,9 +161,8 @@ async def risk_add_market_factor_handler(inp: dict) -> ToolResult:
     row_id = await execute(
         """INSERT INTO npa_market_risk_factors (project_id, risk_factor, is_applicable, sensitivity_report, var_capture, stress_capture, notes)
            VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-        [inp["project_id"], inp["risk_factor"], inp["is_applicable"],
-         inp.get("sensitivity_report", False), inp.get("var_capture", False),
-         inp.get("stress_capture", False), inp.get("notes")],
+        [inp["project_id"], inp["risk_factor"], is_applicable,
+         sensitivity_report, var_capture, stress_capture, inp.get("notes")],
     )
     return ToolResult(success=True, data={
         "id": row_id, "action": "created",

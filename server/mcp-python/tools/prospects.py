@@ -16,7 +16,7 @@ GET_PROSPECTS_SCHEMA = {
     "properties": {
         "status": {"type": "string", "description": "Filter by status (Pre-Seed, Seed, Qualified, Converted)"},
         "theme": {"type": "string", "description": "Filter by theme/category"},
-        "limit": {"type": "integer", "description": "Max results", "default": 20},
+        "limit": {"type": "integer", "description": "Max results. Defaults to 20"},
     },
 }
 
@@ -60,8 +60,8 @@ CONVERT_PROSPECT_TO_NPA_SCHEMA = {
     "properties": {
         "prospect_id": {"type": "integer", "description": "Prospect ID to convert"},
         "submitted_by": {"type": "string", "description": "Who is submitting the NPA"},
-        "risk_level": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"], "description": "Initial risk level assessment"},
-        "npa_type": {"type": "string", "description": "NPA type (New-to-Group, Variation, etc.)", "default": "New-to-Group"},
+        "risk_level": {"type": "string", "description": "Initial risk level assessment. Must be one of: LOW, MEDIUM, HIGH"},
+        "npa_type": {"type": "string", "description": "NPA type. Must be one of: New-to-Group, Variation, Existing. Defaults to New-to-Group"},
     },
     "required": ["prospect_id"],
 }

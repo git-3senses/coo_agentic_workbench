@@ -14,7 +14,7 @@ SEARCH_KB_DOCUMENTS_SCHEMA = {
     "properties": {
         "search_term": {"type": "string", "description": "Search query for knowledge base documents"},
         "doc_type": {"type": "string", "description": "Filter by document type (e.g. POLICY, REGULATION, GUIDELINE, TEMPLATE, FAQ)"},
-        "limit": {"type": "integer", "description": "Max results to return", "default": 10},
+        "limit": {"type": "integer", "description": "Max results to return. Defaults to 10"},
     },
     "required": ["search_term"],
 }

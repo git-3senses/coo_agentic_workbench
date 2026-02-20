@@ -134,7 +134,7 @@ EVERGREEN_ANNUAL_REVIEW_SCHEMA = {
         "project_id": {"type": "string", "description": "Evergreen product NPA ID"},
         "actor_name": {"type": "string", "description": "Reviewer name"},
         "findings": {"type": "string", "description": "Review findings summary"},
-        "approved": {"type": "boolean", "description": "Whether the product is approved for another year"},
+        "approved": {"type": "string", "description": "Whether the product is approved for another year. Use 'true' or 'false'"},
         "next_review_date": {"type": "string", "description": "Next annual review date (YYYY-MM-DD)"},
     },
     "required": ["project_id", "approved"],
@@ -150,7 +150,8 @@ async def evergreen_annual_review_handler(inp: dict) -> ToolResult:
                       "next_review_date": inp.get("next_review_date")})],
     )
 
-    status = "REVIEW_APPROVED" if inp["approved"] else "REVIEW_FLAGGED"
+    approved = str(inp.get("approved", "false")).lower() in ("true", "1", "yes")
+    status = "REVIEW_APPROVED" if approved else "REVIEW_FLAGGED"
     return ToolResult(success=True, data={
         "project_id": inp["project_id"],
         "status": status,

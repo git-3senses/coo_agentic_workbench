@@ -20,18 +20,32 @@ LOG_ACTION_SCHEMA = {
         "actor_role": {"type": "string", "description": "Role of the actor (e.g., Maker, Checker, Approver, AI Agent)"},
         "action_type": {"type": "string", "description": "Action type code (e.g., NPA_CREATED, CLASSIFIED, FORM_AUTOFILLED, SIGNOFF_APPROVED, STAGE_ADVANCED, LOOPBACK_TRIGGERED)"},
         "action_details": {"type": "string", "description": "Human-readable description of what happened"},
-        "is_agent_action": {"type": "boolean", "description": "Whether this action was performed by an AI agent", "default": False},
+        "is_agent_action": {"type": "string", "description": "Whether this action was performed by an AI agent. Use 'true' or 'false'"},
         "agent_name": {"type": "string", "description": "Name of the AI agent (e.g., Classification Agent, AutoFill Agent)"},
-        "confidence_score": {"type": "number", "minimum": 0, "maximum": 100, "description": "Agent confidence score if applicable"},
+        "confidence_score": {"type": "number", "description": "Agent confidence score 0-100 if applicable"},
         "reasoning": {"type": "string", "description": "Agent reasoning for the action"},
         "model_version": {"type": "string", "description": "AI model version used"},
-        "source_citations": {"type": "array", "items": {"type": "string"}, "description": "Source documents or data referenced"},
+        "source_citations": {"type": "string", "description": "Comma-separated list of source documents or data referenced"},
     },
     "required": ["project_id", "actor_name", "action_type"],
 }
 
 
 async def audit_log_action_handler(inp: dict) -> ToolResult:
+    # Handle is_agent_action as string or boolean
+    is_agent = inp.get("is_agent_action", False)
+    if isinstance(is_agent, str):
+        is_agent = is_agent.lower() in ("true", "1", "yes")
+
+    # Handle source_citations as string (comma-separated) or list
+    citations = inp.get("source_citations")
+    if isinstance(citations, str) and citations:
+        citations = json.dumps([c.strip() for c in citations.split(",") if c.strip()])
+    elif isinstance(citations, list):
+        citations = json.dumps(citations) if citations else None
+    else:
+        citations = None
+
     audit_id = await execute(
         """INSERT INTO npa_audit_log (project_id, actor_name, actor_role, action_type, action_details,
                                       is_agent_action, agent_name, timestamp, confidence_score, reasoning,
@@ -43,12 +57,12 @@ async def audit_log_action_handler(inp: dict) -> ToolResult:
             inp.get("actor_role"),
             inp["action_type"],
             inp.get("action_details"),
-            inp.get("is_agent_action", False),
+            is_agent,
             inp.get("agent_name"),
             inp.get("confidence_score"),
             inp.get("reasoning"),
             inp.get("model_version"),
-            json.dumps(inp["source_citations"]) if inp.get("source_citations") else None,
+            citations,
         ],
     )
     return ToolResult(success=True, data={
@@ -56,7 +70,7 @@ async def audit_log_action_handler(inp: dict) -> ToolResult:
         "project_id": inp["project_id"],
         "action_type": inp["action_type"],
         "actor": inp["actor_name"],
-        "is_agent": inp.get("is_agent_action", False),
+        "is_agent": is_agent,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
@@ -68,8 +82,8 @@ GET_TRAIL_SCHEMA = {
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
         "action_type": {"type": "string", "description": "Filter by action type"},
-        "agent_only": {"type": "boolean", "description": "Only show agent actions", "default": False},
-        "limit": {"type": "integer", "description": "Max entries to return", "default": 50},
+        "agent_only": {"type": "string", "description": "Only show agent actions. Use 'true' or 'false'. Defaults to false"},
+        "limit": {"type": "integer", "description": "Max entries to return. Defaults to 50"},
     },
     "required": ["project_id"],
 }
@@ -85,7 +99,7 @@ async def audit_get_trail_handler(inp: dict) -> ToolResult:
     if inp.get("action_type"):
         sql += " AND action_type = %s"
         params.append(inp["action_type"])
-    if inp.get("agent_only"):
+    if str(inp.get("agent_only", "false")).lower() in ("true", "1", "yes"):
         sql += " AND is_agent_action = TRUE"
 
     sql += " ORDER BY timestamp DESC LIMIT %s"
@@ -173,7 +187,7 @@ GENERATE_AUDIT_REPORT_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "include_agent_reasoning": {"type": "boolean", "description": "Include AI agent reasoning chains in the report", "default": True},
+        "include_agent_reasoning": {"type": "string", "description": "Include AI agent reasoning chains in the report. Use 'true' or 'false'. Defaults to true"},
     },
     "required": ["project_id"],
 }
@@ -207,7 +221,7 @@ async def generate_audit_report_handler(inp: dict) -> ToolResult:
             "details": e.get("action_details"),
             "is_agent": bool(e.get("is_agent_action")),
         }
-        if inp.get("include_agent_reasoning", True) and e.get("is_agent_action"):
+        if str(inp.get("include_agent_reasoning", "true")).lower() not in ("false", "0", "no") and e.get("is_agent_action"):
             entry["agent_name"] = e.get("agent_name")
             entry["confidence"] = e.get("confidence_score")
             entry["reasoning"] = e.get("reasoning")

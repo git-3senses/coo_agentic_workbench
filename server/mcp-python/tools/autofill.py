@@ -14,10 +14,9 @@ from db import execute, query
 GET_TEMPLATE_FIELDS_SCHEMA = {
     "type": "object",
     "properties": {
-        "template_id": {"type": "string", "description": "Template ID to retrieve. Valid values: 'FULL_NPA_V1' (30 fields, 8 sections — Basic Info, Sign-off, Customers, Commercialization, BCP, FinCrime, Risk Data, Trading) or 'STD_NPA_V2' (72 fields, 10 sections — Product, Risk, Ops, Pricing, Data, Regulatory, Entity, Sign-Off, Legal, Docs). Defaults to STD_NPA_V2.", "default": "STD_NPA_V2"},
-        "section_id": {"type": "string", "description": "Filter to a specific section (e.g. 'SEC_PROD', 'SEC_RISK', 'SEC_BASIC')"},
+        "template_id": {"type": "string", "description": "Template ID to retrieve. Valid values: FULL_NPA_V1 (30 fields, 8 sections) or STD_NPA_V2 (72 fields, 10 sections). Defaults to STD_NPA_V2 if not provided"},
+        "section_id": {"type": "string", "description": "Filter to a specific section (e.g. SEC_PROD, SEC_RISK, SEC_BASIC)"},
     },
-    "required": [],
 }
 
 
@@ -64,11 +63,11 @@ POPULATE_FIELD_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "field_key": {"type": "string", "description": "Field key from the template (e.g., 'product_name', 'risk_level')"},
+        "field_key": {"type": "string", "description": "Field key from the template (e.g., product_name, risk_level)"},
         "value": {"type": "string", "description": "Value to fill in"},
-        "lineage": {"type": "string", "enum": ["AUTO", "ADAPTED", "MANUAL"], "description": "How this value was determined"},
-        "confidence_score": {"type": "number", "minimum": 0, "maximum": 100, "description": "AI confidence in the auto-filled value", "default": 90},
-        "metadata": {"type": "object", "description": "Additional metadata about the auto-fill decision"},
+        "lineage": {"type": "string", "description": "How this value was determined. Must be one of: AUTO, ADAPTED, MANUAL"},
+        "confidence_score": {"type": "number", "description": "AI confidence in the auto-filled value 0-100. Defaults to 90"},
+        "metadata_json": {"type": "string", "description": "JSON string of additional metadata about the auto-fill decision"},
     },
     "required": ["project_id", "field_key", "value", "lineage"],
 }
@@ -76,6 +75,15 @@ POPULATE_FIELD_SCHEMA = {
 
 async def autofill_populate_field_handler(inp: dict) -> ToolResult:
     confidence = inp.get("confidence_score", 90)
+    # Accept metadata as string or dict
+    metadata = inp.get("metadata_json") or inp.get("metadata")
+    if isinstance(metadata, str):
+        metadata_str = metadata
+    elif metadata:
+        metadata_str = json.dumps(metadata)
+    else:
+        metadata_str = None
+
     await execute(
         """INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score, metadata)
            VALUES (%s, %s, %s, %s, %s, %s)
@@ -85,7 +93,7 @@ async def autofill_populate_field_handler(inp: dict) -> ToolResult:
               confidence_score = VALUES(confidence_score),
               metadata = VALUES(metadata)""",
         [inp["project_id"], inp["field_key"], inp["value"], inp["lineage"],
-         confidence, json.dumps(inp["metadata"]) if inp.get("metadata") else None],
+         confidence, metadata_str],
     )
     return ToolResult(success=True, data={
         "project_id": inp["project_id"],
@@ -101,31 +109,26 @@ POPULATE_BATCH_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "fields": {
-            "type": "array",
-            "description": "Array of fields to populate",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "field_key": {"type": "string", "description": "Field key"},
-                    "value": {"type": "string", "description": "Field value"},
-                    "lineage": {"type": "string", "enum": ["AUTO", "ADAPTED", "MANUAL"], "description": "Value lineage", "default": "AUTO"},
-                    "confidence_score": {"type": "number", "minimum": 0, "maximum": 100, "description": "Confidence score", "default": 90},
-                },
-                "required": ["field_key", "value"],
-            },
+        "fields_json": {
+            "type": "string",
+            "description": "JSON string array of fields to populate. Each object requires: field_key (string), value (string). Optional: lineage (AUTO, ADAPTED, or MANUAL — defaults to AUTO), confidence_score (number 0-100, defaults to 90). Example: [{\"field_key\":\"product_name\",\"value\":\"FX Options\",\"lineage\":\"AUTO\",\"confidence_score\":95}]",
         },
     },
-    "required": ["project_id", "fields"],
+    "required": ["project_id", "fields_json"],
 }
 
 
 async def autofill_populate_batch_handler(inp: dict) -> ToolResult:
+    # Accept fields as JSON string or direct array
+    fields_raw = inp.get("fields_json") or inp.get("fields", [])
+    if isinstance(fields_raw, str):
+        fields_raw = json.loads(fields_raw)
+
     results = []
     success_count = 0
     error_count = 0
 
-    for field in inp["fields"]:
+    for field in fields_raw:
         try:
             await execute(
                 """INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score)
@@ -145,7 +148,7 @@ async def autofill_populate_batch_handler(inp: dict) -> ToolResult:
 
     return ToolResult(success=error_count == 0, data={
         "project_id": inp["project_id"],
-        "total": len(inp["fields"]),
+        "total": len(fields_raw),
         "success_count": success_count,
         "error_count": error_count,
         "results": results,

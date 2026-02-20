@@ -12,7 +12,7 @@ GET_DASHBOARD_KPIS_SCHEMA = {
     "type": "object",
     "properties": {
         "snapshot_date": {"type": "string", "description": "Specific date (YYYY-MM-DD) to get KPIs for. Defaults to latest."},
-        "include_live": {"type": "boolean", "description": "Include live-computed metrics from current DB state", "default": True},
+        "include_live": {"type": "string", "description": "Include live-computed metrics from current DB state. Use 'true' or 'false'. Defaults to true"},
     },
 }
 
@@ -35,7 +35,7 @@ async def get_dashboard_kpis_handler(inp: dict) -> ToolResult:
 
     # Compute live metrics if requested
     live = None
-    if inp.get("include_live", True):
+    if str(inp.get("include_live", "true")).lower() not in ("false", "0", "no"):
         # Active NPA count by status
         status_counts = await query(
             """SELECT status, COUNT(*) as cnt

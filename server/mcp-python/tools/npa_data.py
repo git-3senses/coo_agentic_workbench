@@ -59,10 +59,10 @@ LIST_NPAS_SCHEMA = {
     "properties": {
         "status": {"type": "string", "description": "Filter by status (ACTIVE, COMPLETED, BLOCKED, etc.)"},
         "current_stage": {"type": "string", "description": "Filter by workflow stage"},
-        "risk_level": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"], "description": "Filter by risk level"},
+        "risk_level": {"type": "string", "description": "Filter by risk level. Must be one of: LOW, MEDIUM, HIGH"},
         "submitted_by": {"type": "string", "description": "Filter by submitter"},
-        "limit": {"type": "integer", "description": "Max results (default 50)", "default": 50},
-        "offset": {"type": "integer", "description": "Pagination offset", "default": 0},
+        "limit": {"type": "integer", "description": "Max results. Defaults to 50"},
+        "offset": {"type": "integer", "description": "Pagination offset. Defaults to 0"},
     },
 }
 
@@ -115,29 +115,12 @@ UPDATE_NPA_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "updates": {
-            "type": "object",
-            "description": "Fields to update on the NPA project",
-            "properties": {
-                "title": {"type": "string"},
-                "description": {"type": "string"},
-                "product_category": {"type": "string"},
-                "npa_type": {"type": "string"},
-                "risk_level": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]},
-                "status": {"type": "string"},
-                "product_manager": {"type": "string"},
-                "pm_team": {"type": "string"},
-                "template_name": {"type": "string"},
-                "kickoff_date": {"type": "string"},
-                "approval_track": {"type": "string"},
-                "estimated_revenue": {"type": "number"},
-                "is_cross_border": {"type": "boolean"},
-                "notional_amount": {"type": "number"},
-                "currency": {"type": "string"},
-            },
+        "updates_json": {
+            "type": "string",
+            "description": "JSON string of fields to update. Valid fields: title, description, product_category, npa_type, risk_level (LOW/MEDIUM/HIGH), status, product_manager, pm_team, template_name, kickoff_date, approval_track, estimated_revenue (number), is_cross_border (true/false), notional_amount (number), currency. Example: {\"risk_level\":\"HIGH\",\"status\":\"ACTIVE\"}",
         },
     },
-    "required": ["project_id", "updates"],
+    "required": ["project_id", "updates_json"],
 }
 
 # Allowed fields to prevent SQL injection via dynamic column names
@@ -150,7 +133,10 @@ _ALLOWED_UPDATE_FIELDS = {
 
 
 async def update_npa_project_handler(inp: dict) -> ToolResult:
-    updates = inp["updates"]
+    # Accept updates as JSON string or direct dict
+    updates = inp.get("updates_json") or inp.get("updates", {})
+    if isinstance(updates, str):
+        updates = json.loads(updates)
     set_clauses = []
     params = []
 
@@ -184,10 +170,10 @@ UPDATE_NPA_PREDICTIONS_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "classification_confidence": {"type": "number", "minimum": 0, "maximum": 100, "description": "ML classification confidence score"},
-        "classification_method": {"type": "string", "enum": ["AGENT", "OVERRIDE", "HYBRID"], "description": "How classification was determined"},
+        "classification_confidence": {"type": "number", "description": "ML classification confidence score 0-100"},
+        "classification_method": {"type": "string", "description": "How classification was determined. Must be one of: AGENT, OVERRIDE, HYBRID"},
         "predicted_timeline_days": {"type": "number", "description": "ML-predicted days to completion"},
-        "risk_prediction": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"], "description": "ML-predicted risk level"},
+        "risk_prediction": {"type": "string", "description": "ML-predicted risk level. Must be one of: LOW, MEDIUM, HIGH, CRITICAL"},
     },
     "required": ["project_id"],
 }

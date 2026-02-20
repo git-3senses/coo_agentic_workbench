@@ -60,31 +60,26 @@ CREATE_SIGNOFF_MATRIX_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {"type": "string", "description": "NPA project ID"},
-        "signoffs": {
-            "type": "array",
-            "description": "Array of required sign-offs (typically 6-8 for Full NPA)",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "party": {"type": "string", "description": "Sign-off party (e.g., Credit Risk, Legal, Finance, Ops, Tech, MLR)"},
-                    "department": {"type": "string", "description": "Department name"},
-                    "approver_name": {"type": "string", "description": "Name of the assigned approver"},
-                    "approver_email": {"type": "string", "description": "Email of the approver"},
-                    "sla_hours": {"type": "number", "description": "SLA deadline in hours from creation", "default": 72},
-                },
-                "required": ["party", "department", "approver_name"],
-            },
+        "signoffs_json": {
+            "type": "string",
+            "description": "JSON string containing array of sign-off objects. Each object requires: party (string), department (string), approver_name (string). Optional: approver_email (string), sla_hours (number, default 72). Example: [{\"party\":\"Credit Risk\",\"department\":\"RMG\",\"approver_name\":\"John Lee\",\"sla_hours\":48}]",
         },
     },
-    "required": ["project_id", "signoffs"],
+    "required": ["project_id", "signoffs_json"],
 }
 
 
 async def governance_create_signoff_matrix_handler(inp: dict) -> ToolResult:
+    import json as _json
     results = []
     parties_added = set()
 
-    for signoff in inp["signoffs"]:
+    # Accept signoffs as JSON string or direct array
+    signoffs_raw = inp.get("signoffs_json") or inp.get("signoffs", [])
+    if isinstance(signoffs_raw, str):
+        signoffs_raw = _json.loads(signoffs_raw)
+
+    for signoff in signoffs_raw:
         sla_hours = signoff.get("sla_hours", 72)
         sla_deadline = datetime.now(timezone.utc) + timedelta(hours=sla_hours)
         sla_str = sla_deadline.strftime("%Y-%m-%d %H:%M:%S")
@@ -149,7 +144,7 @@ RECORD_DECISION_SCHEMA = {
     "type": "object",
     "properties": {
         "signoff_id": {"type": "integer", "description": "Sign-off record ID"},
-        "decision": {"type": "string", "enum": ["APPROVED", "REJECTED", "REWORK"], "description": "Decision"},
+        "decision": {"type": "string", "description": "Decision. Must be one of: APPROVED, REJECTED, REWORK"},
         "comments": {"type": "string", "description": "Approver comments or rejection reason"},
         "clarification_question": {"type": "string", "description": "Question to send back to maker"},
     },
