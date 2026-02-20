@@ -1,0 +1,675 @@
+// seed-npas.js — Helper: returns array of 8 diverse NPA project definitions
+// Modeled after real TSG examples from KB: TSG1917, TSG2042, TSG2339, TSG2055, TSG2543
+// Covers: New-to-Group, Variation, Existing/B3, Evergreen, Bundling + all major product categories
+
+function getNpaProfiles(now) {
+    const sla3d = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+    const sla2d = new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+
+    return [
+        // ═══ NPA #1: Full NPA / New-to-Group / Credit Derivatives / HIGH ═══
+        // Modeled after TSG2042 NAFMII Repo — new legal framework, new market
+        {
+            project: {
+                id: 'TSG2026-101', title: 'APAC Credit Default Swap Index Trading Platform',
+                description: 'New-to-Group product establishing DBS as a market maker in iTraxx Asia ex-Japan CDS Index and single-name CDS on APAC investment-grade credits. The platform enables institutional clients to access credit protection and relative value strategies across APAC sovereign and corporate credit markets. This requires new ISDA Credit Derivatives Definitions, dedicated credit risk infrastructure, and real-time credit event monitoring systems. DBS will act as principal dealer providing two-way pricing on iTraxx Asia IG indices (Series 40+) and single-name CDS on 50+ APAC reference entities. Settlement via DTCC Trade Information Warehouse with physical/auction settlement for credit events.',
+                product_category: 'Credit Derivatives', npa_type: 'New-to-Group', risk_level: 'HIGH',
+                is_cross_border: true, notional_amount: 300000000.00, currency: 'USD',
+                current_stage: 'SIGN_OFF', status: 'At Risk',
+                submitted_by: 'Ravi Krishnan', product_manager: 'Ravi Krishnan',
+                pm_team: 'APAC Credit Trading Desk', template_name: 'Full NPA v1.0',
+                kickoff_date: '2026-01-20', proposal_preparer: 'Ravi Krishnan',
+                pac_approval_status: 'Approved', approval_track: 'FULL_NPA',
+                estimated_revenue: 8500000.00, predicted_approval_likelihood: 62.00,
+                predicted_timeline_days: 14.00, predicted_bottleneck: 'Legal & Compliance',
+                classification_confidence: 92.0, classification_method: 'AGENT'
+            },
+            jurisdictions: ['SG', 'HK'],
+            formData: [
+                ['product_name', 'APAC Credit Default Swap Index Trading Platform', 'AUTO', 97.0],
+                ['product_type', 'Credit Derivatives', 'AUTO', 98.0],
+                ['desk', 'APAC Credit Trading Desk — Singapore', 'AUTO', 99.0],
+                ['business_unit', 'Global Financial Markets (GFM)', 'AUTO', 99.0],
+                ['underlying_asset', 'iTraxx Asia ex-Japan IG Index (Series 40+), single-name CDS on 50+ APAC investment-grade reference entities including sovereign (SG, KR, CN, ID, TH) and corporate credits. Reference obligations are senior unsecured bonds denominated in USD.', 'AUTO', 94.0],
+                ['tenor', '5Y standard (matching iTraxx index tenor), 1Y-10Y for single-name CDS. Roll dates: March and September (IMM dates). Coupon: Fixed 100bps (IG) / 500bps (HY) with upfront payment.', 'AUTO', 92.0],
+                ['notional_amount', '300000000', 'MANUAL', 100.0],
+                ['product_role', 'Principal dealer providing two-way market making on iTraxx Asia indices and single-name CDS. DBS warehouses credit risk positions and hedges through index-single name basis trading, cross-currency basis swaps, and bond-CDS basis positions.', 'AUTO', 93.0],
+                ['booking_system', 'Murex — CRD|CDS|INDEX typology for index trades, CRD|CDS|SNGL for single-name. Portfolio: DBSSG_GFM_CREDIT. Generator: iTraxx Asia IG CDS. Settlement via DTCC Trade Information Warehouse.', 'AUTO', 95.0],
+                ['settlement_method', 'DTCC Trade Information Warehouse for trade registration and lifecycle events. Physical settlement or auction settlement following ISDA Credit Event Determination Committee rulings. Quarterly premium payments via CLS.', 'AUTO', 91.0],
+                ['pricing_methodology', 'ISDA CDS Standard Model (CDSW equivalent) using hazard rate bootstrapping from market CDS spreads. Mark-to-market using CDS spread curves from Markit. Greeks: CS01 (credit delta), CR01 (recovery rate sensitivity), jump-to-default risk. Spread: 2-5 bps for index, 5-15 bps for single-name depending on liquidity.', 'AUTO', 90.0],
+                ['risk_classification', 'HIGH — Jump-to-default risk with potentially large P&L impact on credit events. Cross-border counterparty credit risk. Basis risk between index and single-name positions. Regulatory capital intensive under SA-CCR with high add-on factors for credit derivatives.', 'AUTO', 89.0],
+                ['market_risk', 'CS01: Credit spread sensitivity across APAC reference entities. Jump-to-default: Potential 60-90% loss on notional for credit events. Index-single name basis: Correlation risk between index and constituent CDS. Recovery rate risk: Uncertain recovery values post-credit event. Wrong-way risk: Counterparty default correlated with reference entity default.', 'AUTO', 88.0],
+                ['customer_segments', 'Institutional investors (hedge funds, asset managers) seeking APAC credit exposure or hedging. Banks managing credit portfolio concentration risk. Insurance companies hedging credit exposure in investment portfolios. Corporate treasury hedging counterparty credit risk.', 'AUTO', 92.0],
+                ['legal_opinion', 'ISDA 2014 Credit Derivatives Definitions required. Master Confirmation Agreement for iTraxx Asia trades. Single-name CDS trade confirmations via DTCC. Legal opinion from Allen & Gledhill on Singapore enforceability of credit event determination and auction settlement procedures.', 'AUTO', 90.0],
+                ['business_rationale', 'APAC credit derivative market has grown 25% annually with institutional demand for credit hedging and relative value strategies. DBS has strong positioning in APAC credit markets through its loan book and bond underwriting franchise. CDS market making enables DBS to offer comprehensive credit solutions to institutional clients, recycle credit risk from its banking book, and generate market-making revenue. Competitive analysis: APAC CDS market dominated by global banks (JPM, GS, Citi) with no regional bank competitor — DBS has first-mover advantage.', 'MANUAL', 100.0],
+                ['npa_process_type', 'Full NPA — New-to-Group. CDS trading is an entirely new asset class for DBS requiring new legal frameworks (ISDA Credit Derivatives Definitions), new risk management infrastructure (credit event monitoring, auction settlement), and new booking/settlement systems (DTCC integration). NTG triggers: new product, new role (principal CDS dealer), new infrastructure.', 'MANUAL', 100.0],
+                ['business_case_status', 'PAC Approved — Executive Committee approved on January 15, 2026. PAC Reference: ExCo-2026-CR-003. Conditions: (1) Start with iTraxx index only, add single-name after 6-month PIR, (2) Notional limit $500M in Year 1, (3) Mandatory PIR within 6 months.', 'MANUAL', 100.0],
+                ['regulatory_capital', 'Trading Book assignment. SA-CCR for counterparty credit risk with alpha=1.4 and credit derivative-specific add-on factors. CVA capital charge under BA-CVA. Incremental Risk Charge (IRC) for default and migration risk in trading book credit positions.', 'AUTO', 86.0],
+                ['data_privacy', 'No retail customer data. Institutional counterparty data covered under existing PDPA commercial data exemption. DTCC data sharing governed by DTCC User Agreement. Cross-border data transfer SG↔HK covered by existing SCCs.', 'AUTO', 94.0]
+            ],
+            documents: [
+                ['APAC_CDS_Index_Platform_Term_Sheet_v2.pdf', 'TERM_SHEET', '3.8 MB', 'pdf', 'Product Specs', 'VALID', 'Ravi Krishnan'],
+                ['Credit_Event_Risk_Framework_Assessment.pdf', 'RISK_MEMO', '2.9 MB', 'pdf', 'Risk Analysis', 'VALID', 'Janet Teo'],
+                ['ISDA_Credit_Derivatives_Definitions_2014.pdf', 'ISDA', '4.1 MB', 'pdf', 'Legal', 'VALID', 'David Chen'],
+                ['DTCC_Integration_Technical_Spec.pdf', 'TERM_SHEET', '1.6 MB', 'pdf', 'Technology', 'PENDING', 'Rachel Ng'],
+                ['MAS_Notice_637_CDS_Capital_Treatment.pdf', 'RISK_MEMO', '980 KB', 'pdf', 'Regulatory', 'VALID', 'Mark Lee'],
+                ['iTraxx_Asia_Market_Analysis_2026.pdf', 'RISK_MEMO', '1.3 MB', 'pdf', 'Risk Analysis', 'VALID', 'Ravi Krishnan']
+            ],
+            signoffs: [
+                ['Market & Liquidity Risk', 'Risk Management', 'APPROVED', 'janet.teo', 'Janet Teo', 'janet.teo@dbs.com', now, sla3d, 0, 'CS01 limits set at $200K/bp. Jump-to-default limits per reference entity approved. IRC model calibrated for APAC credits. Index-single name basis risk limits documented.', 0],
+                ['Credit Risk', 'Risk Management', 'APPROVED', 'mike.ross', 'Mike Ross', 'mike.ross@dbs.com', now, sla3d, 0, 'Counterparty credit limits for CDS dealers approved. Wrong-way risk framework validated. Collateral requirements under CSA strengthened for CDS counterparties.', 0],
+                ['Technology Architecture', 'Technology & Operations', 'APPROVED', 'rachel.ng', 'Rachel Ng', 'rachel.ng@dbs.com', now, sla3d, 0, 'DTCC integration architecture approved. Murex CDS booking module configured. Credit event monitoring system deployed. Real-time CDS spread feed from Markit validated.', 0],
+                ['Operations', 'Technology & Operations', 'UNDER_REVIEW', 'peter.loh', 'Peter Loh', 'peter.loh@dbs.com', null, sla3d, 0, 'Reviewing credit event settlement procedures and DTCC lifecycle event processing. Auction settlement operational readiness pending.', 0],
+                ['Legal', 'Legal, Compliance & Secretariat', 'UNDER_REVIEW', 'lisa.wong', 'Lisa Wong', 'lisa.wong@dbs.com', null, sla3d, 0, 'ISDA Credit Derivatives Definitions review in progress. Master Confirmation Agreement template under negotiation. Credit event determination committee procedures being documented.', 0],
+                ['Compliance', 'Legal, Compliance & Secretariat', 'APPROVED', 'ahmad.razak', 'Ahmad Razak', 'ahmad.razak@dbs.com', now, sla3d, 0, 'AML/KYC framework covers CDS institutional counterparties. Trade reporting to MAS and DTCC validated. Market manipulation surveillance rules for CDS configured.', 0],
+                ['Finance', 'Finance', 'PENDING', null, null, null, null, sla3d, 0, 'Awaiting SA-CCR capital impact analysis and IRC model validation for APAC credit portfolio. ROAE sensitivity analysis requested.', 0]
+            ],
+            workflowStates: [
+                ['INITIATION', 'COMPLETED', '2026-01-20 09:00:00', '2026-01-23 17:00:00', null],
+                ['REVIEW', 'COMPLETED', '2026-01-24 09:00:00', '2026-02-05 17:00:00', null],
+                ['SIGN_OFF', 'IN_PROGRESS', '2026-02-06 09:00:00', null, JSON.stringify(['Legal — ISDA Credit Derivatives Definitions review pending', 'Finance — SA-CCR capital impact analysis required', 'Operations — Credit event settlement readiness pending'])],
+                ['LAUNCH', 'NOT_STARTED', null, null, null],
+                ['MONITORING', 'NOT_STARTED', null, null, null]
+            ],
+            scorecard: {
+                total_score: 26, calculated_tier: 'New-to-Group',
+                breakdown: {
+                    criteria: [
+                        { criterion: 'Product Innovation', score: 5, maxScore: 5, reasoning: 'CDS trading is entirely new for DBS — new asset class, new legal framework, new settlement infrastructure.' },
+                        { criterion: 'Market Expansion', score: 4, maxScore: 5, reasoning: 'Targets institutional credit derivative market across APAC. New counterparty base (hedge funds, asset managers).' },
+                        { criterion: 'Risk Complexity', score: 5, maxScore: 5, reasoning: 'Jump-to-default risk, credit event complexity, wrong-way risk, basis risk, auction settlement. Highest risk complexity tier.' },
+                        { criterion: 'Regulatory Impact', score: 3, maxScore: 5, reasoning: 'SA-CCR with credit derivative add-ons. IRC charge. MAS derivatives reporting. No new licensing required — covered under existing CMS license.' },
+                        { criterion: 'Technology Change', score: 4, maxScore: 5, reasoning: 'New DTCC integration, credit event monitoring system, Murex CDS module configuration. Significant but using existing infrastructure.' },
+                        { criterion: 'Operational Complexity', score: 3, maxScore: 5, reasoning: 'Credit event settlement requires new procedures. DTCC lifecycle management. However, standard OTC derivative operational model applies.' },
+                        { criterion: 'Financial Impact', score: 2, maxScore: 5, reasoning: '$300M notional Year 1. $8.5M revenue target. ROAE above hurdle rate but capital-intensive under SA-CCR.' }
+                    ],
+                    overall_confidence: 92, prohibited_match: { matched: false },
+                    mandatory_signoffs: ['Market & Liquidity Risk', 'Credit Risk', 'Technology Architecture', 'Operations', 'Legal', 'Compliance', 'Finance']
+                }
+            },
+            assessments: [
+                ['STRATEGIC', 'PASS', 88, '{"observation": "Strong strategic fit — DBS has APAC credit expertise from its loan book and bond franchise. CDS market making is a natural extension. First-mover among regional banks."}'],
+                ['RISK', 'WARN', 55, '{"observation": "High risk profile — jump-to-default, wrong-way risk, credit event complexity. Mitigated by conservative position limits and index-focus in Year 1."}'],
+                ['LEGAL', 'WARN', 58, '{"observation": "New ISDA framework — Credit Derivatives Definitions 2014 not previously used by DBS. Master Confirmation Agreement template needs negotiation. Credit event determination procedures require legal documentation."}'],
+                ['FINANCE', 'PASS', 72, '{"observation": "ROAE 18% by Year 2 above 12% hurdle. However SA-CCR capital charges for CDS are significant. IRC model needs validation for APAC credit correlations."}'],
+                ['TECH', 'PASS', 85, '{"observation": "DTCC integration architecture approved. Murex CDS module proven at other banks. Credit event monitoring system deployed on existing infrastructure."}'],
+                ['OPS', 'WARN', 62, '{"observation": "Credit event settlement procedures are new and complex. Auction settlement requires real-time coordination with ISDA DC. DTCC lifecycle management training needed."}']
+            ],
+            breaches: [
+                ['ISDA Credit Derivatives Agreement — Legal Review Timeline', 'WARNING', 'Legal review of ISDA Credit Derivatives Definitions and Master Confirmation Agreement behind schedule. External counsel Allen & Gledhill flagged complexity of credit event determination provisions.', 'Agreement finalized by Mar 2026', 'Draft v2 under Legal review', 'Legal & Compliance', 24, 'OPEN'],
+                ['SA-CCR Capital Impact — Finance Review Pending', 'WARNING', 'Finance team requires updated SA-CCR capital consumption analysis including IRC charges for APAC credit trading book. Capital allocation may need upward revision from initial $18M to $24M.', '$18M capital allocation', '$24M projected under SA-CCR', 'Finance + CRO Office', 48, 'OPEN']
+            ],
+            postLaunchConditions: [
+                ['Monthly credit risk exposure report to Risk Committee covering CS01, jump-to-default limits, counterparty concentration, and basis risk positions', 'Market & Liquidity Risk'],
+                ['Quarterly PIR (mandatory NTG) assessing trading volume, client adoption, revenue vs projections, risk metrics, and operational incidents', 'Product Manager'],
+                ['Semi-annual credit event simulation exercise testing auction settlement procedures and DTCC coordination', 'Operations']
+            ]
+        },
+
+        // ═══ NPA #2: NPA Lite / Variation / FX Derivatives (NDF) / MEDIUM ═══
+        // Modeled after standard FX desk product variation
+        {
+            project: {
+                id: 'TSG2026-102', title: 'KRW/USD Non-Deliverable Forward with Knock-In Barrier',
+                description: 'Variation of existing vanilla KRW/USD NDF product (TSG2024-018) to include European knock-in barrier feature. The barrier NDF allows corporate treasury clients to achieve enhanced forward rates contingent on spot KRW/USD touching a pre-defined barrier level. This addresses demand from Korean export corporates hedging USD receivables. Uses existing Murex NDF infrastructure with barrier monitoring module. Risk profile change: introduction of Vega risk and discontinuous payoff at barrier. Classified as Variation because it modifies the payoff structure of an approved product without changing asset class or booking model.',
+                product_category: 'FX Derivatives', npa_type: 'Variation', risk_level: 'MEDIUM',
+                is_cross_border: false, notional_amount: 75000000.00, currency: 'USD',
+                current_stage: 'REVIEW', status: 'On Track',
+                submitted_by: 'James Park', product_manager: 'James Park',
+                pm_team: 'SG FX Trading Desk', template_name: 'NPA Lite v1.0',
+                kickoff_date: '2026-02-10', proposal_preparer: 'James Park',
+                pac_approval_status: 'Not Required', approval_track: 'NPA_LITE',
+                estimated_revenue: 2200000.00, predicted_approval_likelihood: 88.00,
+                predicted_timeline_days: 5.00, predicted_bottleneck: 'RMG-MLR',
+                classification_confidence: 91.0, classification_method: 'AGENT'
+            },
+            jurisdictions: ['SG'],
+            formData: [
+                ['product_name', 'KRW/USD Non-Deliverable Forward with Knock-In Barrier', 'AUTO', 97.0],
+                ['product_type', 'FX Derivatives', 'AUTO', 98.0],
+                ['desk', 'FX Trading Desk — Singapore', 'AUTO', 99.0],
+                ['business_unit', 'Global Financial Markets (GFM)', 'AUTO', 99.0],
+                ['underlying_asset', 'KRW/USD (Korean Won vs US Dollar). Non-deliverable pair settled in USD based on KRW fixing rate published by Seoul Money Brokerage Services (SMBS) at 3:30pm KST on fixing date.', 'AUTO', 95.0],
+                ['tenor', '1M to 12M standard tenors. Most active: 3M and 6M matching Korean corporate hedging cycles. Barrier observation: continuous during Asian trading hours (09:00-15:30 KST).', 'AUTO', 92.0],
+                ['notional_amount', '75000000', 'MANUAL', 100.0],
+                ['booking_system', 'Murex — existing FX NDF booking with barrier module. Murex typology: FXD|NDF|BARRIER. Portfolio: DBSSG_GFM_FX. No new system build required.', 'AUTO', 96.0],
+                ['settlement_method', 'Cash settlement in USD on value date (T+2). NDF fixing against SMBS KRW rate. SWIFT MT300 confirmation. If barrier not touched, contract expires unexercised.', 'AUTO', 93.0],
+                ['pricing_methodology', 'Black-Scholes barrier option model adapted for NDF. Key inputs: KRW/USD spot, forward points, KRW implied volatility surface, barrier level. Greeks: Delta, Gamma, Vega, Theta. Spread: 5-15 pips depending on tenor and notional.', 'AUTO', 90.0],
+                ['risk_classification', 'MEDIUM — Introduces Vega risk and discontinuous payoff not present in vanilla NDF. However, barrier options are standard FX derivatives with established hedging methodology.', 'AUTO', 91.0],
+                ['customer_segments', 'Korean export corporates hedging USD receivables. APAC institutional investors seeking enhanced yield on KRW exposure. Corporate treasury with KRW/USD hedging mandates.', 'AUTO', 93.0],
+                ['legal_opinion', 'Existing ISDA Master Agreement with FX Definitions (2021 Edition) covers barrier NDF. No additional documentation required. Confirmation template updated to include barrier parameters.', 'AUTO', 94.0],
+                ['business_rationale', 'Strong demand from 40+ existing KRW NDF clients for enhanced forward rates. Barrier NDFs offered by all major FX dealers (Citi, HSBC, SCB). DBS losing client flow to competitors. Expected $2.2M revenue uplift from spread enhancement.', 'MANUAL', 100.0],
+                ['npa_process_type', 'NPA Lite — Variation of existing product TSG2024-018 (Vanilla KRW/USD NDF). Barrier feature modifies payoff structure but retains same underlying, booking model, settlement, and counterparty framework.', 'MANUAL', 100.0]
+            ],
+            documents: [
+                ['KRW_NDF_Barrier_Product_Spec_v1.pdf', 'TERM_SHEET', '1.8 MB', 'pdf', 'Product Specs', 'VALID', 'James Park'],
+                ['FX_Barrier_NDF_Risk_Assessment.pdf', 'RISK_MEMO', '1.2 MB', 'pdf', 'Risk Analysis', 'VALID', 'Wei Lin'],
+                ['Murex_Barrier_Module_UAT_Report.pdf', 'TERM_SHEET', '950 KB', 'pdf', 'Technology', 'VALID', 'Rachel Ng'],
+                ['ISDA_Confirmation_Template_Barrier_NDF.pdf', 'ISDA', '380 KB', 'pdf', 'Legal', 'VALID', 'Lisa Wong']
+            ],
+            signoffs: [
+                ['Market & Liquidity Risk', 'Risk Management', 'APPROVED', 'wei.lin', 'Wei Lin', 'wei.lin@dbs.com', now, sla3d, 0, 'Barrier NDF risk profile acceptable. Vega limits set at $500K per 1% vol move. Monte Carlo VaR model validated for barrier discontinuity.', 0],
+                ['Operations', 'Technology & Operations', 'APPROVED', 'peter.loh', 'Peter Loh', 'peter.loh@dbs.com', now, sla3d, 0, 'Murex barrier module UAT completed. NDF fixing process unchanged. Settlement workflow validated for knock-in and expiry scenarios.', 0],
+                ['Technology Architecture', 'Technology & Operations', 'APPROVED', 'rachel.ng', 'Rachel Ng', 'rachel.ng@dbs.com', now, sla3d, 0, 'Murex FXD|NDF|BARRIER typology configured and tested. Barrier monitoring engine operational. Extension of existing module — no new build.', 0]
+            ],
+            workflowStates: [
+                ['INITIATION', 'COMPLETED', '2026-02-08 09:00:00', '2026-02-10 12:00:00', null],
+                ['REVIEW', 'IN_PROGRESS', '2026-02-10 14:00:00', null, null],
+                ['SIGN_OFF', 'NOT_STARTED', null, null, null],
+                ['LAUNCH', 'NOT_STARTED', null, null, null],
+                ['MONITORING', 'NOT_STARTED', null, null, null]
+            ],
+            scorecard: {
+                total_score: 14, calculated_tier: 'Variation',
+                breakdown: {
+                    criteria: [
+                        { criterion: 'Product Innovation', score: 2, maxScore: 5, reasoning: 'Barrier NDF is standard FX product widely available in market.' },
+                        { criterion: 'Market Expansion', score: 1, maxScore: 5, reasoning: 'Same client base, same market. No geographic or segment expansion.' },
+                        { criterion: 'Risk Complexity', score: 3, maxScore: 5, reasoning: 'Introduces Vega and discontinuous payoff. Well-understood with established hedging.' },
+                        { criterion: 'Regulatory Impact', score: 1, maxScore: 5, reasoning: 'No new regulatory requirements. Existing MAS framework covers barrier NDFs.' },
+                        { criterion: 'Technology Change', score: 2, maxScore: 5, reasoning: 'Murex barrier module exists for other FX products. Configuration only.' },
+                        { criterion: 'Operational Complexity', score: 2, maxScore: 5, reasoning: 'Automated barrier monitoring. Settlement identical to vanilla NDF.' },
+                        { criterion: 'Financial Impact', score: 3, maxScore: 5, reasoning: '$75M notional within desk limits. Incremental $2.2M revenue.' }
+                    ],
+                    overall_confidence: 91, prohibited_match: { matched: false },
+                    mandatory_signoffs: ['Market & Liquidity Risk', 'Operations', 'Technology Architecture']
+                }
+            },
+            assessments: [
+                ['STRATEGIC', 'PASS', 88, '{"observation": "Competitive need — DBS losing KRW barrier NDF flow to Citi and HSBC. 40+ existing clients requesting this product."}'],
+                ['RISK', 'PASS', 78, '{"observation": "Moderate risk increase from vanilla NDF. Vega and discontinuity risks well-understood. Hedging infrastructure in place."}'],
+                ['TECH', 'PASS', 95, '{"observation": "Murex barrier module exists and is proven. Configuration change only. UAT completed."}']
+            ],
+            breaches: [],
+            postLaunchConditions: [
+                ['Monthly barrier NDF Vega exposure report to MLR for first 6 months post-launch', 'Market & Liquidity Risk'],
+                ['Quarterly review of barrier NDF hedging effectiveness and P&L attribution', 'Product Manager']
+            ]
+        },
+
+        // ═══ NPA #3: NPA Lite B3 / Existing (Dormant Reactivation) / Interest Rate Swap / LOW ═══
+        // Modeled after TSG1917 reactivation pattern — dormant product fast-track
+        {
+            project: {
+                id: 'TSG2026-103', title: 'SGD Interest Rate Swap — HK Desk Reactivation',
+                description: 'Fast-track dormant reactivation (NPA Lite B3) of SGD plain vanilla Interest Rate Swap for the Hong Kong Rates desk. Originally approved under TSG2024-031 for Singapore Rates desk, dormant in HK for 18 months. Original PIR completed September 2025. No variations to product features, booking model, or risk profile. All 5 B3 criteria met: (1) existing live trade history, (2) not prohibited, (3) PIR completed, (4) no variation, (5) no booking change. 48-hour no-objection notice sent to original approvers.',
+                product_category: 'Interest Rate Derivatives', npa_type: 'Existing', risk_level: 'LOW',
+                is_cross_border: true, notional_amount: 200000000.00, currency: 'SGD',
+                current_stage: 'LAUNCH', status: 'On Track',
+                submitted_by: 'Kevin Lau', product_manager: 'Kevin Lau',
+                pm_team: 'HK Rates Trading Desk', template_name: 'NPA Lite B3 v1.0',
+                kickoff_date: '2026-02-05', proposal_preparer: 'Kevin Lau',
+                pac_approval_status: 'Not Required', approval_track: 'NPA_LITE',
+                estimated_revenue: 1800000.00, predicted_approval_likelihood: 97.00,
+                predicted_timeline_days: 2.00, predicted_bottleneck: 'Operations',
+                classification_confidence: 96.0, classification_method: 'AGENT'
+            },
+            jurisdictions: ['HK', 'SG'],
+            formData: [
+                ['product_name', 'SGD Interest Rate Swap (Vanilla) — SORA-based', 'AUTO', 99.0],
+                ['product_type', 'Interest Rate Derivatives', 'AUTO', 99.0],
+                ['desk', 'Rates Trading Desk — Hong Kong', 'AUTO', 99.0],
+                ['business_unit', 'Global Financial Markets (GFM)', 'AUTO', 99.0],
+                ['underlying_asset', 'SGD SORA (Singapore Overnight Rate Average). Fixed leg pays fixed coupon; floating leg pays SORA compounded in arrears. Day count: ACT/365 fixed, ACT/365 floating.', 'AUTO', 97.0],
+                ['tenor', '1Y to 30Y. Most liquid: 2Y, 5Y, 10Y. Payment frequency: semi-annual. Standard IMM dates for rolls.', 'AUTO', 95.0],
+                ['notional_amount', '200000000', 'MANUAL', 100.0],
+                ['booking_system', 'Murex — existing IRD|IRS|Vanilla typology. DBSHK booking entity. Portfolio: DBSHK_GFM_RATES. Generator: SGD SORA IRS VANILLA. Identical to SG desk setup.', 'AUTO', 98.0],
+                ['settlement_method', 'Cash settlement via CLS on payment dates. SWIFT MT360/MT362 confirmations. Standard ISDA IRS settlement procedures.', 'AUTO', 96.0],
+                ['pricing_methodology', 'Discounted Cash Flow using SGD SORA swap curve bootstrapped from Bloomberg. Greeks: IR01 (DV01), Gamma, Theta. Mid-market with 0.5-2 bps spread.', 'AUTO', 95.0],
+                ['risk_classification', 'LOW — Vanilla IRS is the most liquid and well-understood derivatives product. Deep SGD SORA market. Proven risk management.', 'AUTO', 97.0],
+                ['npa_process_type', 'NPA Lite B3 — Fast-Track Dormant Reactivation. All 5 eligibility criteria met. 48-hour no-objection notice. Reference NPA: TSG2024-031.', 'MANUAL', 100.0],
+                ['business_rationale', 'HK Rates desk receiving client requests for SGD IRS hedging from corporates with Singapore operations. Currently referring to SG desk causing delays. Reactivation captures $1.8M annual revenue.', 'MANUAL', 100.0]
+            ],
+            documents: [
+                ['SGD_IRS_HK_Reactivation_Brief.pdf', 'TERM_SHEET', '680 KB', 'pdf', 'Product Specs', 'VALID', 'Kevin Lau'],
+                ['TSG2024-031_Original_NPA_Reference.pdf', 'TERM_SHEET', '2.1 MB', 'pdf', 'Product Specs', 'VALID', 'Kevin Lau'],
+                ['TSG2024-031_PIR_Completion_Sep2025.pdf', 'RISK_MEMO', '1.4 MB', 'pdf', 'Risk Analysis', 'VALID', 'Andrew Wong']
+            ],
+            signoffs: [
+                ['Market & Liquidity Risk', 'Risk Management', 'APPROVED', 'wei.lin', 'Wei Lin', 'wei.lin@dbs.com', now, sla2d, 0, 'No objection — SGD IRS risk profile unchanged from original approval TSG2024-031.', 0],
+                ['Finance', 'Finance', 'APPROVED', 'mark.lee', 'Mark Lee', 'mark.lee@dbs.com', now, sla2d, 0, 'No objection — Cross-border SG↔HK transfer pricing confirmed.', 0],
+                ['Operations', 'Technology & Operations', 'APPROVED', 'peter.loh', 'Peter Loh', 'peter.loh@dbs.com', now, sla2d, 0, 'No objection — Murex DBSHK IRS configuration validated and tested.', 0],
+                ['Credit Risk', 'Risk Management', 'APPROVED', 'mike.ross', 'Mike Ross', 'mike.ross@dbs.com', now, sla2d, 0, 'No objection — HK counterparty credit framework covers IRS. CSA terms in place.', 0],
+                ['Technology Architecture', 'Technology & Operations', 'APPROVED', 'rachel.ng', 'Rachel Ng', 'rachel.ng@dbs.com', now, sla2d, 0, 'No objection — Existing Murex IRS infrastructure. Zero system changes required.', 0]
+            ],
+            workflowStates: [
+                ['INITIATION', 'COMPLETED', '2026-02-05 09:00:00', '2026-02-05 11:00:00', null],
+                ['REVIEW', 'COMPLETED', '2026-02-05 14:00:00', '2026-02-06 10:00:00', null],
+                ['SIGN_OFF', 'COMPLETED', '2026-02-06 10:00:00', '2026-02-08 10:00:00', null],
+                ['LAUNCH', 'IN_PROGRESS', '2026-02-10 09:00:00', null, null],
+                ['MONITORING', 'NOT_STARTED', null, null, null]
+            ],
+            scorecard: {
+                total_score: 8, calculated_tier: 'Existing',
+                breakdown: {
+                    criteria: [
+                        { criterion: 'Product Innovation', score: 1, maxScore: 5, reasoning: 'Vanilla SGD IRS — zero innovation. Exact same product as SG desk.' },
+                        { criterion: 'Market Expansion', score: 2, maxScore: 5, reasoning: 'Existing product to new location (HK). Same client type.' },
+                        { criterion: 'Risk Complexity', score: 1, maxScore: 5, reasoning: 'Lowest risk derivative. Deep liquidity, proven risk management.' },
+                        { criterion: 'Regulatory Impact', score: 1, maxScore: 5, reasoning: 'HKMA framework covers IRS. No new licensing.' },
+                        { criterion: 'Technology Change', score: 1, maxScore: 5, reasoning: 'Zero tech change — Murex already configured for DBSHK IRS.' },
+                        { criterion: 'Operational Complexity', score: 1, maxScore: 5, reasoning: 'Identical operational model to SG desk.' },
+                        { criterion: 'Financial Impact', score: 1, maxScore: 5, reasoning: '$200M notional within limits. $1.8M incremental revenue.' }
+                    ],
+                    overall_confidence: 96, prohibited_match: { matched: false },
+                    mandatory_signoffs: ['Market & Liquidity Risk', 'Finance', 'Operations', 'Credit Risk', 'Technology Architecture']
+                }
+            },
+            assessments: [
+                ['STRATEGIC', 'PASS', 92, '{"observation": "Clear business need — HK clients requesting SGD IRS for Singapore subsidiary hedging."}'],
+                ['RISK', 'PASS', 95, '{"observation": "Lowest risk category. Vanilla IRS with proven infrastructure."}'],
+                ['OPS', 'PASS', 97, '{"observation": "Identical to SG desk. Murex configured and tested."}']
+            ],
+            breaches: [],
+            postLaunchConditions: [
+                ['Standard post-launch monitoring — quarterly volume and P&L review', 'Product Manager']
+            ]
+        },
+
+        // ═══ NPA #4: Evergreen / Structured Products (DCD) / LOW ═══
+        // Pre-approved Evergreen bundle — Dual Currency Deposit
+        {
+            project: {
+                id: 'TSG2026-104', title: 'Dual Currency Deposit — USD/SGD (Evergreen)',
+                description: 'Evergreen renewal of Dual Currency Deposit (DCD) product for Private Banking and Wealth Management clients. DCD combines a time deposit with an embedded FX option, allowing clients to earn enhanced yield in exchange for accepting currency conversion risk at maturity. This is a pre-approved Evergreen bundle (FX Option + LNBR/Deposit) per GFM COO Office approved bundles list. Product has been continuously active since 2019 with current 3-year Evergreen validity. Annual review by NPA Working Group completed January 2026. Within all Evergreen limits: total notional below $500M cap, deal count within 20/month retail cap.',
+                product_category: 'Structured Products', npa_type: 'Existing', risk_level: 'LOW',
+                is_cross_border: false, notional_amount: 150000000.00, currency: 'USD',
+                current_stage: 'MONITORING', status: 'Completed',
+                submitted_by: 'Priya Sharma', product_manager: 'Priya Sharma',
+                pm_team: 'Wealth Management Products', template_name: 'Evergreen v1.0',
+                kickoff_date: '2026-01-15', proposal_preparer: 'Priya Sharma',
+                pac_approval_status: 'Not Required', approval_track: 'EVERGREEN',
+                estimated_revenue: 4200000.00, predicted_approval_likelihood: 99.00,
+                predicted_timeline_days: 0.05, predicted_bottleneck: 'None',
+                classification_confidence: 98.0, classification_method: 'AGENT'
+            },
+            jurisdictions: ['SG'],
+            formData: [
+                ['product_name', 'Dual Currency Deposit — USD/SGD', 'AUTO', 99.0],
+                ['product_type', 'Structured Products', 'AUTO', 99.0],
+                ['desk', 'Wealth Management Products — Singapore', 'AUTO', 99.0],
+                ['business_unit', 'Consumer Banking Group / Wealth Management', 'AUTO', 99.0],
+                ['underlying_asset', 'USD/SGD FX rate. Client deposits USD and sells a USD put / SGD call option to DBS. At maturity, if spot is below strike, client receives SGD at the strike rate; otherwise receives USD principal plus enhanced yield.', 'AUTO', 96.0],
+                ['tenor', '1W, 2W, 1M, 3M standard tenors. Most popular: 2W and 1M for Private Banking clients seeking short-term yield enhancement on USD deposits.', 'AUTO', 95.0],
+                ['notional_amount', '150000000', 'MANUAL', 100.0],
+                ['booking_system', 'Murex — FXD|OPT|DCD typology. Portfolio: DBSSG_WM_STRUCTURED. Standard DCD generator. Fully automated STP from client order to Murex booking.', 'AUTO', 98.0],
+                ['risk_classification', 'LOW — Pre-approved Evergreen product. Vanilla FX option embedded in deposit structure. Deep USD/SGD liquidity. Standard hedging via FX option desk.', 'AUTO', 97.0],
+                ['customer_segments', 'Private Banking clients (Accredited Investors >$2M AUM), Treasures clients with >$350K deposits. Retail banking clients via digital channel for smaller denominations ($10K minimum).', 'AUTO', 95.0],
+                ['npa_process_type', 'Evergreen — Pre-approved bundle (FX Option + Deposit). Auto-approved within Evergreen limits. 3-year validity with annual NPA Working Group review. Last review: January 2026.', 'MANUAL', 100.0],
+                ['business_rationale', 'Core wealth management product generating $4.2M annual revenue. 15,000+ active clients. Top 3 structured product by volume. Essential for competitive positioning against UOB and OCBC wealth offerings.', 'MANUAL', 100.0]
+            ],
+            documents: [
+                ['DCD_USD_SGD_Product_Sheet_2026.pdf', 'TERM_SHEET', '520 KB', 'pdf', 'Product Specs', 'VALID', 'Priya Sharma'],
+                ['Evergreen_Annual_Review_Jan2026.pdf', 'RISK_MEMO', '890 KB', 'pdf', 'Risk Analysis', 'VALID', 'NPA Working Group'],
+                ['DCD_Client_Suitability_Framework.pdf', 'RISK_MEMO', '440 KB', 'pdf', 'Compliance', 'VALID', 'Ahmad Razak']
+            ],
+            signoffs: [
+                ['GFM COO Office', 'GFM COO', 'APPROVED', 'npa.team', 'NPA Working Group', 'npa.team@dbs.com', now, sla2d, 0, 'Evergreen annual review completed. Product within all limits. No significant changes since last approval. Continued Evergreen status confirmed.', 0]
+            ],
+            workflowStates: [
+                ['INITIATION', 'COMPLETED', '2026-01-15 09:00:00', '2026-01-15 09:30:00', null],
+                ['REVIEW', 'COMPLETED', '2026-01-15 09:30:00', '2026-01-15 10:00:00', null],
+                ['SIGN_OFF', 'COMPLETED', '2026-01-15 10:00:00', '2026-01-15 10:05:00', null],
+                ['LAUNCH', 'COMPLETED', '2026-01-15 10:05:00', '2026-01-15 10:10:00', null],
+                ['MONITORING', 'IN_PROGRESS', '2026-01-15 10:10:00', null, null]
+            ],
+            scorecard: {
+                total_score: 7, calculated_tier: 'Existing',
+                breakdown: {
+                    criteria: [
+                        { criterion: 'Product Innovation', score: 1, maxScore: 5, reasoning: 'DCD has been offered since 2019. Zero innovation.' },
+                        { criterion: 'Market Expansion', score: 1, maxScore: 5, reasoning: 'Same market, same clients, same channels.' },
+                        { criterion: 'Risk Complexity', score: 1, maxScore: 5, reasoning: 'Vanilla FX option. Deep USD/SGD liquidity. Standard hedging.' },
+                        { criterion: 'Regulatory Impact', score: 1, maxScore: 5, reasoning: 'Fully compliant. Annual review confirms no regulatory changes.' },
+                        { criterion: 'Technology Change', score: 1, maxScore: 5, reasoning: 'Zero technology change. Fully automated STP.' },
+                        { criterion: 'Operational Complexity', score: 1, maxScore: 5, reasoning: 'Fully automated. 15,000+ clients served without operational issues.' },
+                        { criterion: 'Financial Impact', score: 1, maxScore: 5, reasoning: 'Within Evergreen limits. $4.2M steady revenue. No capital impact change.' }
+                    ],
+                    overall_confidence: 98, prohibited_match: { matched: false },
+                    mandatory_signoffs: ['GFM COO Office']
+                }
+            },
+            assessments: [
+                ['STRATEGIC', 'PASS', 95, '{"observation": "Core wealth product. Top 3 by volume. Essential for competitive positioning."}'],
+                ['RISK', 'PASS', 96, '{"observation": "Lowest risk. Vanilla FX option with deep liquidity. 7 years of operating history."}']
+            ],
+            breaches: [],
+            metrics: { days_since_launch: 2190, total_volume: 2800000000.00, volume_currency: 'USD', realized_pnl: 12600000.00, active_breaches: 0, counterparty_exposure: 150000000.00, var_utilization: 12.00, collateral_posted: 0.00, next_review_date: '2027-01-15', health_status: 'healthy' },
+            postLaunchConditions: [
+                ['Annual Evergreen review by NPA Working Group — next review January 2027', 'GFM COO Office']
+            ]
+        },
+
+        // ═══ NPA #5: Bundling / Equity-Linked Note (ELN) / MEDIUM ═══
+        // 8-condition bundling gate — Equity Option + LNBR
+        {
+            project: {
+                id: 'TSG2026-105', title: 'Equity-Linked Note — Hang Seng Index (Bundling)',
+                description: 'Bundling NPA for Equity-Linked Note (ELN) referencing Hang Seng Index for Hong Kong Private Banking clients. The ELN bundles an equity put option on HSI with a structured note (LNBR), providing clients with enhanced coupon in exchange for principal-at-risk if HSI falls below the knock-in barrier. All 8 bundling conditions satisfied: (1) booked in Murex — EQD|OPT|ELN and FI|NOTE|LNBR, (2) no proxy booking, (3) no leverage, (4) no collateral issues, (5) no third parties, (6) PDD submitted for each block, (7) no SCF, (8) correct cashflow settlement. Arbitration Team review completed.',
+                product_category: 'Equity Derivatives', npa_type: 'Variation', risk_level: 'MEDIUM',
+                is_cross_border: true, notional_amount: 50000000.00, currency: 'HKD',
+                current_stage: 'SIGN_OFF', status: 'On Track',
+                submitted_by: 'Michelle Kwok', product_manager: 'Michelle Kwok',
+                pm_team: 'HK Structured Products Desk', template_name: 'Bundling NPA v1.0',
+                kickoff_date: '2026-02-03', proposal_preparer: 'Michelle Kwok',
+                pac_approval_status: 'Not Required', approval_track: 'BUNDLING',
+                estimated_revenue: 1500000.00, predicted_approval_likelihood: 85.00,
+                predicted_timeline_days: 9.00, predicted_bottleneck: 'Arbitration Team',
+                classification_confidence: 88.0, classification_method: 'AGENT'
+            },
+            jurisdictions: ['HK', 'SG'],
+            formData: [
+                ['product_name', 'Equity-Linked Note — Hang Seng Index', 'AUTO', 97.0],
+                ['product_type', 'Equity Derivatives', 'AUTO', 98.0],
+                ['desk', 'Structured Products Desk — Hong Kong', 'AUTO', 99.0],
+                ['business_unit', 'Global Financial Markets (GFM)', 'AUTO', 99.0],
+                ['underlying_asset', 'Hang Seng Index (HSI). European-style observation with knock-in barrier at 80% of initial HSI fixing. If HSI closes below barrier at any observation date, client receives HSI-linked return instead of full principal at maturity.', 'AUTO', 94.0],
+                ['tenor', '3M, 6M, 12M standard. Most popular: 6M for HK Private Banking clients. Observation: monthly fixing dates. Auto-callable feature at 100% of initial fixing.', 'AUTO', 92.0],
+                ['notional_amount', '50000000', 'MANUAL', 100.0],
+                ['booking_system', 'Murex — Two legs: EQD|OPT|ELN (equity put option) + FI|NOTE|LNBR (structured note). Portfolio: DBSHK_GFM_STRPROD. Both legs booked simultaneously via structured product generator.', 'AUTO', 95.0],
+                ['risk_classification', 'MEDIUM — Principal-at-risk product for clients. Equity market risk through HSI exposure. Barrier monitoring required. However, standard ELN structure with established hedging via HSI futures and options.', 'AUTO', 90.0],
+                ['customer_segments', 'HK Private Banking clients (Professional Investors under SFO). Accredited Investors seeking yield enhancement on HKD deposits with equity market view. Minimum investment: HKD 500,000.', 'AUTO', 93.0],
+                ['npa_process_type', 'Bundling NPA — Equity Option + LNBR structured note. All 8 bundling conditions met. Pre-approved bundle category (Equity-Linked Note = Equity Option + LNBR per GFM COO Office). Arbitration Team review completed.', 'MANUAL', 100.0],
+                ['business_rationale', 'HSI ELN is a core HK Private Banking structured product. Strong client demand in current market (HSI trading at multi-year support levels). Revenue from option premium embedded in ELN coupon structure. Competitive product offered by all major HK banks.', 'MANUAL', 100.0],
+                ['bundling_rationale', 'Client need: enhanced yield on HKD deposits with bullish HSI view. Bundling vs separate: clients want a single investment product, not separate option and deposit. Economic substance: option premium funds the enhanced coupon. Hedging: equity put option hedged via HSI futures and listed options on HKEX.', 'MANUAL', 100.0]
+            ],
+            documents: [
+                ['HSI_ELN_Term_Sheet_6M_v2.pdf', 'TERM_SHEET', '1.4 MB', 'pdf', 'Product Specs', 'VALID', 'Michelle Kwok'],
+                ['Bundling_8Condition_Checklist_ELN.pdf', 'RISK_MEMO', '580 KB', 'pdf', 'Product Specs', 'VALID', 'NPA Team'],
+                ['Arbitration_Team_Review_ELN_HSI.pdf', 'RISK_MEMO', '720 KB', 'pdf', 'Risk Analysis', 'VALID', 'GFM COO Office'],
+                ['ELN_HSI_Risk_Assessment.pdf', 'RISK_MEMO', '1.1 MB', 'pdf', 'Risk Analysis', 'VALID', 'Janet Teo'],
+                ['PDD_Equity_Option_Block.pdf', 'TERM_SHEET', '340 KB', 'pdf', 'Compliance', 'VALID', 'Ahmad Razak'],
+                ['PDD_LNBR_Note_Block.pdf', 'TERM_SHEET', '310 KB', 'pdf', 'Compliance', 'VALID', 'Ahmad Razak']
+            ],
+            signoffs: [
+                ['Market & Liquidity Risk', 'Risk Management', 'APPROVED', 'janet.teo', 'Janet Teo', 'janet.teo@dbs.com', now, sla3d, 0, 'HSI ELN risk profile acceptable. Equity delta and vega limits set. Barrier monitoring validated. Hedging via HKEX HSI futures confirmed.', 0],
+                ['Compliance', 'Legal, Compliance & Secretariat', 'APPROVED', 'ahmad.razak', 'Ahmad Razak', 'ahmad.razak@dbs.com', now, sla3d, 0, 'PDD forms submitted for both blocks. SFC PI suitability requirements met. Product disclosure document approved.', 0],
+                ['Operations', 'Technology & Operations', 'UNDER_REVIEW', 'peter.loh', 'Peter Loh', 'peter.loh@dbs.com', null, sla3d, 0, 'Reviewing ELN lifecycle events — auto-call processing, barrier breach notification, maturity settlement. Murex structured product generator under validation.', 0],
+                ['Finance', 'Finance', 'APPROVED', 'mark.lee', 'Mark Lee', 'mark.lee@dbs.com', now, sla3d, 0, 'Revenue model validated. HKD funding costs confirmed. Cross-border booking SG↔HK transfer pricing approved.', 0]
+            ],
+            workflowStates: [
+                ['INITIATION', 'COMPLETED', '2026-02-03 09:00:00', '2026-02-04 17:00:00', null],
+                ['REVIEW', 'COMPLETED', '2026-02-05 09:00:00', '2026-02-10 17:00:00', null],
+                ['SIGN_OFF', 'IN_PROGRESS', '2026-02-11 09:00:00', null, JSON.stringify(['Operations — ELN lifecycle event processing validation pending'])],
+                ['LAUNCH', 'NOT_STARTED', null, null, null],
+                ['MONITORING', 'NOT_STARTED', null, null, null]
+            ],
+            scorecard: {
+                total_score: 15, calculated_tier: 'Variation',
+                breakdown: {
+                    criteria: [
+                        { criterion: 'Product Innovation', score: 2, maxScore: 5, reasoning: 'ELN is a standard structured product. HSI as underlying is well-established.' },
+                        { criterion: 'Market Expansion', score: 2, maxScore: 5, reasoning: 'HK Private Banking market. DBS has existing client base for structured products.' },
+                        { criterion: 'Risk Complexity', score: 3, maxScore: 5, reasoning: 'Principal-at-risk with barrier. Equity delta, vega, and discontinuity risk. Standard hedging available.' },
+                        { criterion: 'Regulatory Impact', score: 2, maxScore: 5, reasoning: 'SFC Professional Investor requirements. Product disclosure obligations. No new licensing.' },
+                        { criterion: 'Technology Change', score: 2, maxScore: 5, reasoning: 'Murex ELN generator exists. Two-leg booking is standard for structured products.' },
+                        { criterion: 'Operational Complexity', score: 2, maxScore: 5, reasoning: 'Auto-call monitoring, barrier breach processing, maturity settlement — standard structured product operations.' },
+                        { criterion: 'Financial Impact', score: 2, maxScore: 5, reasoning: 'HKD 50M within limits. $1.5M revenue. Standard capital treatment for equity derivatives.' }
+                    ],
+                    overall_confidence: 88, prohibited_match: { matched: false },
+                    mandatory_signoffs: ['Market & Liquidity Risk', 'Compliance', 'Operations', 'Finance']
+                }
+            },
+            assessments: [
+                ['STRATEGIC', 'PASS', 85, '{"observation": "Core HK Private Banking product. Strong client demand with HSI at multi-year support levels."}'],
+                ['RISK', 'PASS', 76, '{"observation": "Standard ELN risk profile. Principal-at-risk mitigated by barrier structure and hedging via HKEX."}'],
+                ['LEGAL', 'PASS', 90, '{"observation": "Standard ISDA and structured note documentation. SFC product disclosure requirements met."}']
+            ],
+            breaches: [],
+            postLaunchConditions: [
+                ['Monthly ELN position and barrier proximity report to MLR', 'Market & Liquidity Risk'],
+                ['Quarterly client suitability review for ELN product per SFC requirements', 'Compliance']
+            ]
+        },
+
+        // ═══ NPA #6: Full NPA / New-to-Group / Commodity Derivatives / HIGH ═══
+        // New market entry — commodity swaps for APAC corporates
+        {
+            project: {
+                id: 'TSG2026-106', title: 'Commodity Swap — Crude Oil & LNG Hedging Platform',
+                description: 'New-to-Group product establishing DBS commodity derivatives capability for APAC energy corporates. Platform enables hedging of Brent Crude, Dubai Crude, and JKM LNG (Japan Korea Marker) through commodity swaps and Asian options. DBS will act as principal dealer intermediating between APAC energy corporates and global commodity houses. Requires new Murex commodity module, ISDA Commodity Definitions, and dedicated commodity risk management infrastructure. Addresses strong demand from Singapore-based commodity trading houses and APAC airline/shipping companies for regional commodity hedging solutions. New-to-Group triggers: new asset class (commodities), new role (commodity dealer), new infrastructure (commodity pricing feeds, Platts/Argus integration).',
+                product_category: 'Commodity Derivatives', npa_type: 'New-to-Group', risk_level: 'HIGH',
+                is_cross_border: true, notional_amount: 400000000.00, currency: 'USD',
+                current_stage: 'INITIATION', status: 'On Track',
+                submitted_by: 'Daniel Tan', product_manager: 'Daniel Tan',
+                pm_team: 'APAC Commodities Desk', template_name: 'Full NPA v1.0',
+                kickoff_date: '2026-02-15', proposal_preparer: 'Daniel Tan',
+                pac_approval_status: 'Approved', approval_track: 'FULL_NPA',
+                estimated_revenue: 12000000.00, predicted_approval_likelihood: 58.00,
+                predicted_timeline_days: 16.00, predicted_bottleneck: 'Technology & Operations',
+                classification_confidence: 94.0, classification_method: 'AGENT'
+            },
+            jurisdictions: ['SG', 'HK', 'LN'],
+            formData: [
+                ['product_name', 'Commodity Swap — Crude Oil & LNG Hedging Platform', 'AUTO', 96.0],
+                ['product_type', 'Commodity Derivatives', 'AUTO', 97.0],
+                ['desk', 'APAC Commodities Desk — Singapore (newly established under GFM)', 'AUTO', 99.0],
+                ['business_unit', 'Global Financial Markets (GFM)', 'AUTO', 99.0],
+                ['underlying_asset', 'Brent Crude Oil (ICE), Dubai Crude Oil (Platts), JKM LNG (Platts). Pricing: monthly average of Platts assessments for Asian commodity swaps. Settlement index published by S&P Global Platts and Argus Media.', 'AUTO', 93.0],
+                ['tenor', '1M to 36M for crude oil swaps. 1M to 24M for LNG swaps. Most active: 3M-12M matching corporate hedging cycles and fiscal year budgets. Calendar spread swaps available for crude oil.', 'AUTO', 91.0],
+                ['notional_amount', '400000000', 'MANUAL', 100.0],
+                ['booking_system', 'Murex — New commodity module required. Typology: CMD|SWP|CRUDE for oil swaps, CMD|SWP|LNG for gas swaps, CMD|OPT|ASIAN for Asian options. Portfolio: DBSSG_GFM_CMDTY (new). Integration with Platts and Argus pricing feeds required.', 'AUTO', 88.0],
+                ['risk_classification', 'HIGH — New asset class with commodity-specific risks: physical delivery risk, basis risk between Brent/Dubai/JKM, seasonal volatility patterns, geopolitical supply disruption risk, storage and logistics risk (for physical-settled contracts). Multi-jurisdictional operations across SG, HK, London.', 'AUTO', 87.0],
+                ['customer_segments', 'Singapore commodity trading houses (Trafigura, Vitol, Gunvor). APAC airlines (SIA, Cathay Pacific) hedging jet fuel via crack spread. Shipping companies hedging bunker fuel. Indonesian and Thai energy producers hedging crude oil output. LNG importers (Japan/Korea utilities).', 'AUTO', 91.0],
+                ['npa_process_type', 'Full NPA — New-to-Group. Commodity derivatives is an entirely new asset class for DBS. Triggers: new product, new role (commodity dealer), new infrastructure (Murex commodity module, Platts/Argus integration), new market data feeds.', 'MANUAL', 100.0],
+                ['business_case_status', 'PAC Approved — Executive Committee approved February 10, 2026. PAC Reference: ExCo-2026-CMD-001. Conditions: (1) Start with financial-settled swaps only (no physical delivery in Year 1), (2) Notional limit $500M Year 1, (3) PIR within 6 months.', 'MANUAL', 100.0],
+                ['business_rationale', 'Singapore is the world\'s 3rd largest commodity trading hub. DBS has 500+ corporate clients in energy/commodities sector with no in-house hedging solution — currently losing $12M+ annual revenue to competitors (Macquarie, StanChart, HSBC). APAC LNG market growing rapidly with JKM emerging as regional benchmark. DBS strategic advantage: strong APAC corporate relationships, Singapore commodity hub proximity, regional banking infrastructure.', 'MANUAL', 100.0]
+            ],
+            documents: [
+                ['Commodity_Swap_Platform_Business_Case.pdf', 'TERM_SHEET', '4.5 MB', 'pdf', 'Product Specs', 'VALID', 'Daniel Tan'],
+                ['Commodity_Risk_Framework_Draft.pdf', 'RISK_MEMO', '3.2 MB', 'pdf', 'Risk Analysis', 'PENDING', 'Janet Teo'],
+                ['Murex_Commodity_Module_RFP.pdf', 'TERM_SHEET', '2.8 MB', 'pdf', 'Technology', 'PENDING', 'Rachel Ng'],
+                ['Platts_Argus_Data_Feed_Integration_Spec.pdf', 'TERM_SHEET', '1.1 MB', 'pdf', 'Technology', 'PENDING', 'Rachel Ng'],
+                ['ISDA_Commodity_Definitions_Overview.pdf', 'ISDA', '1.9 MB', 'pdf', 'Legal', 'PENDING', 'Lisa Wong']
+            ],
+            signoffs: [
+                ['Market & Liquidity Risk', 'Risk Management', 'PENDING', null, null, null, null, sla3d, 0, 'Commodity risk framework under development. Waiting for Platts data feed validation and commodity VaR model calibration.', 0],
+                ['Credit Risk', 'Risk Management', 'PENDING', null, null, null, null, sla3d, 0, 'Commodity counterparty credit assessment framework needed. Commodity trading houses have different risk profiles from traditional banking counterparties.', 0],
+                ['Technology Architecture', 'Technology & Operations', 'PENDING', null, null, null, null, sla3d, 0, 'Murex commodity module RFP issued. Platts/Argus data feed integration specification under review. Build timeline estimated at 4-6 months.', 0],
+                ['Operations', 'Technology & Operations', 'PENDING', null, null, null, null, sla3d, 0, 'Commodity settlement procedures need to be designed. Platts pricing verification workflow required. Commodity-specific reconciliation processes to be developed.', 0],
+                ['Legal', 'Legal, Compliance & Secretariat', 'PENDING', null, null, null, null, sla3d, 0, 'ISDA Commodity Definitions review required. Commodity-specific confirmation templates need drafting. MAS regulatory assessment for commodity derivatives pending.', 0],
+                ['Compliance', 'Legal, Compliance & Secretariat', 'PENDING', null, null, null, null, sla3d, 0, 'Commodity trading AML/KYC framework enhancement needed for commodity trading house counterparties. Sanctions screening for commodity flows to be assessed.', 0],
+                ['Finance', 'Finance', 'PENDING', null, null, null, null, sla3d, 0, 'Capital treatment for commodity derivatives under SA-CCR to be assessed. ROAE analysis pending commodity-specific capital charges. Transfer pricing for multi-jurisdictional operations.', 0]
+            ],
+            workflowStates: [
+                ['INITIATION', 'IN_PROGRESS', '2026-02-15 09:00:00', null, JSON.stringify(['Murex commodity module build timeline to be confirmed', 'Commodity risk framework design phase', 'ISDA Commodity Definitions legal review scheduling'])],
+                ['REVIEW', 'NOT_STARTED', null, null, null],
+                ['SIGN_OFF', 'NOT_STARTED', null, null, null],
+                ['LAUNCH', 'NOT_STARTED', null, null, null],
+                ['MONITORING', 'NOT_STARTED', null, null, null]
+            ],
+            scorecard: {
+                total_score: 29, calculated_tier: 'New-to-Group',
+                breakdown: {
+                    criteria: [
+                        { criterion: 'Product Innovation', score: 5, maxScore: 5, reasoning: 'Commodity derivatives is entirely new for DBS. New asset class, new pricing sources, new settlement mechanisms.' },
+                        { criterion: 'Market Expansion', score: 5, maxScore: 5, reasoning: 'New client segment (commodity trading houses, airlines, shipping). New geographic markets (London for Brent, APAC for JKM).' },
+                        { criterion: 'Risk Complexity', score: 5, maxScore: 5, reasoning: 'Commodity-specific risks: basis risk, seasonal volatility, geopolitical disruption, physical delivery (future phase). Multi-commodity correlation risk.' },
+                        { criterion: 'Regulatory Impact', score: 3, maxScore: 5, reasoning: 'MAS derivatives framework covers commodity derivatives. No new licensing. However, commodity-specific reporting and position limit rules apply.' },
+                        { criterion: 'Technology Change', score: 5, maxScore: 5, reasoning: 'New Murex commodity module. New Platts/Argus data feed integration. New commodity pricing engine. 4-6 month build timeline.' },
+                        { criterion: 'Operational Complexity', score: 4, maxScore: 5, reasoning: 'New settlement procedures, Platts pricing verification, commodity-specific reconciliation, multi-timezone operations (SG/HK/London).' },
+                        { criterion: 'Financial Impact', score: 2, maxScore: 5, reasoning: '$400M notional Year 1. $12M revenue target. Significant technology investment ($3M+) for Murex module and data feeds.' }
+                    ],
+                    overall_confidence: 94, prohibited_match: { matched: false },
+                    mandatory_signoffs: ['Market & Liquidity Risk', 'Credit Risk', 'Technology Architecture', 'Operations', 'Legal', 'Compliance', 'Finance']
+                }
+            },
+            assessments: [
+                ['STRATEGIC', 'PASS', 90, '{"observation": "Singapore commodity hub positioning. 500+ existing commodity sector clients. $12M+ revenue opportunity from competitive displacement."}'],
+                ['RISK', 'WARN', 48, '{"observation": "New asset class with commodity-specific risks. No internal expertise or infrastructure. Risk framework needs to be built from scratch."}'],
+                ['TECH', 'WARN', 42, '{"observation": "Major technology build required. Murex commodity module, Platts/Argus integration, commodity pricing engine. 4-6 month timeline."}'],
+                ['LEGAL', 'WARN', 50, '{"observation": "ISDA Commodity Definitions new to DBS Legal. Commodity-specific confirmation templates needed. MAS regulatory assessment pending."}']
+            ],
+            breaches: [],
+            postLaunchConditions: [
+                ['Monthly commodity position and risk report to Risk Committee', 'Market & Liquidity Risk'],
+                ['Quarterly PIR (mandatory NTG) within 6 months of first trade', 'Product Manager'],
+                ['Semi-annual commodity risk model calibration review', 'Market & Liquidity Risk']
+            ]
+        },
+
+        // ═══ NPA #7: Full NPA / Variation (High-Risk) / Fixed Income / MEDIUM ═══
+        // Modeled after TSG2339 Swap Connect — new infrastructure for existing product
+        {
+            project: {
+                id: 'TSG2026-107', title: 'China Onshore Bond Trading via Bond Connect Southbound',
+                description: 'High-risk Variation enabling DBS to trade China onshore government bonds (CGBs) and policy bank bonds via Bond Connect Southbound channel. While CNY bonds are an existing product for DBS, Bond Connect Southbound represents a new infrastructure/market access channel that fundamentally changes the operational model — similar to TSG2339 Swap Connect. Requires HKMA Bond Connect membership, CFETS (China Foreign Exchange Trade System) integration, and China Interbank Bond Market (CIBM) settlement via CCDC/Shanghai Clearing House. High-risk Variation triggers: new infrastructure, new settlement mechanism, new regulatory framework (PBOC/SAFE cross-border bond trading rules).',
+                product_category: 'Fixed Income', npa_type: 'Variation', risk_level: 'MEDIUM',
+                is_cross_border: true, notional_amount: 500000000.00, currency: 'CNY',
+                current_stage: 'REVIEW', status: 'At Risk',
+                submitted_by: 'William Chen', product_manager: 'William Chen',
+                pm_team: 'APAC Fixed Income Desk', template_name: 'Full NPA v1.0',
+                kickoff_date: '2026-01-28', proposal_preparer: 'William Chen',
+                pac_approval_status: 'Not Required', approval_track: 'FULL_NPA',
+                estimated_revenue: 5500000.00, predicted_approval_likelihood: 72.00,
+                predicted_timeline_days: 12.00, predicted_bottleneck: 'Technology & Compliance',
+                classification_confidence: 87.0, classification_method: 'AGENT'
+            },
+            jurisdictions: ['SG', 'HK', 'CN'],
+            formData: [
+                ['product_name', 'China Onshore Bond Trading via Bond Connect Southbound', 'AUTO', 96.0],
+                ['product_type', 'Fixed Income', 'AUTO', 98.0],
+                ['desk', 'APAC Fixed Income Desk — Singapore', 'AUTO', 99.0],
+                ['business_unit', 'Global Financial Markets (GFM)', 'AUTO', 99.0],
+                ['underlying_asset', 'China Government Bonds (CGBs), China Development Bank bonds, Agricultural Development Bank bonds, Export-Import Bank bonds. Denominated in CNY (onshore). Traded on CIBM via Bond Connect Southbound.', 'AUTO', 93.0],
+                ['tenor', '1Y to 30Y CGBs and policy bank bonds. Most liquid: 5Y, 10Y CGBs. Trading via CFETS request-for-quote (RFQ) and click-to-trade protocols. T+1 settlement via CCDC.', 'AUTO', 91.0],
+                ['notional_amount', '500000000', 'MANUAL', 100.0],
+                ['booking_system', 'Murex — FI|BOND|CNYGOV typology for CGBs, FI|BOND|CNYPOL for policy bank bonds. Portfolio: DBSSG_GFM_FI_CN. CFETS integration for trade execution. CCDC/SCH for settlement and custody.', 'AUTO', 90.0],
+                ['risk_classification', 'MEDIUM — China onshore bonds are high-quality sovereign/quasi-sovereign credit. However, cross-border settlement risk, CNY FX conversion risk (SAFE regulations), and China regulatory framework complexity increase the risk profile beyond standard bond trading.', 'AUTO', 88.0],
+                ['customer_segments', 'Institutional investors seeking CNY bond exposure (index inclusion demand from FTSE Russell/Bloomberg Barclays). Central banks diversifying reserves into CNY. APAC asset managers with China allocation mandates.', 'AUTO', 92.0],
+                ['npa_process_type', 'Full NPA — High-Risk Variation. Bond trading exists at DBS but Bond Connect Southbound is a new infrastructure channel (similar to TSG2339 Swap Connect). Variation triggers: new infrastructure, new settlement (CCDC), new regulatory framework (PBOC/SAFE).', 'MANUAL', 100.0],
+                ['business_rationale', 'CNY bond market is the world\'s 2nd largest ($20T+). Bond Connect Southbound launched 2024 enables international investors to trade onshore bonds. Strong institutional demand driven by CNY bond index inclusion. DBS positioned as leading APAC bank with China expertise. Expected $5.5M revenue from market-making spreads and client facilitation.', 'MANUAL', 100.0]
+            ],
+            documents: [
+                ['Bond_Connect_Southbound_Product_Spec.pdf', 'TERM_SHEET', '3.1 MB', 'pdf', 'Product Specs', 'VALID', 'William Chen'],
+                ['CFETS_Integration_Technical_Spec.pdf', 'TERM_SHEET', '2.2 MB', 'pdf', 'Technology', 'PENDING', 'Rachel Ng'],
+                ['China_Bond_Risk_Assessment.pdf', 'RISK_MEMO', '1.8 MB', 'pdf', 'Risk Analysis', 'VALID', 'Janet Teo'],
+                ['PBOC_SAFE_Regulatory_Analysis.pdf', 'LEGAL_OPINION', '2.5 MB', 'pdf', 'Regulatory', 'PENDING', 'Lisa Wong'],
+                ['CCDC_Settlement_Procedures.pdf', 'TERM_SHEET', '1.3 MB', 'pdf', 'Operational', 'PENDING', 'Peter Loh']
+            ],
+            signoffs: [
+                ['Market & Liquidity Risk', 'Risk Management', 'APPROVED', 'janet.teo', 'Janet Teo', 'janet.teo@dbs.com', now, sla3d, 0, 'China bond risk framework acceptable. IR01 limits set for CNY duration. FX hedging requirements documented. Liquidity risk assessment completed for CIBM.', 0],
+                ['Credit Risk', 'Risk Management', 'APPROVED', 'mike.ross', 'Mike Ross', 'mike.ross@dbs.com', now, sla3d, 0, 'Sovereign/quasi-sovereign credit risk minimal. CCDC custodian risk assessed. No counterparty credit concerns for Bond Connect.', 0],
+                ['Technology Architecture', 'Technology & Operations', 'UNDER_REVIEW', 'rachel.ng', 'Rachel Ng', 'rachel.ng@dbs.com', null, sla3d, 0, 'CFETS integration architecture under review. API connectivity testing in progress. CCDC settlement interface specification being validated.', 0],
+                ['Operations', 'Technology & Operations', 'UNDER_REVIEW', 'peter.loh', 'Peter Loh', 'peter.loh@dbs.com', null, sla3d, 0, 'T+1 settlement procedures with CCDC under review. CNY FX conversion workflow (SAFE compliance) being documented. Bond custody procedures for onshore holdings.', 0],
+                ['Legal', 'Legal, Compliance & Secretariat', 'UNDER_REVIEW', 'lisa.wong', 'Lisa Wong', 'lisa.wong@dbs.com', null, sla3d, 0, 'PBOC/SAFE regulatory framework analysis in progress. Bond Connect membership agreement under review. Cross-border data transfer assessment (China PIPL compliance).', 0],
+                ['Compliance', 'Legal, Compliance & Secretariat', 'APPROVED', 'ahmad.razak', 'Ahmad Razak', 'ahmad.razak@dbs.com', now, sla3d, 0, 'AML/KYC framework covers Bond Connect transactions. PBOC reporting requirements mapped. No sanctions concerns for sovereign bond trading.', 0],
+                ['Finance', 'Finance', 'APPROVED', 'mark.lee', 'Mark Lee', 'mark.lee@dbs.com', now, sla3d, 0, 'ROAE analysis: 16% by Year 2 above hurdle. Capital treatment confirmed under standardized approach (0% RW for CGBs). CNY funding cost analysis completed.', 0]
+            ],
+            workflowStates: [
+                ['INITIATION', 'COMPLETED', '2026-01-28 09:00:00', '2026-01-31 17:00:00', null],
+                ['REVIEW', 'IN_PROGRESS', '2026-02-03 09:00:00', null, JSON.stringify(['Technology — CFETS API integration testing pending', 'Operations — CCDC T+1 settlement procedure documentation', 'Legal — PBOC/SAFE regulatory framework analysis'])],
+                ['SIGN_OFF', 'NOT_STARTED', null, null, null],
+                ['LAUNCH', 'NOT_STARTED', null, null, null],
+                ['MONITORING', 'NOT_STARTED', null, null, null]
+            ],
+            scorecard: {
+                total_score: 21, calculated_tier: 'Variation',
+                breakdown: {
+                    criteria: [
+                        { criterion: 'Product Innovation', score: 2, maxScore: 5, reasoning: 'CNY bonds are existing product. Bond Connect is new channel/infrastructure.' },
+                        { criterion: 'Market Expansion', score: 4, maxScore: 5, reasoning: 'Onshore China bond market access. New institutional investor segment. $20T+ market opportunity.' },
+                        { criterion: 'Risk Complexity', score: 3, maxScore: 5, reasoning: 'Cross-border settlement, CNY FX conversion risk, China regulatory complexity. Bond credit risk is minimal (sovereign).' },
+                        { criterion: 'Regulatory Impact', score: 4, maxScore: 5, reasoning: 'PBOC/SAFE cross-border framework, HKMA Bond Connect requirements, China PIPL data compliance. Multi-jurisdictional regulatory.' },
+                        { criterion: 'Technology Change', score: 4, maxScore: 5, reasoning: 'CFETS integration, CCDC settlement interface, new market data feeds. Significant infrastructure build.' },
+                        { criterion: 'Operational Complexity', score: 3, maxScore: 5, reasoning: 'T+1 settlement with CCDC, CNY FX conversion workflow, onshore custody management. New operational procedures.' },
+                        { criterion: 'Financial Impact', score: 1, maxScore: 5, reasoning: 'CNY 500M within limits. 0% RWA for CGBs. $5.5M revenue. Low capital impact.' }
+                    ],
+                    overall_confidence: 87, prohibited_match: { matched: false },
+                    mandatory_signoffs: ['Market & Liquidity Risk', 'Credit Risk', 'Technology Architecture', 'Operations', 'Legal', 'Compliance', 'Finance']
+                }
+            },
+            assessments: [
+                ['STRATEGIC', 'PASS', 92, '{"observation": "$20T+ China bond market. Index inclusion driving institutional demand. DBS uniquely positioned with APAC + China expertise."}'],
+                ['RISK', 'PASS', 75, '{"observation": "Sovereign credit risk minimal. Cross-border settlement and regulatory risks manageable with proper controls."}'],
+                ['TECH', 'WARN', 55, '{"observation": "CFETS and CCDC integration are non-trivial. API testing in progress. Build timeline 3-4 months for full integration."}'],
+                ['LEGAL', 'WARN', 58, '{"observation": "PBOC/SAFE regulatory framework complex. Multi-jurisdictional (SG/HK/CN) legal compliance. China PIPL data transfer assessment pending."}']
+            ],
+            breaches: [
+                ['CFETS Integration Timeline Risk', 'WARNING', 'CFETS API integration testing behind schedule. Vendor support for sandbox environment delayed by 2 weeks. Full integration target at risk.', 'Integration by Apr 2026', 'Sandbox testing delayed to Mar 2026', 'Technology Architecture', 48, 'OPEN']
+            ],
+            postLaunchConditions: [
+                ['Monthly China bond position and CNY exposure report to Risk Committee', 'Market & Liquidity Risk'],
+                ['Quarterly PBOC/SAFE regulatory compliance review', 'Compliance'],
+                ['Semi-annual PIR assessing Bond Connect volume, revenue, and operational incidents', 'Product Manager']
+            ]
+        },
+
+        // ═══ NPA #8: NPA Lite B1 / Existing / Fund Products / LOW ═══
+        // Modeled after TSG2055 ETF Subscription — impending deal fast-track
+        {
+            project: {
+                id: 'TSG2026-108', title: 'APAC ESG Bond ETF — Institutional Subscription (Impending Deal)',
+                description: 'NPA Lite B1 (Impending Deal) for institutional subscription to Nikko AM APAC ESG Bond ETF on behalf of a professional counterparty client. Back-to-back deal with institutional client — DBS subscribes to ETF units and immediately transfers to client. Qualifies for B1 48-hour express approval as: (1) back-to-back deal with professional counterparty, (2) ETF subscription is existing approved product category at DBS, (3) Singapore-approved NPA applicable regionally. 48-hour no-objection notice sent to relevant SOPs.',
+                product_category: 'Fund Products', npa_type: 'Existing', risk_level: 'LOW',
+                is_cross_border: false, notional_amount: 25000000.00, currency: 'USD',
+                current_stage: 'MONITORING', status: 'Completed',
+                submitted_by: 'Sarah Lim', product_manager: 'Sarah Lim',
+                pm_team: 'Institutional Sales — Singapore', template_name: 'NPA Lite B1 v1.0',
+                kickoff_date: '2026-02-12', proposal_preparer: 'Sarah Lim',
+                pac_approval_status: 'Not Required', approval_track: 'NPA_LITE',
+                estimated_revenue: 375000.00, predicted_approval_likelihood: 96.00,
+                predicted_timeline_days: 2.00, predicted_bottleneck: 'None',
+                classification_confidence: 95.0, classification_method: 'AGENT',
+                launched_at: '2026-02-14 10:00:00'
+            },
+            jurisdictions: ['SG'],
+            formData: [
+                ['product_name', 'APAC ESG Bond ETF — Institutional Subscription', 'AUTO', 98.0],
+                ['product_type', 'Fund Products', 'AUTO', 99.0],
+                ['desk', 'Institutional Sales — Singapore', 'AUTO', 99.0],
+                ['business_unit', 'Institutional Banking Group (IBG)', 'AUTO', 99.0],
+                ['underlying_asset', 'Nikko AM APAC ESG Bond ETF (SGX-listed). Tracks Bloomberg MSCI APAC ESG Bond Index. Holdings: APAC sovereign and corporate bonds meeting ESG criteria. NAV: ~$500M AUM.', 'AUTO', 96.0],
+                ['tenor', 'Open-ended ETF. Subscription settlement T+2. Client holding period: 12-36 months (institutional mandate).', 'AUTO', 95.0],
+                ['notional_amount', '25000000', 'MANUAL', 100.0],
+                ['booking_system', 'Summit — FUND|ETF|SUBSCRIPTION typology. Portfolio: DBSSG_IBG_FUNDS. Standard fund subscription workflow via Nikko AM transfer agent.', 'AUTO', 97.0],
+                ['risk_classification', 'LOW — Back-to-back deal with immediate transfer to client. DBS holds no market risk beyond settlement period. Standard ETF subscription process.', 'AUTO', 97.0],
+                ['customer_segments', 'Institutional investors with ESG mandates. Sovereign wealth funds. Pension funds seeking APAC fixed income ESG allocation.', 'AUTO', 94.0],
+                ['npa_process_type', 'NPA Lite B1 — Impending Deal (48-hour express). Back-to-back with professional counterparty. ETF subscription is approved product category. 48-hour no-objection period.', 'MANUAL', 100.0],
+                ['business_rationale', 'Client (APAC sovereign wealth fund) requires immediate ESG bond allocation. $25M subscription represents 5% of ETF AUM. Revenue from subscription fee (1.5%) = $375K. Strategic relationship building with major institutional client.', 'MANUAL', 100.0]
+            ],
+            documents: [
+                ['APAC_ESG_Bond_ETF_Subscription_Form.pdf', 'TERM_SHEET', '420 KB', 'pdf', 'Product Specs', 'VALID', 'Sarah Lim'],
+                ['Client_Suitability_Assessment.pdf', 'RISK_MEMO', '280 KB', 'pdf', 'Compliance', 'VALID', 'Ahmad Razak']
+            ],
+            signoffs: [
+                ['Compliance', 'Legal, Compliance & Secretariat', 'APPROVED', 'ahmad.razak', 'Ahmad Razak', 'ahmad.razak@dbs.com', now, sla2d, 0, 'No objection — Professional investor suitability confirmed. ESG bond ETF compliant with MAS guidelines. Standard subscription process.', 0],
+                ['Operations', 'Technology & Operations', 'APPROVED', 'peter.loh', 'Peter Loh', 'peter.loh@dbs.com', now, sla2d, 0, 'No objection — Standard ETF subscription via Nikko AM transfer agent. Settlement T+2. Back-to-back transfer to client.', 0]
+            ],
+            workflowStates: [
+                ['INITIATION', 'COMPLETED', '2026-02-12 09:00:00', '2026-02-12 10:00:00', null],
+                ['REVIEW', 'COMPLETED', '2026-02-12 10:00:00', '2026-02-12 14:00:00', null],
+                ['SIGN_OFF', 'COMPLETED', '2026-02-12 14:00:00', '2026-02-14 09:00:00', null],
+                ['LAUNCH', 'COMPLETED', '2026-02-14 09:00:00', '2026-02-14 10:00:00', null],
+                ['MONITORING', 'IN_PROGRESS', '2026-02-14 10:00:00', null, null]
+            ],
+            scorecard: {
+                total_score: 7, calculated_tier: 'Existing',
+                breakdown: {
+                    criteria: [
+                        { criterion: 'Product Innovation', score: 1, maxScore: 5, reasoning: 'ETF subscription is standard. No innovation.' },
+                        { criterion: 'Market Expansion', score: 1, maxScore: 5, reasoning: 'Existing institutional client, existing product.' },
+                        { criterion: 'Risk Complexity', score: 1, maxScore: 5, reasoning: 'Back-to-back deal. Zero market risk for DBS.' },
+                        { criterion: 'Regulatory Impact', score: 1, maxScore: 5, reasoning: 'Standard MAS fund distribution framework.' },
+                        { criterion: 'Technology Change', score: 1, maxScore: 5, reasoning: 'Existing Summit booking. No changes.' },
+                        { criterion: 'Operational Complexity', score: 1, maxScore: 5, reasoning: 'Standard subscription via transfer agent.' },
+                        { criterion: 'Financial Impact', score: 1, maxScore: 5, reasoning: '$25M within limits. $375K revenue. Minimal capital.' }
+                    ],
+                    overall_confidence: 95, prohibited_match: { matched: false },
+                    mandatory_signoffs: ['Compliance', 'Operations']
+                }
+            },
+            assessments: [
+                ['STRATEGIC', 'PASS', 90, '{"observation": "Strategic relationship with major SWF client. ESG mandate alignment. Revenue from subscription fees."}'],
+                ['RISK', 'PASS', 97, '{"observation": "Back-to-back deal. Zero residual market risk. Standard ETF settlement."}']
+            ],
+            breaches: [],
+            metrics: { days_since_launch: 6, total_volume: 25000000.00, volume_currency: 'USD', realized_pnl: 375000.00, active_breaches: 0, counterparty_exposure: 0.00, var_utilization: 0.00, collateral_posted: 0.00, next_review_date: '2026-08-14', health_status: 'healthy' },
+            postLaunchConditions: [
+                ['Standard post-trade confirmation and settlement verification', 'Operations']
+            ]
+        }
+    ];
+}
+
+module.exports = { getNpaProfiles };
