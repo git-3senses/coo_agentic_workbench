@@ -155,106 +155,107 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
                </div>
             </div>
 
-            <!-- Sections — direct render, no paper wrapper -->
-            <div class="bg-white">
-               <div *ngFor="let section of sections; let si = index" [id]="'sec-' + section.id" class="border-b border-gray-100">
+            <!-- Sections — document-style layout like Confluence -->
+            <div class="bg-white max-w-4xl mx-auto">
+               <div *ngFor="let section of sections; let si = index" [id]="'sec-' + section.id" class="mb-2">
 
-                  <!-- Section header bar -->
-                  <div class="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 px-8 py-2.5 flex items-center gap-3">
-                     <span class="text-xs font-mono font-bold text-gray-400 flex-none">{{ getSectionNumber(si) }}.</span>
-                     <h2 class="text-sm font-bold text-gray-900 flex-1">{{ section.title }}</h2>
-                     <span class="text-xs font-bold px-2.5 py-0.5 rounded-full"
-                           [class.bg-emerald-100]="getSectionCompletion(section) >= 80"
-                           [class.text-emerald-700]="getSectionCompletion(section) >= 80"
-                           [class.bg-amber-100]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
-                           [class.text-amber-700]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
-                           [class.bg-red-100]="getSectionCompletion(section) < 50"
-                           [class.text-red-700]="getSectionCompletion(section) < 50">
-                        {{ getSectionCompletion(section) }}%
-                     </span>
+                  <!-- Section heading — like H1 in a document -->
+                  <div class="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b-2 border-blue-600 px-10 py-4 mt-6 first:mt-0">
+                     <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-bold text-gray-900">
+                           <span class="text-blue-600 mr-2">{{ getSectionNumber(si) }}.</span>{{ section.title }}
+                        </h2>
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full"
+                              [class.bg-emerald-100]="getSectionCompletion(section) >= 80"
+                              [class.text-emerald-700]="getSectionCompletion(section) >= 80"
+                              [class.bg-amber-100]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
+                              [class.text-amber-700]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
+                              [class.bg-red-100]="getSectionCompletion(section) < 50"
+                              [class.text-red-700]="getSectionCompletion(section) < 50">
+                           {{ getSectionCompletion(section) }}% complete
+                        </span>
+                     </div>
+                     <p *ngIf="section.description" class="text-sm text-gray-500 mt-1.5 leading-relaxed">{{ section.description }}</p>
                   </div>
 
-                  <!-- Section description if present -->
-                  <p *ngIf="section.description" class="px-8 pt-3 text-xs text-gray-500 leading-relaxed">{{ section.description }}</p>
-
-                  <!-- Fields -->
-                  <div class="px-8 py-5 space-y-2">
+                  <!-- Fields — document-style: heading above, content below -->
+                  <div class="px-10 py-6 space-y-6">
                      <ng-container *ngFor="let field of section.fields">
 
-                        <!-- Header Field -->
-                        <div *ngIf="field.type === 'header'" class="pt-5 pb-1.5">
-                           <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
-                              <span class="w-0.5 h-3.5 bg-blue-600 rounded-full"></span>
+                        <!-- Sub-heading Field — like H3 in a document -->
+                        <div *ngIf="field.type === 'header'" class="pt-4 pb-1 border-b border-gray-200">
+                           <h3 class="text-sm font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
+                              <span class="w-1 h-4 bg-blue-600 rounded-full"></span>
                               {{ field.label }}
                            </h3>
                         </div>
 
-                        <!-- Textarea fields — narrative paragraphs -->
-                        <div *ngIf="field.type === 'textarea'" class="py-3 group" (click)="onFieldFocus(field)">
-                           <div class="flex items-center gap-2 mb-1.5">
-                              <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wide">{{ field.label }}</h4>
-                              <span *ngIf="field.required" class="text-red-400 text-[10px]">REQ</span>
+                        <!-- Textarea / narrative fields — full paragraph display -->
+                        <div *ngIf="field.type === 'textarea'" class="group" (click)="onFieldFocus(field)">
+                           <div class="flex items-center gap-2 mb-2">
+                              <h4 class="text-sm font-semibold text-gray-700">{{ field.label }}</h4>
+                              <span *ngIf="field.required" class="text-red-500 text-xs font-medium">Required</span>
                               <span *ngIf="field.lineage && field.value"
-                                    class="w-1.5 h-1.5 rounded-full flex-none"
+                                    class="w-2 h-2 rounded-full flex-none"
                                     [class.bg-emerald-500]="field.lineage === 'AUTO'"
                                     [class.bg-amber-500]="field.lineage === 'ADAPTED'"
                                     [class.bg-red-500]="field.lineage === 'MANUAL'"></span>
                            </div>
                            <div *ngIf="editingField !== field.key"
-                                class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap cursor-text rounded px-3 py-2.5 -mx-3 hover:bg-blue-50/40 transition-colors border border-transparent hover:border-blue-100"
+                                class="text-[15px] text-gray-700 leading-7 whitespace-pre-wrap cursor-text rounded-lg px-4 py-3 hover:bg-blue-50/40 transition-colors border border-transparent hover:border-blue-100 doc-content"
                                 [class.text-gray-300]="!field.value"
                                 [class.italic]="!field.value"
-                                (click)="startEditing(field)">
-                              {{ field.value || 'Click to add content...' }}
+                                (click)="startEditing(field)"
+                                [innerHTML]="formatDocContent(field.value) || 'Click to add content...'">
                            </div>
                            <textarea *ngIf="editingField === field.key"
                                      #editArea [(ngModel)]="field.value" (blur)="stopEditing()" (input)="autoSize($event)"
-                                     class="w-full text-sm text-gray-700 leading-relaxed rounded px-3 py-2.5 -mx-3 border border-blue-300 bg-blue-50/20 outline-none ring-2 ring-blue-100 resize-none"
-                                     rows="4"></textarea>
+                                     class="w-full text-[15px] text-gray-700 leading-7 rounded-lg px-4 py-3 border border-blue-300 bg-blue-50/20 outline-none ring-2 ring-blue-100 resize-none"
+                                     rows="6"></textarea>
                         </div>
 
-                        <!-- Short fields — inline key:value -->
+                        <!-- Short fields — label above, value below (document style) -->
                         <div *ngIf="field.type !== 'textarea' && field.type !== 'header' && field.type !== 'file'"
-                             class="group flex items-baseline gap-4 py-2.5 hover:bg-blue-50/30 -mx-3 px-3 rounded transition-colors cursor-text"
-                             (click)="onFieldFocus(field)">
-                           <span class="text-sm text-gray-500 flex-none truncate" style="width: 200px;">
-                              {{ field.label }}<span *ngIf="field.required" class="text-red-400 text-[10px] ml-0.5">*</span>
-                           </span>
-                           <div class="flex-1 flex items-center gap-1.5 min-w-0">
-                              <ng-container *ngIf="editingField !== field.key">
-                                 <span class="text-sm leading-relaxed cursor-text truncate"
-                                       [class.text-gray-900]="field.value" [class.font-medium]="field.value"
-                                       [class.text-gray-300]="!field.value" [class.italic]="!field.value"
-                                       (click)="startEditing(field)">
-                                    {{ field.value || '—' }}
-                                 </span>
-                              </ng-container>
-                              <ng-container *ngIf="editingField === field.key">
-                                 <select *ngIf="field.type === 'select'" #editArea [(ngModel)]="field.value" (blur)="stopEditing()" (change)="stopEditing()"
-                                         class="text-sm border border-blue-300 rounded px-2 py-0.5 bg-blue-50/30 outline-none ring-1 ring-blue-100 flex-1">
-                                    <option value="" disabled>Select...</option>
-                                    <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
-                                 </select>
-                                 <input *ngIf="field.type === 'date'" #editArea [(ngModel)]="field.value" type="date" (blur)="stopEditing()"
-                                        class="text-sm border border-blue-300 rounded px-2 py-0.5 bg-blue-50/30 outline-none ring-1 ring-blue-100">
-                                 <input *ngIf="field.type !== 'select' && field.type !== 'date'" #editArea [(ngModel)]="field.value" [type]="field.type || 'text'"
-                                        (blur)="stopEditing()" (keydown.enter)="stopEditing()"
-                                        class="text-sm border border-blue-300 rounded px-2 py-0.5 bg-blue-50/30 outline-none ring-1 ring-blue-100 flex-1">
-                              </ng-container>
+                             class="group" (click)="onFieldFocus(field)">
+                           <div class="flex items-center gap-2 mb-1">
+                              <h4 class="text-sm font-semibold text-gray-700">
+                                 {{ field.label }}<span *ngIf="field.required" class="text-red-500 ml-1 text-xs">*</span>
+                              </h4>
                               <span *ngIf="field.lineage && field.value && editingField !== field.key"
-                                    class="w-1.5 h-1.5 rounded-full flex-none"
+                                    class="w-2 h-2 rounded-full flex-none"
                                     [class.bg-emerald-500]="field.lineage === 'AUTO'"
                                     [class.bg-amber-500]="field.lineage === 'ADAPTED'"
                                     [class.bg-red-500]="field.lineage === 'MANUAL'"
                                     [title]="field.lineage"></span>
                            </div>
+                           <ng-container *ngIf="editingField !== field.key">
+                              <p class="text-[15px] leading-7 cursor-text rounded-lg px-4 py-2 hover:bg-blue-50/40 transition-colors border border-transparent hover:border-blue-100"
+                                 [class.text-gray-900]="field.value"
+                                 [class.text-gray-300]="!field.value" [class.italic]="!field.value"
+                                 (click)="startEditing(field)"
+                                 [innerHTML]="formatDocContent(field.value) || '—'">
+                              </p>
+                           </ng-container>
+                           <ng-container *ngIf="editingField === field.key">
+                              <select *ngIf="field.type === 'select'" #editArea [(ngModel)]="field.value" (blur)="stopEditing()" (change)="stopEditing()"
+                                      class="w-full text-[15px] border border-blue-300 rounded-lg px-4 py-2.5 bg-blue-50/30 outline-none ring-2 ring-blue-100 appearance-none">
+                                 <option value="" disabled>Select...</option>
+                                 <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
+                              </select>
+                              <input *ngIf="field.type === 'date'" #editArea [(ngModel)]="field.value" type="date" (blur)="stopEditing()"
+                                     class="w-full text-[15px] border border-blue-300 rounded-lg px-4 py-2.5 bg-blue-50/30 outline-none ring-2 ring-blue-100">
+                              <input *ngIf="field.type !== 'select' && field.type !== 'date'" #editArea [(ngModel)]="field.value" [type]="field.type || 'text'"
+                                     (blur)="stopEditing()" (keydown.enter)="stopEditing()"
+                                     class="w-full text-[15px] border border-blue-300 rounded-lg px-4 py-2.5 bg-blue-50/30 outline-none ring-2 ring-blue-100">
+                           </ng-container>
                         </div>
 
                         <!-- File upload fields -->
-                        <div *ngIf="field.type === 'file'" class="py-2" (click)="onFieldFocus(field)">
-                           <div class="flex items-center gap-3 px-3 py-2 rounded border border-dashed border-gray-300 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer">
-                              <lucide-icon name="upload-cloud" class="w-4 h-4 text-gray-400"></lucide-icon>
-                              <span class="text-xs text-gray-500">{{ field.label }}</span>
+                        <div *ngIf="field.type === 'file'" class="group" (click)="onFieldFocus(field)">
+                           <h4 class="text-sm font-semibold text-gray-700 mb-1">{{ field.label }}</h4>
+                           <div class="flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer">
+                              <lucide-icon name="upload-cloud" class="w-5 h-5 text-gray-400"></lucide-icon>
+                              <span class="text-sm text-gray-500">Click to upload or drag & drop</span>
                            </div>
                         </div>
 
@@ -262,8 +263,8 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
                   </div>
                </div>
 
-               <!-- Bottom padding only -->
-               <div class="h-16"></div>
+               <!-- Bottom padding -->
+               <div class="h-20"></div>
             </div>
             </ng-container>
 
@@ -541,6 +542,13 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     /* Smooth whitespace for narrative fields */
     .whitespace-pre-wrap { white-space: pre-wrap; word-break: break-word; }
+    /* Document content styling — Confluence-like */
+    .doc-content ul, .doc-content ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+    .doc-content ul { list-style-type: disc; }
+    .doc-content ol { list-style-type: decimal; }
+    .doc-content li { margin-bottom: 0.35rem; line-height: 1.75; }
+    .doc-content p { margin-bottom: 0.5rem; }
+    .doc-content p:last-child { margin-bottom: 0; }
   `]
 })
 export class NpaTemplateEditorComponent implements OnInit {
@@ -664,6 +672,69 @@ export class NpaTemplateEditorComponent implements OnInit {
          if (f) return f;
       }
       return undefined;
+   }
+
+   /**
+    * Format raw text content into document-style HTML with bullet points and paragraphs.
+    * Detects patterns like "- item", "• item", "1. item" and wraps them in proper HTML lists.
+    * Also converts line breaks into paragraphs for a Confluence-like reading experience.
+    */
+   formatDocContent(value: string | null): string {
+      if (!value || !value.trim()) return '';
+
+      // Split into lines
+      const lines = value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+      let html = '';
+      let inList = false;
+      let listType = '';
+
+      for (const line of lines) {
+         // Detect bullet points: -, •, *, or numbered (1., 2., etc.)
+         const bulletMatch = line.match(/^[\-\•\*]\s+(.+)/);
+         const numberedMatch = line.match(/^\d+[\.\)]\s+(.+)/);
+
+         if (bulletMatch) {
+            if (!inList || listType !== 'ul') {
+               if (inList) html += listType === 'ul' ? '</ul>' : '</ol>';
+               html += '<ul>';
+               inList = true;
+               listType = 'ul';
+            }
+            html += `<li>${bulletMatch[1]}</li>`;
+         } else if (numberedMatch) {
+            if (!inList || listType !== 'ol') {
+               if (inList) html += listType === 'ul' ? '</ul>' : '</ol>';
+               html += '<ol>';
+               inList = true;
+               listType = 'ol';
+            }
+            html += `<li>${numberedMatch[1]}</li>`;
+         } else {
+            if (inList) {
+               html += listType === 'ul' ? '</ul>' : '</ol>';
+               inList = false;
+            }
+            // Check for comma-separated lists (e.g., "SG, HK, LN") — keep as-is
+            // Check for semicolon-separated items — convert to bullet list
+            if (line.includes(';') && line.split(';').length >= 3) {
+               const items = line.split(';').map(i => i.trim()).filter(i => i);
+               html += '<ul>';
+               for (const item of items) {
+                  html += `<li>${item}</li>`;
+               }
+               html += '</ul>';
+            } else {
+               html += `<p>${line}</p>`;
+            }
+         }
+      }
+
+      if (inList) {
+         html += listType === 'ul' ? '</ul>' : '</ol>';
+      }
+
+      return html;
    }
 
    // --- Inline editing ---
