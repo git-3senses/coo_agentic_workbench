@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { NpaSection, NpaField, FieldLineage } from '../../../lib/npa-interfaces';
 import { NpaService } from '../../../services/npa.service';
 import { AgentGovernanceService, ReadinessResult } from '../../../services/agent-governance.service';
+import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFieldKeys, getNavSections } from '../../../lib/npa-template-definition';
 
 @Component({
    selector: 'app-npa-template-editor',
@@ -90,31 +91,59 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
                </div>
             </div>
 
-            <!-- Section nav -->
+            <!-- Section nav (uses template tree when in Doc view, flat sections in Form view) -->
             <nav class="flex-1 py-1 overflow-y-auto">
-               <a *ngFor="let section of sections; let i = index"
-                  href="javascript:void(0)"
-                  (click)="scrollToSection(section.id)"
-                  class="group flex items-center gap-2.5 px-3 py-2.5 text-[13px] transition-all border-l-2 mx-1 rounded-r-md"
-                  [class.border-blue-600]="activeSection === section.id"
-                  [class.bg-blue-50]="activeSection === section.id"
-                  [class.text-blue-800]="activeSection === section.id"
-                  [class.font-semibold]="activeSection === section.id"
-                  [class.border-transparent]="activeSection !== section.id"
-                  [class.text-gray-600]="activeSection !== section.id"
-                  [class.hover:bg-gray-100]="activeSection !== section.id"
-                  [class.hover:border-gray-300]="activeSection !== section.id">
-                  <span class="font-mono text-[11px] text-gray-400 w-5 text-right flex-none">{{ getSectionNumber(i) }}</span>
-                  <span class="flex-1 leading-snug truncate">{{ section.title }}</span>
-                  <!-- Completion mini-bar -->
-                  <div class="w-8 h-1 bg-gray-200 rounded-full flex-none overflow-hidden">
-                     <div class="h-full rounded-full transition-all"
-                          [style.width.%]="getSectionCompletion(section)"
-                          [class.bg-emerald-500]="getSectionCompletion(section) >= 80"
-                          [class.bg-amber-400]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
-                          [class.bg-red-400]="getSectionCompletion(section) < 50"></div>
-                  </div>
-               </a>
+               <!-- Doc View: template tree sections -->
+               <ng-container *ngIf="viewMode === 'document'">
+                  <a *ngFor="let navItem of templateNavSections"
+                     href="javascript:void(0)"
+                     (click)="scrollToSection(navItem.id)"
+                     class="group flex items-center gap-2.5 px-3 py-2.5 text-[13px] transition-all border-l-2 mx-1 rounded-r-md"
+                     [class.border-blue-600]="activeSection === navItem.id"
+                     [class.bg-blue-50]="activeSection === navItem.id"
+                     [class.text-blue-800]="activeSection === navItem.id"
+                     [class.font-semibold]="activeSection === navItem.id"
+                     [class.border-transparent]="activeSection !== navItem.id"
+                     [class.text-gray-600]="activeSection !== navItem.id"
+                     [class.hover:bg-gray-100]="activeSection !== navItem.id"
+                     [class.hover:border-gray-300]="activeSection !== navItem.id">
+                     <span class="font-mono text-[11px] text-gray-400 w-8 text-right flex-none">{{ navItem.numbering }}</span>
+                     <span class="flex-1 leading-snug truncate">{{ navItem.label }}</span>
+                     <!-- Completion mini-bar -->
+                     <div class="w-8 h-1 bg-gray-200 rounded-full flex-none overflow-hidden">
+                        <div class="h-full rounded-full transition-all"
+                             [style.width.%]="getNodeCompletion(navItem.id)"
+                             [class.bg-emerald-500]="getNodeCompletion(navItem.id) >= 80"
+                             [class.bg-amber-400]="getNodeCompletion(navItem.id) >= 50 && getNodeCompletion(navItem.id) < 80"
+                             [class.bg-red-400]="getNodeCompletion(navItem.id) < 50"></div>
+                     </div>
+                  </a>
+               </ng-container>
+               <!-- Form View: flat DB sections -->
+               <ng-container *ngIf="viewMode === 'form'">
+                  <a *ngFor="let section of sections; let i = index"
+                     href="javascript:void(0)"
+                     (click)="scrollToSection(section.id)"
+                     class="group flex items-center gap-2.5 px-3 py-2.5 text-[13px] transition-all border-l-2 mx-1 rounded-r-md"
+                     [class.border-blue-600]="activeSection === section.id"
+                     [class.bg-blue-50]="activeSection === section.id"
+                     [class.text-blue-800]="activeSection === section.id"
+                     [class.font-semibold]="activeSection === section.id"
+                     [class.border-transparent]="activeSection !== section.id"
+                     [class.text-gray-600]="activeSection !== section.id"
+                     [class.hover:bg-gray-100]="activeSection !== section.id"
+                     [class.hover:border-gray-300]="activeSection !== section.id">
+                     <span class="font-mono text-[11px] text-gray-400 w-5 text-right flex-none">{{ getSectionNumber(i) }}</span>
+                     <span class="flex-1 leading-snug truncate">{{ section.title }}</span>
+                     <div class="w-8 h-1 bg-gray-200 rounded-full flex-none overflow-hidden">
+                        <div class="h-full rounded-full transition-all"
+                             [style.width.%]="getSectionCompletion(section)"
+                             [class.bg-emerald-500]="getSectionCompletion(section) >= 80"
+                             [class.bg-amber-400]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
+                             [class.bg-red-400]="getSectionCompletion(section) < 50"></div>
+                     </div>
+                  </a>
+               </ng-container>
             </nav>
 
             <!-- Field stats footer -->
@@ -129,7 +158,7 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
          <!-- CENTER CONTENT -->
          <div class="flex-1 overflow-y-auto scroll-smooth relative min-h-0" id="form-container" (scroll)="onScroll($event)">
 
-            <!-- ====== DOCUMENT VIEW ====== -->
+            <!-- ====== DOCUMENT VIEW (Template Tree) ====== -->
             <ng-container *ngIf="viewMode === 'document'">
 
             <!-- Document header — Confluence-style clean white header -->
@@ -144,119 +173,200 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
                </div>
             </div>
 
-            <!-- Sections — Confluence-style document layout -->
+            <!-- Part C — Template tree renderer -->
             <div class="bg-white npa-doc-body">
-               <div *ngFor="let section of sections; let si = index" [id]="'sec-' + section.id">
 
-                  <!-- Section heading — Confluence H1 style -->
-                  <div class="sticky top-0 z-10 bg-white border-b border-gray-300 npa-doc-section-head">
-                     <div class="flex items-center justify-between">
-                        <h2 class="text-[17px] font-bold text-gray-900 leading-snug">
-                           <span class="text-blue-700 mr-1.5">{{ getSectionNumber(si) }}</span>{{ section.title }}
-                        </h2>
-                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-none"
-                              [class.bg-emerald-50]="getSectionCompletion(section) >= 80"
-                              [class.text-emerald-600]="getSectionCompletion(section) >= 80"
-                              [class.bg-amber-50]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
-                              [class.text-amber-600]="getSectionCompletion(section) >= 50 && getSectionCompletion(section) < 80"
-                              [class.bg-red-50]="getSectionCompletion(section) < 50"
-                              [class.text-red-500]="getSectionCompletion(section) < 50">
-                           {{ getSectionCompletion(section) }}%
-                        </span>
-                     </div>
-                     <p *ngIf="section.description" class="text-[13px] text-gray-500 mt-1 leading-relaxed">{{ section.description }}</p>
-                  </div>
-
-                  <!-- Fields — numbered like Confluence -->
-                  <div class="npa-doc-fields">
-                     <ng-container *ngFor="let field of section.fields; let fi = index">
-
-                        <!-- Sub-heading Field — like sub-section header in Confluence -->
-                        <div *ngIf="field.type === 'header'" class="npa-doc-subheader">
-                           <h3 class="text-[14px] font-bold text-gray-800 flex items-center gap-2">
-                              <span class="w-0.5 h-4 bg-blue-600 rounded-sm flex-none"></span>
-                              {{ field.label }}
-                           </h3>
-                        </div>
-
-                        <!-- Textarea / narrative fields -->
-                        <div *ngIf="field.type === 'textarea'" class="npa-doc-field" (click)="onFieldFocus(field)">
-                           <div class="npa-doc-field-label">
-                              <span class="npa-doc-field-num">{{ getFieldNumber(section, fi) }}.</span>
-                              <span class="npa-doc-field-name">{{ field.label }}:</span>
-                              <span *ngIf="field.required" class="text-red-500 text-[11px]">*</span>
-                              <span *ngIf="field.lineage && field.value"
-                                    class="w-1.5 h-1.5 rounded-full flex-none ml-1"
-                                    [class.bg-emerald-500]="field.lineage === 'AUTO'"
-                                    [class.bg-amber-500]="field.lineage === 'ADAPTED'"
-                                    [class.bg-red-500]="field.lineage === 'MANUAL'"></span>
-                           </div>
-                           <div *ngIf="editingField !== field.key"
-                                class="npa-doc-field-value doc-content cursor-text"
-                                [class.npa-doc-empty]="!field.value"
-                                (click)="startEditing(field)"
-                                [innerHTML]="formatDocContent(field.value) || getEmptyPlaceholder('Click to add content...')">
-                           </div>
-                           <textarea *ngIf="editingField === field.key"
-                                     #editArea [(ngModel)]="field.value" (blur)="stopEditing()" (input)="autoSize($event)"
-                                     class="w-full text-[14px] text-gray-800 leading-relaxed border border-blue-400 bg-blue-50/30 outline-none ring-1 ring-blue-200 resize-none px-3 py-2 rounded"
-                                     rows="6"></textarea>
-                        </div>
-
-                        <!-- Short fields — numbered label, value underneath -->
-                        <div *ngIf="field.type !== 'textarea' && field.type !== 'header' && field.type !== 'file'"
-                             class="npa-doc-field" (click)="onFieldFocus(field)">
-                           <div class="npa-doc-field-label">
-                              <span class="npa-doc-field-num">{{ getFieldNumber(section, fi) }}.</span>
-                              <span class="npa-doc-field-name">{{ field.label }}:</span>
-                              <span *ngIf="field.required" class="text-red-500 text-[11px]">*</span>
-                              <span *ngIf="field.lineage && field.value && editingField !== field.key"
-                                    class="w-1.5 h-1.5 rounded-full flex-none ml-1"
-                                    [class.bg-emerald-500]="field.lineage === 'AUTO'"
-                                    [class.bg-amber-500]="field.lineage === 'ADAPTED'"
-                                    [class.bg-red-500]="field.lineage === 'MANUAL'"
-                                    [title]="field.lineage"></span>
-                           </div>
-                           <ng-container *ngIf="editingField !== field.key">
-                              <div class="npa-doc-field-value doc-content cursor-text"
-                                 [class.npa-doc-empty]="!field.value"
-                                 (click)="startEditing(field)"
-                                 [innerHTML]="formatDocContent(field.value) || getEmptyPlaceholder('—')">
-                              </div>
-                           </ng-container>
-                           <ng-container *ngIf="editingField === field.key">
-                              <select *ngIf="field.type === 'select'" #editArea [(ngModel)]="field.value" (blur)="stopEditing()" (change)="stopEditing()"
-                                      class="w-full text-[14px] border border-blue-400 rounded px-3 py-2 bg-blue-50/30 outline-none ring-1 ring-blue-200 appearance-none">
-                                 <option value="" disabled>Select...</option>
-                                 <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
-                              </select>
-                              <input *ngIf="field.type === 'date'" #editArea [(ngModel)]="field.value" type="date" (blur)="stopEditing()"
-                                     class="w-full text-[14px] border border-blue-400 rounded px-3 py-2 bg-blue-50/30 outline-none ring-1 ring-blue-200">
-                              <input *ngIf="field.type !== 'select' && field.type !== 'date'" #editArea [(ngModel)]="field.value" [type]="field.type || 'text'"
-                                     (blur)="stopEditing()" (keydown.enter)="stopEditing()"
-                                     class="w-full text-[14px] border border-blue-400 rounded px-3 py-2 bg-blue-50/30 outline-none ring-1 ring-blue-200">
-                           </ng-container>
-                        </div>
-
-                        <!-- File upload fields -->
-                        <div *ngIf="field.type === 'file'" class="npa-doc-field" (click)="onFieldFocus(field)">
-                           <div class="npa-doc-field-label">
-                              <span class="npa-doc-field-num">{{ getFieldNumber(section, fi) }}.</span>
-                              <span class="npa-doc-field-name">{{ field.label }}:</span>
-                           </div>
-                           <div class="flex items-center gap-3 py-2 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors">
-                              <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
-                              <span class="text-[13px]">Click to upload or drag & drop</span>
-                           </div>
-                        </div>
-
-                     </ng-container>
-                  </div>
+               <!-- Part C header -->
+               <div class="npa-doc-part-head">
+                  <h2 class="text-[15px] font-bold text-gray-800 uppercase tracking-wide">Part C: Product Information to be Completed by Proposing Unit</h2>
                </div>
+
+               <!-- Render Part C sections -->
+               <ng-container *ngFor="let sectionNode of templateTree.children">
+                  <ng-container *ngTemplateOutlet="nodeRenderer; context: { $implicit: sectionNode, depth: 0 }"></ng-container>
+               </ng-container>
+
+               <!-- Appendices header -->
+               <div class="npa-doc-part-head" style="margin-top:24px;">
+                  <h2 class="text-[15px] font-bold text-gray-800 uppercase tracking-wide">Appendices</h2>
+               </div>
+
+               <!-- Render Appendices -->
+               <ng-container *ngFor="let appNode of appendicesTree">
+                  <ng-container *ngTemplateOutlet="nodeRenderer; context: { $implicit: appNode, depth: 0 }"></ng-container>
+               </ng-container>
 
                <!-- Bottom padding -->
                <div class="h-20"></div>
             </div>
+
+            <!-- ── Recursive node renderer template ── -->
+            <ng-template #nodeRenderer let-node let-depth="depth">
+
+               <!-- SECTION type — Roman numeral heading (I, II, III) -->
+               <ng-container *ngIf="node.type === 'section' || node.type === 'appendix'">
+                  <div [id]="'sec-' + node.id" class="sticky top-0 z-10 bg-white border-b border-gray-300 npa-doc-section-head">
+                     <div class="flex items-center justify-between">
+                        <h2 class="text-[17px] font-bold text-gray-900 leading-snug">
+                           <span class="text-blue-700 mr-1.5">{{ node.numbering }}</span>
+                           <span *ngIf="node.numbering && !node.numbering.startsWith('Appendix')">.</span>
+                           {{ node.label }}
+                        </h2>
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-none"
+                              [class.bg-emerald-50]="getNodeCompletion(node.id) >= 80"
+                              [class.text-emerald-600]="getNodeCompletion(node.id) >= 80"
+                              [class.bg-amber-50]="getNodeCompletion(node.id) >= 50 && getNodeCompletion(node.id) < 80"
+                              [class.text-amber-600]="getNodeCompletion(node.id) >= 50 && getNodeCompletion(node.id) < 80"
+                              [class.bg-red-50]="getNodeCompletion(node.id) < 50"
+                              [class.text-red-500]="getNodeCompletion(node.id) < 50">
+                           {{ getNodeCompletion(node.id) }}%
+                        </span>
+                     </div>
+                  </div>
+                  <div class="npa-doc-fields">
+                     <!-- Guidance text for section-level nodes -->
+                     <div *ngIf="node.guidance" class="npa-doc-guidance">
+                        <p>{{ node.guidance }}</p>
+                     </div>
+                     <!-- Render field values for section-level fieldKeys -->
+                     <ng-container *ngIf="node.fieldKeys?.length">
+                        <ng-container *ngFor="let fk of node.fieldKeys">
+                           <ng-container *ngIf="getFieldForKey(fk) as field">
+                              <ng-container *ngTemplateOutlet="fieldBlock; context: { $implicit: field }"></ng-container>
+                           </ng-container>
+                        </ng-container>
+                     </ng-container>
+                     <!-- Recurse into children -->
+                     <ng-container *ngFor="let child of node.children">
+                        <ng-container *ngTemplateOutlet="nodeRenderer; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+                     </ng-container>
+                  </div>
+               </ng-container>
+
+               <!-- TOPIC type — Numbered heading (1, 2, 3) -->
+               <ng-container *ngIf="node.type === 'topic'">
+                  <div class="npa-doc-topic-head">
+                     <h3 class="text-[15px] font-bold text-gray-900">
+                        <span class="text-blue-600 mr-1">{{ node.numbering }}.</span> {{ node.label }}
+                     </h3>
+                  </div>
+                  <!-- Guidance text -->
+                  <div *ngIf="node.guidance" class="npa-doc-guidance">
+                     <p>{{ node.guidance }}</p>
+                  </div>
+                  <!-- Field values -->
+                  <ng-container *ngIf="node.fieldKeys?.length">
+                     <ng-container *ngFor="let fk of node.fieldKeys">
+                        <ng-container *ngIf="getFieldForKey(fk) as field">
+                           <ng-container *ngTemplateOutlet="fieldBlock; context: { $implicit: field }"></ng-container>
+                        </ng-container>
+                     </ng-container>
+                  </ng-container>
+                  <!-- Recurse into children -->
+                  <ng-container *ngFor="let child of node.children">
+                     <ng-container *ngTemplateOutlet="nodeRenderer; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+                  </ng-container>
+               </ng-container>
+
+               <!-- SUB_QUESTION type — Lettered sub-heading (a, b, c) -->
+               <ng-container *ngIf="node.type === 'sub_question'">
+                  <div class="npa-doc-subq-head">
+                     <h4 class="text-[14px] font-semibold text-gray-800">
+                        <span class="text-gray-500 mr-1">{{ node.numbering }}</span> {{ node.label }}
+                     </h4>
+                  </div>
+                  <!-- Guidance text -->
+                  <div *ngIf="node.guidance" class="npa-doc-guidance npa-doc-guidance-sub">
+                     <p>{{ node.guidance }}</p>
+                  </div>
+                  <!-- Field values -->
+                  <ng-container *ngIf="node.fieldKeys?.length">
+                     <ng-container *ngFor="let fk of node.fieldKeys">
+                        <ng-container *ngIf="getFieldForKey(fk) as field">
+                           <ng-container *ngTemplateOutlet="fieldBlock; context: { $implicit: field }"></ng-container>
+                        </ng-container>
+                     </ng-container>
+                  </ng-container>
+                  <!-- Recurse into children -->
+                  <ng-container *ngFor="let child of node.children">
+                     <ng-container *ngTemplateOutlet="nodeRenderer; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+                  </ng-container>
+               </ng-container>
+
+               <!-- DETAIL type — Numbered sub-detail (1.1, 1.2) -->
+               <ng-container *ngIf="node.type === 'detail'">
+                  <div class="npa-doc-detail-head">
+                     <span class="text-gray-500 text-[13px] font-medium mr-1">{{ node.numbering }}</span>
+                     <span class="text-[13px] font-medium text-gray-700">{{ node.label }}</span>
+                  </div>
+                  <ng-container *ngIf="node.fieldKeys?.length">
+                     <ng-container *ngFor="let fk of node.fieldKeys">
+                        <ng-container *ngIf="getFieldForKey(fk) as field">
+                           <ng-container *ngTemplateOutlet="fieldBlock; context: { $implicit: field }"></ng-container>
+                        </ng-container>
+                     </ng-container>
+                  </ng-container>
+               </ng-container>
+
+               <!-- TABLE type — Structured table (risk matrix, entity table) -->
+               <ng-container *ngIf="node.type === 'table'">
+                  <div class="npa-doc-table-wrap">
+                     <table class="npa-doc-table">
+                        <thead>
+                           <tr>
+                              <th *ngFor="let col of node.tableColumns">{{ col }}</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           <tr *ngFor="let row of node.tableFieldMapping">
+                              <td class="font-medium">{{ row.rowLabel }}</td>
+                              <ng-container *ngIf="getFieldForKey(row.fieldKey) as field">
+                                 <!-- Split pipe-delimited values into cells -->
+                                 <td *ngFor="let cell of splitTableValue(field.value, (node.tableColumns?.length || 2) - 1)"
+                                     (click)="onFieldFocus(field)"
+                                     class="cursor-pointer hover:bg-blue-50"
+                                     [class.text-emerald-700]="cell === 'Yes'"
+                                     [class.text-gray-400]="cell === 'No' || cell === 'N/A'">
+                                    {{ cell }}
+                                 </td>
+                              </ng-container>
+                              <ng-container *ngIf="!getFieldForKey(row.fieldKey)">
+                                 <td *ngFor="let col of node.tableColumns?.slice(1)" class="text-gray-300 italic">—</td>
+                              </ng-container>
+                           </tr>
+                        </tbody>
+                     </table>
+                  </div>
+               </ng-container>
+
+            </ng-template>
+
+            <!-- ── Field rendering block (shared by all node types) ── -->
+            <ng-template #fieldBlock let-field>
+               <div class="npa-doc-field" (click)="onFieldFocus(field)">
+                  <div class="npa-doc-field-label">
+                     <span class="npa-doc-field-name">{{ field.label }}:</span>
+                     <span *ngIf="field.required" class="text-red-500 text-[11px]">*</span>
+                     <span *ngIf="field.lineage && field.value"
+                           class="w-1.5 h-1.5 rounded-full flex-none ml-1"
+                           [class.bg-emerald-500]="field.lineage === 'AUTO'"
+                           [class.bg-amber-500]="field.lineage === 'ADAPTED'"
+                           [class.bg-red-500]="field.lineage === 'MANUAL'"
+                           [title]="field.lineage"></span>
+                  </div>
+                  <div *ngIf="editingField !== field.key"
+                       class="npa-doc-field-value doc-content cursor-text"
+                       [class.npa-doc-empty]="!field.value"
+                       (click)="startEditing(field)"
+                       [innerHTML]="formatDocContent(field.value) || getEmptyPlaceholder('Click to add content...')">
+                  </div>
+                  <textarea *ngIf="editingField === field.key"
+                            #editArea [(ngModel)]="field.value" (blur)="stopEditing()" (input)="autoSize($event)"
+                            class="w-full text-[14px] text-gray-800 leading-relaxed border border-blue-400 bg-blue-50/30 outline-none ring-1 ring-blue-200 resize-none px-3 py-2 rounded"
+                            rows="6"></textarea>
+               </div>
+            </ng-template>
+
             </ng-container>
 
             <!-- ====== FORM VIEW ====== -->
@@ -603,13 +713,95 @@ import { AgentGovernanceService, ReadinessResult } from '../../../services/agent
       font-style: italic;
     }
 
-    /* Document content styling — lists, paragraphs */
+    /* ===== Part Header (Part C / Appendices) ===== */
+    .npa-doc-part-head {
+      padding: 16px 40px 10px;
+      margin-top: 12px;
+      border-bottom: 2px solid #1e3a5f;
+      background: #f1f5f9;
+    }
+
+    /* ===== Topic heading (numbered 1, 2, 3) ===== */
+    .npa-doc-topic-head {
+      padding: 14px 0 4px;
+      margin-top: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    /* ===== Sub-question heading (lettered a, b, c) ===== */
+    .npa-doc-subq-head {
+      padding: 10px 0 2px;
+      margin-top: 4px;
+      padding-left: 12px;
+      border-left: 2px solid #e2e8f0;
+    }
+
+    /* ===== Detail heading (1.1, 1.2) ===== */
+    .npa-doc-detail-head {
+      padding: 6px 0 2px;
+      padding-left: 24px;
+    }
+
+    /* ===== Guidance / instructional text ===== */
+    .npa-doc-guidance {
+      background: #f8fafc;
+      border-left: 3px solid #cbd5e1;
+      padding: 8px 14px;
+      margin: 6px 0 10px;
+      border-radius: 0 4px 4px 0;
+    }
+    .npa-doc-guidance p {
+      font-size: 13px;
+      font-style: italic;
+      color: #64748b;
+      line-height: 1.6;
+      margin: 0;
+    }
+    .npa-doc-guidance-sub {
+      margin-left: 12px;
+    }
+
+    /* ===== Table styling (risk matrix, entity table) ===== */
+    .npa-doc-table-wrap {
+      margin: 10px 0 16px;
+      overflow-x: auto;
+    }
+    .npa-doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .npa-doc-table th {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 700;
+      color: #334155;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .npa-doc-table td {
+      border: 1px solid #e2e8f0;
+      padding: 6px 12px;
+      color: #1e293b;
+    }
+    .npa-doc-table tr:hover td {
+      background: #f8fafc;
+    }
+
+    /* Document content styling — lists, paragraphs, markdown */
     .doc-content ul, .doc-content ol { padding-left: 1.25rem; margin: 4px 0; }
     .doc-content ul { list-style-type: disc; }
     .doc-content ol { list-style-type: decimal; }
     .doc-content li { margin-bottom: 2px; line-height: 1.65; font-size: 14px; }
     .doc-content p { margin-bottom: 4px; line-height: 1.65; }
     .doc-content p:last-child { margin-bottom: 0; }
+    .doc-content strong { font-weight: 700; color: #1e293b; }
+    .doc-content table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 13px; }
+    .doc-content table th { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 6px 10px; text-align: left; font-weight: 700; }
+    .doc-content table td { border: 1px solid #e2e8f0; padding: 5px 10px; }
   `]
 })
 export class NpaTemplateEditorComponent implements OnInit {
@@ -628,6 +820,19 @@ export class NpaTemplateEditorComponent implements OnInit {
    validationResult: ReadinessResult | null = null;
 
    sections: NpaSection[] = [];
+
+   // Template tree references
+   templateTree = NPA_PART_C_TEMPLATE;
+   appendicesTree = NPA_APPENDICES_TEMPLATE;
+   templateNavSections = getNavSections();
+
+   // O(1) field lookup by key — built after sections load
+   private fieldMap = new Map<string, NpaField>();
+
+   // Cache for node completion calculations
+   private completionCache = new Map<string, number>();
+   // All template nodes indexed by id (for completion lookups)
+   private nodeIndex = new Map<string, TemplateNode>();
 
    ngOnInit() {
       const projectId = this.inputData?.projectId || this.inputData?.id || this.inputData?.npaId;
@@ -651,8 +856,13 @@ export class NpaTemplateEditorComponent implements OnInit {
                      lineageMetadata: f.metadata ? (typeof f.metadata === 'string' ? JSON.parse(f.metadata) : f.metadata) : undefined
                   }))
                }));
+               // Build O(1) field lookup map
+               this.buildFieldMap();
+               // Build node index for completion calculations
+               this.buildNodeIndex();
+
                if (this.sections.length > 0) {
-                  this.activeSection = this.sections[0].id;
+                  this.activeSection = this.templateNavSections.length > 0 ? this.templateNavSections[0].id : this.sections[0].id;
                }
                if (this.inputData) {
                   this.mergeInputData();
@@ -757,17 +967,28 @@ export class NpaTemplateEditorComponent implements OnInit {
    formatDocContent(value: string | null): string {
       if (!value || !value.trim()) return '';
 
-      // Split into lines
-      const lines = value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      // Split into lines (preserve empty lines for paragraph breaks)
+      const lines = value.split('\n');
+
+      // Check if content contains a markdown table
+      const hasTable = lines.some(l => l.trim().match(/^\|.*\|$/)) && lines.some(l => l.trim().match(/^\|[\s\-\|]+\|$/));
+      if (hasTable) {
+         return this.formatWithTables(lines);
+      }
+
+      const trimmedLines = lines.map(l => l.trim()).filter(l => l.length > 0);
 
       let html = '';
       let inList = false;
       let listType = '';
 
-      for (const line of lines) {
+      for (const line of trimmedLines) {
+         // Apply inline markdown: **bold**
+         const processed = line.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
          // Detect bullet points: -, •, *, or numbered (1., 2., etc.)
-         const bulletMatch = line.match(/^[\-\•\*]\s+(.+)/);
-         const numberedMatch = line.match(/^\d+[\.\)]\s+(.+)/);
+         const bulletMatch = processed.match(/^[\-\•\*]\s+(.+)/);
+         const numberedMatch = processed.match(/^\d+[\.\)]\s+(.+)/);
 
          if (bulletMatch) {
             if (!inList || listType !== 'ul') {
@@ -790,17 +1011,16 @@ export class NpaTemplateEditorComponent implements OnInit {
                html += listType === 'ul' ? '</ul>' : '</ol>';
                inList = false;
             }
-            // Check for comma-separated lists (e.g., "SG, HK, LN") — keep as-is
             // Check for semicolon-separated items — convert to bullet list
             if (line.includes(';') && line.split(';').length >= 3) {
                const items = line.split(';').map(i => i.trim()).filter(i => i);
                html += '<ul>';
                for (const item of items) {
-                  html += `<li>${item}</li>`;
+                  html += `<li>${item.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</li>`;
                }
                html += '</ul>';
             } else {
-               html += `<p>${line}</p>`;
+               html += `<p>${processed}</p>`;
             }
          }
       }
@@ -809,6 +1029,61 @@ export class NpaTemplateEditorComponent implements OnInit {
          html += listType === 'ul' ? '</ul>' : '</ol>';
       }
 
+      return html;
+   }
+
+   /** Parse markdown table syntax into HTML table */
+   private formatWithTables(lines: string[]): string {
+      let html = '';
+      let inTable = false;
+      let headerDone = false;
+      let inList = false;
+      let listType = '';
+
+      for (const rawLine of lines) {
+         const line = rawLine.trim();
+         if (!line) continue;
+
+         const processed = line.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+         // Table row detection
+         if (line.match(/^\|.*\|$/)) {
+            // Skip separator row (|---|---|)
+            if (line.match(/^\|[\s\-\|:]+\|$/)) {
+               continue;
+            }
+            if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+            const cells = line.split('|').slice(1, -1).map(c => c.trim().replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'));
+            if (!inTable) {
+               html += '<table>';
+               inTable = true;
+               headerDone = false;
+            }
+            if (!headerDone) {
+               html += '<thead><tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+               headerDone = true;
+            } else {
+               html += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+            }
+         } else {
+            if (inTable) { html += '</tbody></table>'; inTable = false; }
+            // Bullet/numbered detection (same as formatDocContent)
+            const bulletMatch = processed.match(/^[\-\•\*]\s+(.+)/);
+            const numberedMatch = processed.match(/^\d+[\.\)]\s+(.+)/);
+            if (bulletMatch) {
+               if (!inList || listType !== 'ul') { if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'; html += '<ul>'; inList = true; listType = 'ul'; }
+               html += `<li>${bulletMatch[1]}</li>`;
+            } else if (numberedMatch) {
+               if (!inList || listType !== 'ol') { if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'; html += '<ol>'; inList = true; listType = 'ol'; }
+               html += `<li>${numberedMatch[1]}</li>`;
+            } else {
+               if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+               html += `<p>${processed}</p>`;
+            }
+         }
+      }
+      if (inTable) html += '</tbody></table>';
+      if (inList) html += listType === 'ul' ? '</ul>' : '</ol>';
       return html;
    }
 
@@ -944,6 +1219,68 @@ export class NpaTemplateEditorComponent implements OnInit {
       const textarea = event.target;
       textarea.style.height = 'auto';
       textarea.style.height = textarea.scrollHeight + 'px';
+   }
+
+   // ── Template tree helpers ──
+
+   /** Build O(1) lookup map from all loaded sections' fields */
+   private buildFieldMap() {
+      this.fieldMap.clear();
+      for (const section of this.sections) {
+         for (const field of section.fields) {
+            if (field.key) {
+               this.fieldMap.set(field.key, field);
+            }
+         }
+      }
+   }
+
+   /** Build index of all template nodes by ID for completion calculations */
+   private buildNodeIndex() {
+      this.nodeIndex.clear();
+      const indexNode = (node: TemplateNode) => {
+         this.nodeIndex.set(node.id, node);
+         for (const child of (node.children || [])) {
+            indexNode(child);
+         }
+      };
+      indexNode(this.templateTree);
+      for (const app of this.appendicesTree) {
+         indexNode(app);
+      }
+   }
+
+   /** O(1) field lookup by key — returns the field or null */
+   getFieldForKey(key: string): NpaField | null {
+      return this.fieldMap.get(key) || null;
+   }
+
+   /** Calculate completion percentage for a template node (recursive) */
+   getNodeCompletion(nodeId: string): number {
+      // Invalidate cache each call (cheap since template is small)
+      const node = this.nodeIndex.get(nodeId);
+      if (!node) return 0;
+
+      const keys = collectFieldKeys(node);
+      if (keys.length === 0) return 100;
+
+      let filled = 0;
+      for (const key of keys) {
+         const field = this.fieldMap.get(key);
+         if (field?.value && field.value.trim().length > 0) {
+            filled++;
+         }
+      }
+      return Math.round((filled / keys.length) * 100);
+   }
+
+   /** Split pipe-delimited table cell values (e.g., "Yes | Yes | No | Yes") */
+   splitTableValue(value: string | undefined, expectedCols: number): string[] {
+      if (!value) return Array(expectedCols).fill('—');
+      const parts = value.split('|').map(s => s.trim());
+      // Pad or trim to expected columns
+      while (parts.length < expectedCols) parts.push('—');
+      return parts.slice(0, expectedCols);
    }
 
    getInputStyles(lineage: FieldLineage, isFocused: boolean): string {

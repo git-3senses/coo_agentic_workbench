@@ -7,6 +7,11 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../lib/agent-interfaces';
 import { NpaService } from '../../services/npa.service';
 import { DashboardService } from '../../services/dashboard.service';
 import { MonitoringService } from '../../services/monitoring.service';
+import { EscalationQueueComponent } from '../escalation-queue/escalation-queue.component';
+import { PirManagementComponent } from '../pir-management/pir-management.component';
+import { BundlingAssessmentComponent } from '../bundling-assessment/bundling-assessment.component';
+import { DocumentManagerComponent } from '../document-manager/document-manager.component';
+import { EvergreenDashboardComponent } from '../evergreen-dashboard/evergreen-dashboard.component';
 
 interface KpiMetric {
     label: string;
@@ -38,7 +43,7 @@ interface NpaItem {
 @Component({
     selector: 'app-coo-npa-dashboard',
     standalone: true,
-    imports: [CommonModule, LucideAngularModule],
+    imports: [CommonModule, LucideAngularModule, EscalationQueueComponent, PirManagementComponent, BundlingAssessmentComponent, DocumentManagerComponent, EvergreenDashboardComponent],
     template: `
     <div class="h-full w-full bg-slate-50/50 flex flex-col font-sans text-slate-900 group/dashboard relative overflow-hidden">
 
@@ -141,6 +146,51 @@ interface NpaItem {
                class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors flex items-center gap-2">
                Monitoring
                <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-200">{{ monitoringSummary.open_breaches }}</span>
+            </button>
+            <button
+               [class.border-slate-900]="activeTab === 'escalations'"
+               [class.text-slate-900]="activeTab === 'escalations'"
+               [class.border-transparent]="activeTab !== 'escalations'"
+               [class.text-slate-500]="activeTab !== 'escalations'"
+               (click)="activeTab = 'escalations'"
+               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               Escalations
+            </button>
+            <button
+               [class.border-slate-900]="activeTab === 'pir'"
+               [class.text-slate-900]="activeTab === 'pir'"
+               [class.border-transparent]="activeTab !== 'pir'"
+               [class.text-slate-500]="activeTab !== 'pir'"
+               (click)="activeTab = 'pir'"
+               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               PIR
+            </button>
+            <button
+               [class.border-slate-900]="activeTab === 'bundling'"
+               [class.text-slate-900]="activeTab === 'bundling'"
+               [class.border-transparent]="activeTab !== 'bundling'"
+               [class.text-slate-500]="activeTab !== 'bundling'"
+               (click)="activeTab = 'bundling'"
+               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               Bundling
+            </button>
+            <button
+               [class.border-slate-900]="activeTab === 'documents'"
+               [class.text-slate-900]="activeTab === 'documents'"
+               [class.border-transparent]="activeTab !== 'documents'"
+               [class.text-slate-500]="activeTab !== 'documents'"
+               (click)="activeTab = 'documents'"
+               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               Documents
+            </button>
+            <button
+               [class.border-slate-900]="activeTab === 'evergreen'"
+               [class.text-slate-900]="activeTab === 'evergreen'"
+               [class.border-transparent]="activeTab !== 'evergreen'"
+               [class.text-slate-500]="activeTab !== 'evergreen'"
+               (click)="activeTab = 'evergreen'"
+               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               Evergreen
             </button>
          </div>
       </div>
@@ -782,6 +832,31 @@ interface NpaItem {
          </div>
          <!-- END MONITORING TAB CONTENT -->
 
+         <!-- ESCALATIONS TAB -->
+         <div *ngIf="activeTab === 'escalations'" class="h-full -mx-6 sm:-mx-10 -my-8">
+            <app-escalation-queue></app-escalation-queue>
+         </div>
+
+         <!-- PIR TAB -->
+         <div *ngIf="activeTab === 'pir'" class="h-full -mx-6 sm:-mx-10 -my-8">
+            <app-pir-management></app-pir-management>
+         </div>
+
+         <!-- BUNDLING TAB -->
+         <div *ngIf="activeTab === 'bundling'" class="h-full -mx-6 sm:-mx-10 -my-8">
+            <app-bundling-assessment></app-bundling-assessment>
+         </div>
+
+         <!-- DOCUMENTS TAB -->
+         <div *ngIf="activeTab === 'documents'" class="h-full -mx-6 sm:-mx-10 -my-8">
+            <app-document-manager></app-document-manager>
+         </div>
+
+         <!-- EVERGREEN TAB -->
+         <div *ngIf="activeTab === 'evergreen'" class="h-full -mx-6 sm:-mx-10 -my-8">
+            <app-evergreen-dashboard></app-evergreen-dashboard>
+         </div>
+
       </div>
     </div>
   `,
@@ -812,7 +887,7 @@ export class CooNpaDashboardComponent implements OnInit {
         }
     }
 
-    activeTab: 'overview' | 'npa-pool' | 'monitoring' = 'overview';
+    activeTab: 'overview' | 'npa-pool' | 'monitoring' | 'escalations' | 'pir' | 'bundling' | 'documents' | 'evergreen' = 'overview';
 
     // Header stats (bound from KPI API)
     headerActiveNpas = 0;

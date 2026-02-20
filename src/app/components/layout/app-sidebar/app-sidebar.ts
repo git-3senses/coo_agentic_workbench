@@ -62,23 +62,24 @@ import { LayoutService } from '../../../services/layout.service';
                     <lucide-icon name="file-check" class="w-4 h-4 flex-none"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">New Product Approval</span>
                 </a>
-                <a routerLink="/functions/escalations" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <!-- Escalation Queue, PIR, Bundling, Document Manager moved to NPA dashboard tabs (hidden) -->
+                <a *ngIf="false" routerLink="/functions/escalations" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="alert-triangle" class="w-4 h-4 flex-none text-rose-500"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Escalation Queue</span>
                 </a>
-                <a routerLink="/functions/pir" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <a *ngIf="false" routerLink="/functions/pir" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="clipboard-check" class="w-4 h-4 flex-none text-purple-500"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Post-Implementation Review</span>
                 </a>
-                <a routerLink="/functions/evergreen" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <a *ngIf="false" routerLink="/functions/evergreen" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="refresh-cw" class="w-4 h-4 flex-none text-emerald-500"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Evergreen Products</span>
                 </a>
-                <a routerLink="/functions/bundling" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <a *ngIf="false" routerLink="/functions/bundling" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="package" class="w-4 h-4 flex-none text-blue-500"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Bundling Assessment</span>
                 </a>
-                <a routerLink="/functions/documents" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <a *ngIf="false" routerLink="/functions/documents" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="file-stack" class="w-4 h-4 flex-none text-blue-500"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Document Manager</span>
                 </a>
@@ -90,15 +91,15 @@ import { LayoutService } from '../../../services/layout.service';
                     <lucide-icon name="shield-alert" class="w-4 h-4 flex-none"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Operation Risk</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <a *ngIf="false" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                      <lucide-icon name="presentation" class="w-4 h-4 flex-none"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Strategic PM</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <a *ngIf="false" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="briefcase" class="w-4 h-4 flex-none"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Business Leads</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                <a *ngIf="false" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="bar-chart-3" class="w-4 h-4 flex-none"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Business Analysis</span>
                 </a>
@@ -125,19 +126,19 @@ import { LayoutService } from '../../../services/layout.service';
                     <lucide-icon name="shield-alert" class="w-4 h-4 flex-none text-blue-500"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">ORM Agent</span>
                  </a>
-                  <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                  <a *ngIf="false" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="target" class="w-4 h-4 flex-none text-blue-500"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Strategic PM Agent</span>
                  </a>
-                  <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+                  <a *ngIf="false" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="trending-up" class="w-4 h-4 flex-none text-blue-500"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Biz Analysis Agent</span>
                  </a>
              </div>
           </div>
 
-          <!-- Section: Utility Agents -->
-           <div>
+          <!-- Section: Utility Agents (hidden) -->
+           <div *ngIf="false">
              <h3 *ngIf="!isCollapsed()" class="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider truncate">Utility Agents</h3>
              <div class="space-y-0.5">
                  <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
@@ -190,8 +191,8 @@ import { LayoutService } from '../../../services/layout.service';
             </div>
           </div>
           
-          <!-- Section: Reporting -->
-          <div>
+          <!-- Section: Reporting (hidden) -->
+          <div *ngIf="false">
             <h3 *ngIf="!isCollapsed()" class="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider truncate">Reporting & Governance</h3>
             <div class="space-y-0.5">
                 <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
@@ -205,8 +206,8 @@ import { LayoutService } from '../../../services/layout.service';
             </div>
           </div>
 
-          <!-- Section: Audit Control -->
-          <div>
+          <!-- Section: Audit Control (hidden) -->
+          <div *ngIf="false">
             <h3 *ngIf="!isCollapsed()" class="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider truncate">Audit Control</h3>
             <div class="space-y-0.5">
                 <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
@@ -236,8 +237,8 @@ import { LayoutService } from '../../../services/layout.service';
             </div>
           </div>
 
-           <!-- Section: Admin -->
-          <div>
+           <!-- Section: Admin (hidden) -->
+          <div *ngIf="false">
             <h3 *ngIf="!isCollapsed()" class="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider truncate">Admin & Configuration</h3>
             <div class="space-y-0.5">
                 <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">

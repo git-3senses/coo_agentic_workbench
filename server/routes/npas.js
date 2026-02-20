@@ -213,9 +213,20 @@ router.post('/seed-demo', async (req, res) => {
                 hdr_reg_compliance: 'SEC_REG',
                 primary_regulation: 'SEC_REG', secondary_regulations: 'SEC_REG',
                 regulatory_reporting: 'SEC_REG', sanctions_check: 'SEC_REG',
-                // SEC_ENTITY
+                // SEC_PROD — Commercialization (PC.I.3)
+                distribution_channels: 'SEC_PROD', sales_suitability: 'SEC_PROD', marketing_plan: 'SEC_PROD',
+                // SEC_RISK — Market Risk Factor Matrix (PC.IV.B.1.table)
+                mrf_ir_delta: 'SEC_RISK', mrf_ir_vega: 'SEC_RISK', mrf_fx_delta: 'SEC_RISK',
+                mrf_fx_vega: 'SEC_RISK', mrf_eq_delta: 'SEC_RISK', mrf_commodity: 'SEC_RISK',
+                mrf_credit: 'SEC_RISK', mrf_correlation: 'SEC_RISK',
+                // SEC_REG — Financial Crime Risk Areas (Appendix 3)
+                aml_assessment: 'SEC_REG', terrorism_financing: 'SEC_REG',
+                sanctions_assessment: 'SEC_REG', fraud_risk: 'SEC_REG', bribery_corruption: 'SEC_REG',
+                // SEC_ENTITY — Appendix 5 Trading Products
                 booking_entity: 'SEC_ENTITY', counterparty: 'SEC_ENTITY', counterparty_rating: 'SEC_ENTITY',
                 strike_price: 'SEC_ENTITY', ip_considerations: 'SEC_ENTITY',
+                collateral_types: 'SEC_ENTITY', valuation_method: 'SEC_ENTITY',
+                funding_source: 'SEC_ENTITY', booking_schema: 'SEC_ENTITY',
                 // SEC_SIGN
                 required_signoffs: 'SEC_SIGN', signoff_order: 'SEC_SIGN',
                 // SEC_LEGAL — sub-header + fields
@@ -232,7 +243,10 @@ router.post('/seed-demo', async (req, res) => {
                     'liquidity_risk', 'reputational_risk', 'var_capture', 'stress_scenarios', 'counterparty_default',
                     'custody_risk', 'esg_assessment', 'roae_analysis', 'pricing_assumptions', 'supporting_documents',
                     'isda_agreement', 'tax_impact', 'npa_process_type', 'business_case_status', 'product_role',
-                    'underlying_asset', 'customer_segments', 'bundling_rationale'].includes(key) ? 'textarea' : 'text';
+                    'underlying_asset', 'customer_segments', 'bundling_rationale',
+                    'distribution_channels', 'sales_suitability', 'marketing_plan',
+                    'aml_assessment', 'terrorism_financing', 'sanctions_assessment', 'fraud_risk', 'bribery_corruption',
+                    'collateral_types', 'valuation_method', 'funding_source', 'booking_schema'].includes(key) ? 'textarea' : 'text';
                 // Header labels come from seed data (the 'value' field), regular labels auto-generated from key
                 const headerLabels = {
                     hdr_prod_basic: 'Product Specifications (Basic Information)',
@@ -263,10 +277,99 @@ router.post('/seed-demo', async (req, res) => {
                 const orderIdx = headerOrder[key] || (fieldType === 'header' ? 10 : 999);
                 // Generate a unique ID: FLD_ + uppercase abbreviation of the field key
                 const fldId = 'FLD_' + key.replace(/^hdr_/, 'H_').toUpperCase().substring(0, 40);
+                // Per-field guidance text (tooltip) from official NPA template
+                const tooltipMap = {
+                    business_rationale: 'Describe the purpose or rationale for the proposal — what problem does it solve and what are the benefits?',
+                    product_name: 'Official product/service name as registered with the PAC.',
+                    product_type: 'Product category classification (e.g. FX Derivatives, Credit Derivatives, Fund Products).',
+                    product_role: 'Role of Proposing Unit — manufacturer, distributor, principal, or agent.',
+                    underlying_asset: 'Describe the underlying reference asset(s) including denomination and settlement index.',
+                    tenor: 'Product maturity/tenor range, standard tenors, and roll dates.',
+                    funding_type: 'Funded position vs unfunded derivative.',
+                    product_maturity: 'Standard maturities offered and any maturity restrictions.',
+                    product_lifecycle: 'Lifecycle stage — new launch, reactivation, or extension.',
+                    revenue_year1: 'Expected revenue in Year 1.',
+                    revenue_year2: 'Expected revenue in Year 2.',
+                    revenue_year3: 'Expected revenue in Year 3.',
+                    target_roi: 'Target return on allocated equity (ROAE).',
+                    spv_details: 'Describe any SPVs including arranger, country of incorporation, and monitoring responsibility.',
+                    customer_segments: 'Target customer segments, regulatory restrictions, suitability criteria.',
+                    distribution_channels: 'Which channels will distribute this product and the rationale for multi-channel approach.',
+                    sales_suitability: 'Customer qualification, onboarding, and suitability assessment process.',
+                    marketing_plan: 'Go-to-market strategy, materials, and communication plan.',
+                    pac_reference: 'PAC approval reference number and any conditions imposed.',
+                    ip_considerations: 'External parties involved in the initiative — include Risk Profiling ID references.',
+                    front_office_model: 'Front Office system and functional responsibilities.',
+                    middle_office_model: 'Middle Office responsibilities including P&L attribution and IPV.',
+                    back_office_model: 'Back Office settlement, SWIFT/CLS, and nostro reconciliation.',
+                    booking_legal_form: 'Legal form of the transaction (e.g. OTC bilateral, unit trust).',
+                    booking_family: 'Product family for booking classification.',
+                    booking_typology: 'Booking system typology code (Family|Group|Type).',
+                    portfolio_allocation: 'Portfolio assignment in the booking system.',
+                    confirmation_process: 'Electronic confirmation process and unconfirmed trade aging policy.',
+                    reconciliation: 'Daily P&L, monthly position, and quarterly regulatory reconciliation.',
+                    tech_requirements: 'New system builds or configuration changes required.',
+                    booking_system: 'Primary booking system and integration details.',
+                    valuation_model: 'Front Office pricing/valuation model used.',
+                    settlement_method: 'End-to-end settlement process including payment and confirmation.',
+                    iss_deviations: 'Any deviations from Information Security Standards policies.',
+                    pentest_status: 'Status of security penetration testing for new/changed systems.',
+                    hsm_required: 'Whether HSM (High-Security Module) review is required.',
+                    pricing_methodology: 'Pricing model, Greeks, and spread structure.',
+                    roae_analysis: 'ROAE calculation, capital consumption, and revenue/capital ratio.',
+                    pricing_assumptions: 'Market data sources, calibration window, and key assumptions.',
+                    bespoke_adjustments: 'Any bespoke pricing adjustments vs standard pricing grid.',
+                    pricing_model_name: 'Model name used for pricing validation.',
+                    model_validation_date: 'Date of most recent model validation.',
+                    simm_treatment: 'ISDA SIMM risk class and margin components.',
+                    legal_opinion: 'Legal documentation requirements and enforceability assessment.',
+                    primary_regulation: 'Primary regulatory framework governing this product.',
+                    secondary_regulations: 'Additional regulatory requirements and frameworks.',
+                    regulatory_reporting: 'Trade repository and regulatory reporting obligations.',
+                    sanctions_check: 'Sanctions screening process and list coverage.',
+                    market_risk: 'Key market risk factors and sensitivities.',
+                    risk_classification: 'Overall risk classification and rationale.',
+                    credit_risk: 'Counterparty credit risk assessment and mitigation.',
+                    operational_risk: 'Operational risk factors and key controls.',
+                    liquidity_risk: 'Funding/liquidity risk and stress behavior.',
+                    reputational_risk: 'Reputational risk assessment including ESG considerations.',
+                    var_capture: 'VaR model, coverage, holding period, and back-testing.',
+                    stress_scenarios: 'Stress testing scenarios and ALCO reporting.',
+                    counterparty_default: 'EAD, LGD, and wrong-way risk assessment.',
+                    custody_risk: 'Securities custody arrangements and reconciliation.',
+                    esg_assessment: 'Environmental, Social, and Governance risk assessment.',
+                    regulatory_capital: 'Regulatory capital treatment and model validation.',
+                    data_privacy: 'Data privacy framework and cross-border data transfer.',
+                    data_retention: 'Data retention periods per regulatory requirements.',
+                    gdpr_compliance: 'PDPA/GDPR compliance and cross-border data governance.',
+                    data_ownership: 'Data ownership roles across Front/Middle/Back Office.',
+                    pure_assessment_id: 'PURE assessment reference ID.',
+                    reporting_requirements: 'Regulatory and internal reporting obligations.',
+                    tax_impact: 'Withholding tax, GST, income tax, and transfer pricing impact.',
+                    isda_agreement: 'ISDA Master Agreement status and special provisions.',
+                    mrf_ir_delta: 'Interest Rate Delta: Applicable? | Sensitivity Reports? | VaR Capture? | Stress Capture?',
+                    mrf_ir_vega: 'Interest Rate Vega: Applicable? | Sensitivity Reports? | VaR Capture? | Stress Capture?',
+                    mrf_fx_delta: 'FX Delta: Applicable? | Sensitivity Reports? | VaR Capture? | Stress Capture?',
+                    mrf_fx_vega: 'FX Vega: Applicable? | Sensitivity Reports? | VaR Capture? | Stress Capture?',
+                    mrf_eq_delta: 'Equity Delta: Applicable? | Sensitivity Reports? | VaR Capture? | Stress Capture?',
+                    mrf_commodity: 'Commodity Risk: Applicable? | Sensitivity Reports? | VaR Capture? | Stress Capture?',
+                    mrf_credit: 'Credit Risk: Applicable? | Sensitivity Reports? | VaR Capture? | Stress Capture?',
+                    mrf_correlation: 'Correlation Risk: Applicable? | Sensitivity Reports? | VaR Capture? | Stress Capture?',
+                    aml_assessment: 'Anti-Money Laundering risk assessment and controls.',
+                    terrorism_financing: 'Terrorism Financing risk assessment and screening procedures.',
+                    sanctions_assessment: 'Comprehensive sanctions screening framework and escalation procedures.',
+                    fraud_risk: 'Fraud risk rating, key risks, and preventive controls.',
+                    bribery_corruption: 'Bribery & corruption risk assessment and compliance controls.',
+                    collateral_types: 'Eligible collateral types, haircuts, and custody arrangements.',
+                    valuation_method: 'Independent price verification methodology and valuation adjustments.',
+                    funding_source: 'Funding structure, FTP rate, and liquidity contingency.',
+                    booking_schema: 'Booking architecture, lifecycle management, and cross-product integration.'
+                };
+                const tooltip = tooltipMap[key] || null;
                 await conn.query(
-                    `INSERT IGNORE INTO ref_npa_fields (id, field_key, label, field_type, section_id, order_index, is_required)
-                     VALUES (?, ?, ?, ?, ?, ?, 0)`,
-                    [fldId, key, label, fieldType, sectionId, orderIdx]
+                    `INSERT IGNORE INTO ref_npa_fields (id, field_key, label, field_type, section_id, order_index, is_required, tooltip)
+                     VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+                    [fldId, key, label, fieldType, sectionId, orderIdx, tooltip]
                 );
             }
             // Also fix any previously mis-assigned field_keys (e.g. section_id='business_case')
@@ -275,6 +378,30 @@ router.post('/seed-demo', async (req, res) => {
                     `UPDATE ref_npa_fields SET section_id = ? WHERE field_key = ? AND section_id NOT LIKE 'SEC_%'`,
                     [sectionId, key]
                 );
+            }
+            // Backfill tooltip for ALL existing fields (not just newly inserted)
+            const tooltipBackfill = {
+                business_rationale: 'Describe the purpose or rationale for the proposal — what problem does it solve and what are the benefits?',
+                product_name: 'Official product/service name as registered with the PAC.',
+                product_type: 'Product category classification.',
+                product_role: 'Role of Proposing Unit — manufacturer, distributor, principal, or agent.',
+                underlying_asset: 'Describe the underlying reference asset(s) including denomination and settlement index.',
+                tenor: 'Product maturity/tenor range, standard tenors, and roll dates.',
+                notional_amount: 'Expected notional amount in base currency.',
+                customer_segments: 'Target customer segments, regulatory restrictions, suitability criteria.',
+                pricing_methodology: 'Pricing model, Greeks, and spread structure.',
+                risk_classification: 'Overall risk classification and rationale.',
+                market_risk: 'Key market risk factors and sensitivities.',
+                booking_system: 'Primary booking system and integration details.',
+                settlement_method: 'End-to-end settlement process.',
+                legal_opinion: 'Legal documentation requirements.',
+                desk: 'Trading desk assignment.',
+                business_unit: 'Business unit classification.',
+                npa_process_type: 'NPA classification — Full NPA, NPA Lite, Bundling, or Evergreen.',
+                business_case_status: 'PAC approval status and reference.'
+            };
+            for (const [fk, tip] of Object.entries(tooltipBackfill)) {
+                await conn.query('UPDATE ref_npa_fields SET tooltip = ? WHERE field_key = ? AND (tooltip IS NULL OR tooltip = "")', [tip, fk]);
             }
         }
 

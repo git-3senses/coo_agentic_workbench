@@ -140,8 +140,8 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
            </div>
         </section>
 
-        <!-- SECTION 2.5: TIER 3 SPECIALIST WORKERS (Data-Driven from AGENT_REGISTRY) -->
-        <section>
+        <!-- SECTION 2.5: TIER 3 SPECIALIST WORKERS (hidden) -->
+        <section *ngIf="false">
            <div class="flex items-center gap-3 mb-6">
               <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
                  <lucide-icon name="bot" class="w-5 h-5"></lucide-icon>
@@ -164,8 +164,8 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
            </div>
         </section>
 
-        <!-- SECTION 2.6: TIER 1-2 ORCHESTRATORS + TIER 4 UTILITIES -->
-        <section>
+        <!-- SECTION 2.6: TIER 1-2 ORCHESTRATORS + TIER 4 UTILITIES (hidden) -->
+        <section *ngIf="false">
            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
               <!-- Tier 1 + 2: Orchestrators -->
@@ -221,8 +221,8 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
            </div>
         </section>
 
-        <!-- SECTION 3: INFRASTRUCTURE (MCP + DB + Services) -->
-        <section>
+        <!-- SECTION 3: INFRASTRUCTURE (MCP + DB + Services) (hidden) -->
+        <section *ngIf="false">
             <div class="flex items-center justify-between mb-6">
                <div class="flex items-center gap-3">
                   <div class="p-2 bg-slate-200 text-slate-700 rounded-lg">
