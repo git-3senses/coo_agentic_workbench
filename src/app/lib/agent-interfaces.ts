@@ -342,3 +342,12 @@ export interface DifyStreamChunk {
     message_id?: string;
     metadata?: Record<string, any>;
 }
+
+// ─── Workflow SSE Stream Events (for Live view) ─────────────────
+export type WorkflowStreamEvent =
+    | { type: 'workflow_started'; workflowRunId: string; taskId: string }
+    | { type: 'node_started'; nodeId: string; nodeType: string; title: string }
+    | { type: 'node_finished'; nodeId: string; nodeType: string; title: string; status: string; elapsedMs: number }
+    | { type: 'text_chunk'; text: string }
+    | { type: 'workflow_finished'; outputs: Record<string, any>; status: string }
+    | { type: 'error'; code: string; message: string };

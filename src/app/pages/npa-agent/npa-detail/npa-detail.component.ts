@@ -13,13 +13,13 @@ import { MonitoringAlertsComponent } from '../../../components/npa/agent-results
 import { DocCompletenessComponent } from '../../../components/npa/agent-results/doc-completeness.component';
 import { DifyService } from '../../../services/dify/dify.service';
 import { OrchestratorChatComponent } from '../../../components/npa/ideation-chat/ideation-chat.component';
-import { RiskAssessment, RiskDomainAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, AutoFillSummary } from '../../../lib/agent-interfaces';
+import { RiskAssessment, RiskDomainAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, AutoFillSummary, WorkflowStreamEvent } from '../../../lib/agent-interfaces';
 import { RiskCheckService } from '../../../services/risk-check.service';
 import { AutofillSummaryComponent } from '../../../components/npa/agent-results/autofill-summary.component';
 import { GovernanceStatusComponent } from '../../../components/npa/agent-results/governance-status.component';
 import { ClassificationResultComponent } from '../../../components/npa/agent-results/classification-result.component';
-import { catchError, of, timer, forkJoin, Observable, EMPTY } from 'rxjs';
-import { concatMap, tap } from 'rxjs/operators';
+import { catchError, of, timer, forkJoin, Observable, EMPTY, Subject } from 'rxjs';
+import { concatMap, tap, finalize } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
@@ -34,7 +34,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
       AutofillSummaryComponent, GovernanceStatusComponent, ClassificationResultComponent
    ],
    template: `
-    <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false" (onSave)="onSave.emit($event)" [inputData]="npaContext"></app-npa-template-editor>
+    <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false" (onSave)="onSave.emit($event)" [inputData]="npaContext" [autofillStream]="autofillStream$" [initialViewMode]="editorInitialViewMode"></app-npa-template-editor>
     
     <!-- FULL SCREEN OVERLAY -->
     <div class="fixed inset-0 z-[100] flex flex-col h-screen w-screen bg-slate-50 overscroll-none font-sans">
@@ -623,6 +623,12 @@ export class NpaDetailComponent implements OnInit {
    ) { }
 
    private _agentsLaunched = false;
+   private _loadStartedForId: string | null = null; // prevents duplicate loadProjectDetails calls
+
+   // Static guard: prevents duplicate agent launches across component re-instantiations
+   // (Angular may recreate the parent NPAAgentComponent + this child multiple times during navigation)
+   private static _activeAgentRunId: string | null = null;
+   private static _activeAgentRunTimestamp = 0;
 
    ngOnInit() {
       if (this.autoOpenEditor) {
@@ -631,8 +637,42 @@ export class NpaDetailComponent implements OnInit {
 
       // Determine projectId from @Input or queryParams — load details ONCE
       const loadOnce = (id: string) => {
-         if (this.projectId === id && this._agentsLaunched) return; // already loaded
+         // Guard: if this instance already started loading this ID, skip
+         if (this._loadStartedForId === id) return;
+         // Window-level dedup: Angular recreates parent NPAAgentComponent (and this child)
+         // multiple times during a single navigation. Use a window-level flag (synchronous,
+         // guaranteed same JS context) to block ALL duplicate loads.
+         const windowKey = `__npa_load_${id}`;
+         const windowTs = (window as any)[windowKey] as number | undefined;
+         if (windowTs && (Date.now() - windowTs) < 90000) {
+            console.log(`[loadOnce] Skipping duplicate load for ${id} — already loading (${Math.round((Date.now() - windowTs) / 1000)}s ago)`);
+            this.projectId = id;
+            this._loadStartedForId = id;
+            if (!this.npaContext) this.npaContext = {};
+            this.npaContext = { ...this.npaContext, npaId: id, projectId: id };
+            return;
+         }
+         (window as any)[windowKey] = Date.now();
+         // Reset agent state when switching to a different NPA
+         if (this.projectId && this.projectId !== id) {
+            this._agentsLaunched = false;
+            this._loadStartedForId = null;
+            this.classificationResult = null;
+            this.mlPrediction = null;
+            this.autoFillSummary = null;
+            this.riskAssessmentResult = null;
+            this.governanceState = null;
+            this.docCompleteness = null;
+            this.monitoringResult = null;
+            this.waveContext = {};
+            this.agentErrors = {};
+            this.dbDataSufficient = false;
+            console.log(`[loadOnce] Switching NPA context: ${this.projectId} → ${id}, reset agent state`);
+         }
          this.projectId = id;
+         this._loadStartedForId = id; // set synchronously BEFORE async call
+         NpaDetailComponent._activeAgentRunId = id;
+         NpaDetailComponent._activeAgentRunTimestamp = Date.now();
          // Enrich npaContext so template editor always has projectId / npaId
          if (!this.npaContext) this.npaContext = {};
          this.npaContext = { ...this.npaContext, npaId: id, projectId: id };
@@ -1063,6 +1103,11 @@ export class NpaDetailComponent implements OnInit {
 
    showTemplateEditor = false;
 
+   /** Observable for the live AUTOFILL stream — passed to template editor via @Input */
+   autofillStream$: Subject<WorkflowStreamEvent> | null = null;
+   /** Initial viewMode for the template editor */
+   editorInitialViewMode: 'live' | 'document' | 'form' = 'document';
+
    // ─── Agent Analysis Engine ──────────────────────────────────────
 
    private buildWorkflowInputs(): Record<string, any> {
@@ -1101,6 +1146,13 @@ export class NpaDetailComponent implements OnInit {
          // Evergreen aggregate usage (GFM-wide)
          evergreen_notional_used: String(d.evergreen_notional_used || 0),
          evergreen_deal_count: String(d.evergreen_deal_count || 0),
+         // Reference NPA for AutoFill agent (from Ideation Q10 / FINALIZE_DRAFT payload / DB)
+         reference_npa_id: d.reference_npa_id || fieldValue('reference_npa_id', '')
+            || this.npaContext?.reference_npa_id || this.npaContext?.data?.reference_npa_id || '',
+         similar_npa_id: d.similar_npa_id || fieldValue('similar_npa_id', '')
+            || this.npaContext?.similar_npa_id || this.npaContext?.data?.top_match || '',
+         similarity_score: String(d.similarity_score || fieldValue('similarity_score', '0')
+            || this.npaContext?.reference_similarity || this.npaContext?.data?.reference_similarity || 0),
          // Some Dify workflows use 'input_text' as their primary input variable
          input_text: productDesc
       };
@@ -1109,6 +1161,13 @@ export class NpaDetailComponent implements OnInit {
    /** Public method to force re-run all agents (called by "Refresh Analysis" button) */
    refreshAgentAnalysis(): void {
       this._agentsLaunched = false;
+      this._loadStartedForId = null; // allow re-load if needed
+      NpaDetailComponent._activeAgentRunId = null; // clear static guard for manual refresh
+      // Clear dedup flags so agents can re-fire
+      if (this.projectId) {
+         sessionStorage.removeItem(`_npa_agents_running_${this.projectId}`);
+         delete (window as any)[`__npa_load_${this.projectId}`];
+      }
       // Clear persisted states so agents overwrite fresh
       this.classificationResult = null;
       this.mlPrediction = null;
@@ -1125,6 +1184,17 @@ export class NpaDetailComponent implements OnInit {
       if (this._agentsLaunched) return; // prevent duplicate agent launches
       const inputs = this.buildWorkflowInputs();
       if (!inputs['project_id']) return;
+
+      // Cross-instance dedup: Angular may recreate NpaDetailComponent multiple times during
+      // a single navigation. Use sessionStorage to prevent duplicate Dify API calls.
+      const dedupKey = `_npa_agents_running_${inputs['project_id']}`;
+      const dedupTs = sessionStorage.getItem(dedupKey);
+      if (dedupTs && (Date.now() - Number(dedupTs)) < 90000) {
+         console.log(`[runAgentAnalysis] Skipping — agents already launched for ${inputs['project_id']} ${Math.round((Date.now() - Number(dedupTs)) / 1000)}s ago`);
+         this._agentsLaunched = true;
+         return;
+      }
+      sessionStorage.setItem(dedupKey, String(Date.now()));
 
       // DB-First: If mapBackendDataToView already pre-populated core KPIs, skip firing agents
       // This makes the page load instantly from persisted data. User can click "Refresh Analysis"
@@ -1177,6 +1247,47 @@ export class NpaDetailComponent implements OnInit {
          );
       };
 
+      // Streamed variant for AUTOFILL — opens Live view in template editor
+      const fireAutofillStreamed = (): Observable<any> => {
+         const agentInputs = { ...inputs, ...this.waveContext };
+         console.log('[fireAgent] AUTOFILL (streamed) — sending request');
+         this.agentLoading['AUTOFILL'] = true;
+
+         // Create a Subject to relay stream events to the template editor
+         this.autofillStream$ = new Subject<WorkflowStreamEvent>();
+
+         // Open template editor in Live mode
+         this.editorInitialViewMode = 'live';
+         this.showTemplateEditor = true;
+
+         return this.difyService.runWorkflowStreamed('AUTOFILL', agentInputs).pipe(
+            tap(event => {
+               // Relay every event to the template editor's Subject
+               this.autofillStream$?.next(event);
+
+               // When workflow completes, extract result for wave chain
+               if (event.type === 'workflow_finished') {
+                  this.agentLoading['AUTOFILL'] = false;
+                  console.log('[fireAgent] AUTOFILL (streamed) — workflow_finished, status:', event.status);
+                  if (event.status === 'succeeded') {
+                     this.handleAgentResult('AUTOFILL', event.outputs);
+                     this.waveContext['autofill_result'] = event.outputs;
+                  } else {
+                     console.warn('[fireAgent] AUTOFILL streamed — status not succeeded:', event.status);
+                  }
+               }
+            }),
+            catchError(err => {
+               console.error('[fireAgent] AUTOFILL streamed — ERROR:', err.message);
+               this.agentErrors['AUTOFILL'] = err.message || 'AUTOFILL failed';
+               this.agentLoading['AUTOFILL'] = false;
+               this.autofillStream$?.error(err);
+               return of(null);
+            }),
+            finalize(() => this.autofillStream$?.complete())
+         );
+      };
+
       // W0: RISK first (hard-stop gate)
       fireAgent('RISK').pipe(
          concatMap(riskRes => {
@@ -1197,9 +1308,9 @@ export class NpaDetailComponent implements OnInit {
             return forkJoin([fireAgent('CLASSIFIER'), fireAgent('ML_PREDICT')]);
          }),
          concatMap(() => {
-            // W2: AUTOFILL + GOVERNANCE (parallel, with context from W1)
+            // W2: AUTOFILL (streamed → Live view) + GOVERNANCE (parallel, with context from W1)
             return forkJoin([
-               fireAgent('AUTOFILL'),
+               fireAutofillStreamed(),
                fireAgent('GOVERNANCE', { agent_mode: 'GOVERNANCE' })
             ]);
          }),
@@ -1353,46 +1464,67 @@ export class NpaDetailComponent implements OnInit {
          let raw = outputs.result.trim();
          // Strip markdown code fences
          raw = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-         try { return JSON.parse(raw); } catch (e) {
-            // Attempt 2: Try to extract embedded JSON from narrative text
-            // Dify LLMs sometimes return "This is a CRITICAL case. {...json...}"
-            const jsonMatch = raw.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-               try { return JSON.parse(jsonMatch[0]); } catch (_) { /* fall through */ }
-            }
-            console.warn('[parseJsonOutput] Failed to parse result:', e, 'raw (first 200):', raw.substring(0, 200));
-            // Attempt 3: Return a keyword-derived fallback so mappers don't get null
-            return this.extractFallbackFromText(raw);
+
+         // Attempt 1: Direct parse
+         try { return JSON.parse(raw); } catch (_) { /* fall through */ }
+
+         // Attempt 2: Extract embedded JSON from narrative text (greedy last match)
+         const jsonMatch = raw.match(/\{[\s\S]*\}/);
+         if (jsonMatch) {
+            try { return JSON.parse(jsonMatch[0]); } catch (_) { /* fall through */ }
          }
+
+         // Attempt 3: Fix Python dict syntax (single quotes → double quotes)
+         // DOC_LIFECYCLE and other Python-based agents sometimes return {'key': 'value'}
+         try {
+            const fixed = raw
+               .replace(/'/g, '"')               // single → double quotes
+               .replace(/True/g, 'true')          // Python True → JSON true
+               .replace(/False/g, 'false')         // Python False → JSON false
+               .replace(/None/g, 'null');           // Python None → JSON null
+            const fixedMatch = fixed.match(/\{[\s\S]*\}/);
+            if (fixedMatch) {
+               const parsed = JSON.parse(fixedMatch[0]);
+               console.log('[parseJsonOutput] Recovered JSON via Python→JSON syntax fix');
+               return parsed;
+            }
+         } catch (_) { /* fall through */ }
+
+         console.warn('[parseJsonOutput] All parse attempts failed. raw (first 300):', raw.substring(0, 300));
+         // Attempt 4: Return safe fallback so mappers don't get null
+         return this.extractFallbackFromText(raw);
       }
       return outputs;
    }
 
-   /** Extract structured fallback from narrative Dify text when JSON parse fails */
+   /**
+    * Extract structured fallback from narrative Dify text when JSON parse fails.
+    * SAFETY: Defaults to Variation / NPA_LITE / no hard-stop because the LLM reasoning
+    * text often contains classification keywords ("prohibited", "critical") as part of
+    * its analysis, NOT as actual verdicts. False "Prohibited" hard-stops are far worse
+    * than a conservative Variation default that the user can correct.
+    */
    private extractFallbackFromText(raw: string): any {
-      const lower = raw.toLowerCase();
-      const isCritical = lower.includes('critical') || lower.includes('prohibited');
-      const isHigh = lower.includes('high risk') || lower.includes('high');
-      const isProhibited = lower.includes('prohibited') || lower.includes('hard stop') || lower.includes('block');
-
+      console.warn('[extractFallbackFromText] JSON parse failed, using safe defaults. Raw (200):', raw.substring(0, 200));
       return {
          _fromFallback: true,
+         _parseError: 'Agent returned narrative text instead of JSON. Classification defaulted to Variation.',
          classification: {
-            type: isProhibited ? 'Prohibited' : (isCritical ? 'New-to-Group' : 'Variation'),
-            track: isCritical ? 'FULL_NPA' : 'NPA_LITE'
+            type: 'Variation',
+            track: 'NPA_LITE'
          },
          scorecard: {
-            overall_confidence: isCritical ? 15 : (isHigh ? 40 : 70),
+            overall_confidence: 0,
             scores: []
          },
          risk_assessment: {
-            overall_score: isCritical ? 95 : (isHigh ? 70 : 35),
-            overall_rating: isCritical ? 'CRITICAL' : (isHigh ? 'HIGH' : 'MEDIUM'),
-            hard_stop: isProhibited
+            overall_score: 50,
+            overall_rating: 'MEDIUM',
+            hard_stop: false
          },
-         prohibited_check: { matched: isProhibited },
-         mandatory_signoffs: isCritical ? ['Finance', 'Credit', 'MLR', 'Legal', 'Ops'] : [],
-         _rawSummary: raw.substring(0, 300)
+         prohibited_check: { matched: false },
+         mandatory_signoffs: [],
+         _rawSummary: raw.substring(0, 500)
       };
    }
 

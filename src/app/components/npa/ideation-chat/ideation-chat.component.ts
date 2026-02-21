@@ -712,13 +712,22 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         try {
             parsed = JSON.parse(rawResult);
         } catch {
-            return {
-                type: 'NTG',
-                track: 'Full NPA',
-                scores: [],
-                overallConfidence: 0,
-                mandatorySignOffs: []
-            };
+            // Attempt 2: Extract embedded JSON from narrative text
+            const embeddedJson = rawResult.match(/\{[\s\S]*\}/);
+            if (embeddedJson) {
+                try { parsed = JSON.parse(embeddedJson[0]); } catch (_) { /* fall through */ }
+            }
+            if (!parsed) {
+                console.warn('[parseClassifierResponse] JSON parse failed, using safe defaults. Raw (200):', (rawResult || '').substring(0, 200));
+                return {
+                    type: 'Variation',
+                    track: 'NPA Lite',
+                    scores: [],
+                    overallConfidence: 0,
+                    mandatorySignOffs: [],
+                    _parseError: 'Classifier returned narrative text instead of JSON'
+                } as any;
+            }
         }
 
         const trackMap: Record<string, string> = {

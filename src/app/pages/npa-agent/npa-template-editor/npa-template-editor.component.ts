@@ -1,12 +1,14 @@
-import { Component, EventEmitter, Input, Output, OnInit, inject, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, inject, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule, UploadCloud, Edit2, AlertCircle, Paperclip } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
+import { Subject, Subscription } from 'rxjs';
 import { NpaSection, NpaField, FieldLineage } from '../../../lib/npa-interfaces';
 import { NpaService, NpaListItem } from '../../../services/npa.service';
 import { AgentGovernanceService, ReadinessResult } from '../../../services/agent-governance.service';
 import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFieldKeys, getNavSections } from '../../../lib/npa-template-definition';
+import { WorkflowStreamEvent } from '../../../lib/agent-interfaces';
 
 @Component({
    selector: 'app-npa-template-editor',
@@ -35,8 +37,15 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
         </div>
 
         <div class="flex items-center gap-2">
-           <!-- View toggle -->
+           <!-- View toggle: Live | Doc | Form -->
            <div class="flex items-center bg-slate-800 rounded p-0.5">
+              <button (click)="viewMode = 'live'"
+                      [class.bg-slate-600]="viewMode === 'live'" [class.text-white]="viewMode === 'live'"
+                      class="px-3 py-1.5 text-xs font-medium rounded transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1">
+                 <lucide-icon *ngIf="liveWorkflowStatus === 'running'" name="loader-2" class="w-3 h-3 animate-spin"></lucide-icon>
+                 <lucide-icon *ngIf="liveWorkflowStatus === 'succeeded'" name="check-circle" class="w-3 h-3 text-emerald-400"></lucide-icon>
+                 Live
+              </button>
               <button (click)="viewMode = 'document'"
                       [class.bg-slate-600]="viewMode === 'document'" [class.text-white]="viewMode === 'document'"
                       class="px-3 py-1.5 text-xs font-medium rounded transition-all text-slate-400 hover:text-slate-200">Doc</button>
@@ -122,6 +131,92 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
 
          <!-- CENTER CONTENT -->
          <div class="flex-1 overflow-y-auto scroll-smooth relative min-h-0" id="form-container" (scroll)="onScroll($event)">
+
+            <!-- ====== LIVE STREAMING VIEW ====== -->
+            <ng-container *ngIf="viewMode === 'live'">
+              <div class="max-w-4xl mx-auto px-8 py-6">
+
+                <!-- Status Header -->
+                <div class="flex items-center justify-between mb-6 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center"
+                         [ngClass]="{
+                           'bg-blue-100': liveWorkflowStatus === 'running',
+                           'bg-emerald-100': liveWorkflowStatus === 'succeeded',
+                           'bg-red-100': liveWorkflowStatus === 'failed',
+                           'bg-slate-100': liveWorkflowStatus === 'idle'
+                         }">
+                      <lucide-icon *ngIf="liveWorkflowStatus === 'running'" name="loader-2" class="w-5 h-5 text-blue-600 animate-spin"></lucide-icon>
+                      <lucide-icon *ngIf="liveWorkflowStatus === 'succeeded'" name="check-circle" class="w-5 h-5 text-emerald-600"></lucide-icon>
+                      <lucide-icon *ngIf="liveWorkflowStatus === 'failed'" name="x-circle" class="w-5 h-5 text-red-600"></lucide-icon>
+                      <lucide-icon *ngIf="liveWorkflowStatus === 'idle'" name="radio" class="w-5 h-5 text-slate-400"></lucide-icon>
+                    </div>
+                    <div>
+                      <h3 class="text-sm font-bold text-slate-900">
+                        {{ liveWorkflowStatus === 'running' ? 'AutoFill Agent Working...' :
+                           liveWorkflowStatus === 'succeeded' ? 'AutoFill Complete' :
+                           liveWorkflowStatus === 'failed' ? 'AutoFill Failed' : 'Waiting for AutoFill' }}
+                      </h3>
+                      <p class="text-xs text-slate-500">Template AutoFill Agent &middot; 60+ fields</p>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-2xl font-bold font-mono text-slate-700">
+                      {{ Math.floor(liveElapsedSeconds / 60) }}:{{ (liveElapsedSeconds % 60).toString().padStart(2, '0') }}
+                    </div>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Elapsed</p>
+                  </div>
+                </div>
+
+                <!-- Error Banner -->
+                <div *ngIf="liveError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div class="flex items-center gap-2">
+                    <lucide-icon name="alert-circle" class="w-4 h-4 text-red-500"></lucide-icon>
+                    <span class="text-sm text-red-700">{{ liveError }}</span>
+                  </div>
+                </div>
+
+                <!-- Node Progress -->
+                <div *ngIf="liveNodes.length > 0" class="mb-6">
+                  <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Workflow Steps</h4>
+                  <div class="space-y-1">
+                    <div *ngFor="let node of liveNodes"
+                         class="flex items-center gap-2 py-1.5 px-3 rounded text-xs"
+                         [ngClass]="{
+                           'bg-blue-50 text-blue-700': node.status === 'running',
+                           'bg-emerald-50 text-emerald-700': node.status === 'succeeded',
+                           'bg-red-50 text-red-700': node.status === 'failed'
+                         }">
+                      <lucide-icon *ngIf="node.status === 'running'" name="loader-2" class="w-3.5 h-3.5 animate-spin"></lucide-icon>
+                      <lucide-icon *ngIf="node.status === 'succeeded'" name="check-circle" class="w-3.5 h-3.5"></lucide-icon>
+                      <lucide-icon *ngIf="node.status === 'failed'" name="x-circle" class="w-3.5 h-3.5"></lucide-icon>
+                      <span class="font-medium flex-1">{{ node.title }}</span>
+                      <span *ngIf="node.elapsedMs" class="font-mono text-[10px] text-slate-400">
+                        {{ (node.elapsedMs / 1000).toFixed(1) }}s
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Streaming Text Output -->
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <lucide-icon name="file-text" class="w-3.5 h-3.5"></lucide-icon> Agent Output
+                    </h4>
+                    <span *ngIf="liveWorkflowStatus === 'running'"
+                          class="flex items-center gap-1 text-[10px] text-blue-500 font-medium">
+                      <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                      Streaming
+                    </span>
+                  </div>
+                  <div class="p-6 font-mono text-xs text-slate-700 leading-relaxed whitespace-pre-wrap max-h-[60vh] overflow-y-auto"
+                       [innerHTML]="formatLiveText(liveStreamText)">
+                  </div>
+                </div>
+
+              </div>
+            </ng-container>
 
             <!-- ====== DOCUMENT VIEW (Template Tree) ====== -->
             <ng-container *ngIf="viewMode === 'document'">
@@ -991,10 +1086,12 @@ import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFiel
     }
   `]
 })
-export class NpaTemplateEditorComponent implements OnInit {
+export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
    @Output() close = new EventEmitter<void>();
    @Input() inputData: any = null;
    @Output() onSave = new EventEmitter<any>();
+   @Input() autofillStream: Subject<WorkflowStreamEvent> | null = null;
+   @Input() initialViewMode: 'live' | 'document' | 'form' = 'document';
 
    private http = inject(HttpClient);
    private governanceService = inject(AgentGovernanceService);
@@ -1003,13 +1100,25 @@ export class NpaTemplateEditorComponent implements OnInit {
    activeSection = '';
    focusedField: NpaField | null = null;
    editingField: string | null = null;
-   viewMode: 'document' | 'form' = 'document'; // Default to document view
+   viewMode: 'live' | 'document' | 'form' = 'document';
    showValidationModal = false;
    validationResult: ReadinessResult | null = null;
    isRunningGovernance = false;
    isDraftingField = false;
    isLoadingSimilar = false;
    similarNpas: NpaListItem[] = [];
+
+   // Live streaming state
+   liveStreamText = '';
+   liveNodes: { id: string; title: string; type: string; status: string; elapsedMs?: number }[] = [];
+   liveCurrentNode: string | null = null;
+   liveWorkflowStatus: 'idle' | 'running' | 'succeeded' | 'failed' = 'idle';
+   liveElapsedSeconds = 0;
+   liveError: string | null = null;
+   private liveStreamSub: Subscription | null = null;
+   private liveTimerInterval: any = null;
+   private liveStartTime = 0;
+   Math = Math; // Expose Math to template
 
    sections: NpaSection[] = [];
 
@@ -1072,6 +1181,100 @@ export class NpaTemplateEditorComponent implements OnInit {
             this.mergeInputData();
          }
       }
+
+      // Initialize from parent's requested viewMode
+      if (this.initialViewMode) {
+         this.viewMode = this.initialViewMode;
+      }
+      // Subscribe to autofill stream if provided
+      if (this.autofillStream) {
+         this.subscribeLiveStream();
+      }
+   }
+
+   ngOnDestroy(): void {
+      this.liveStreamSub?.unsubscribe();
+      this.clearLiveTimer();
+   }
+
+   private subscribeLiveStream(): void {
+      if (!this.autofillStream) return;
+
+      this.liveWorkflowStatus = 'running';
+      this.liveStartTime = Date.now();
+      this.liveStreamText = '';
+      this.liveNodes = [];
+      this.liveError = null;
+
+      // Elapsed-time timer
+      this.liveTimerInterval = setInterval(() => {
+         this.liveElapsedSeconds = Math.floor((Date.now() - this.liveStartTime) / 1000);
+      }, 1000);
+
+      this.liveStreamSub = this.autofillStream.subscribe({
+         next: (event) => {
+            switch (event.type) {
+               case 'workflow_started':
+                  this.liveWorkflowStatus = 'running';
+                  break;
+               case 'node_started':
+                  this.liveCurrentNode = event.title;
+                  this.liveNodes.push({
+                     id: event.nodeId, title: event.title,
+                     type: event.nodeType, status: 'running'
+                  });
+                  break;
+               case 'node_finished': {
+                  const node = this.liveNodes.find(n => n.id === event.nodeId);
+                  if (node) {
+                     node.status = event.status;
+                     node.elapsedMs = event.elapsedMs;
+                  }
+                  if (this.liveCurrentNode === event.title) this.liveCurrentNode = null;
+                  break;
+               }
+               case 'text_chunk':
+                  this.liveStreamText += event.text;
+                  break;
+               case 'workflow_finished':
+                  this.liveWorkflowStatus = event.status === 'succeeded' ? 'succeeded' : 'failed';
+                  break;
+               case 'error':
+                  this.liveError = event.message;
+                  this.liveWorkflowStatus = 'failed';
+                  break;
+            }
+         },
+         error: (err) => {
+            this.liveError = err.message || 'Stream error';
+            this.liveWorkflowStatus = 'failed';
+            this.clearLiveTimer();
+         },
+         complete: () => {
+            this.clearLiveTimer();
+            // Auto-switch to Doc view after brief delay
+            if (this.liveWorkflowStatus === 'succeeded') {
+               setTimeout(() => { this.viewMode = 'document'; }, 2000);
+            }
+         }
+      });
+   }
+
+   private clearLiveTimer(): void {
+      if (this.liveTimerInterval) {
+         clearInterval(this.liveTimerInterval);
+         this.liveTimerInterval = null;
+      }
+   }
+
+   /** Escape HTML for Live view text rendering */
+   formatLiveText(text: string): string {
+      if (!text) return '<span class="text-slate-300 italic">Waiting for output...</span>';
+      return text
+         .replace(/&/g, '&amp;')
+         .replace(/</g, '&lt;')
+         .replace(/>/g, '&gt;')
+         .replace(/\n/g, '<br>');
    }
 
    // --- Document helpers ---

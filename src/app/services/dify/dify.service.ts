@@ -8,6 +8,7 @@ import {
     DifyChatResponse,
     DifyWorkflowResponse,
     DifyStreamChunk,
+    WorkflowStreamEvent,
     AGENT_REGISTRY
 } from '../../lib/agent-interfaces';
 
@@ -653,6 +654,130 @@ export class DifyService {
                 throw err;
             })
         );
+    }
+
+    // ─── Workflow Streaming (Live View) ──────────────────────────
+
+    /**
+     * Execute a Dify Workflow with TRUE SSE streaming for the Live view.
+     * Returns Observable<WorkflowStreamEvent> that emits incremental events:
+     *  - workflow_started, node_started, node_finished (progress indicators)
+     *  - text_chunk (incremental LLM output rendered in Live view)
+     *  - workflow_finished (final outputs JSON for persistence + wave chain)
+     *
+     * Used exclusively for AUTOFILL Live view. Other agents continue
+     * using the blocking runWorkflow().
+     */
+    runWorkflowStreamed(agentId: string, inputs: Record<string, any> = {}): Observable<WorkflowStreamEvent> {
+        this.agentActivity$.next({ agentId, status: 'running' });
+
+        return new Observable<WorkflowStreamEvent>(subscriber => {
+            const abortController = new AbortController();
+
+            fetch('/api/dify/workflow', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    inputs,
+                    user: 'user-123',
+                    response_mode: 'streaming'
+                }),
+                signal: abortController.signal
+            }).then(response => {
+                if (!response.ok) {
+                    subscriber.error(new Error(`HTTP ${response.status}`));
+                    return;
+                }
+                const reader = response.body?.getReader();
+                if (!reader) { subscriber.error(new Error('No stream')); return; }
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                const read = (): void => {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            this.ngZone.run(() => {
+                                this.agentActivity$.next({ agentId, status: 'done' });
+                                subscriber.complete();
+                            });
+                            return;
+                        }
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+
+                        this.ngZone.run(() => {
+                            for (const line of lines) {
+                                if (!line.startsWith('data:')) continue;
+                                const jsonStr = line.slice(5).trim();
+                                if (!jsonStr) continue;
+                                try {
+                                    const evt = JSON.parse(jsonStr);
+                                    if (evt.event === 'workflow_started') {
+                                        subscriber.next({
+                                            type: 'workflow_started',
+                                            workflowRunId: evt.workflow_run_id || '',
+                                            taskId: evt.task_id || ''
+                                        });
+                                    } else if (evt.event === 'node_started') {
+                                        subscriber.next({
+                                            type: 'node_started',
+                                            nodeId: evt.data?.node_id || '',
+                                            nodeType: evt.data?.node_type || '',
+                                            title: evt.data?.title || ''
+                                        });
+                                    } else if (evt.event === 'node_finished') {
+                                        subscriber.next({
+                                            type: 'node_finished',
+                                            nodeId: evt.data?.node_id || '',
+                                            nodeType: evt.data?.node_type || '',
+                                            title: evt.data?.title || '',
+                                            status: evt.data?.status || 'succeeded',
+                                            elapsedMs: evt.data?.elapsed_time
+                                                ? Math.round(evt.data.elapsed_time * 1000) : 0
+                                        });
+                                    } else if (evt.event === 'text_chunk') {
+                                        subscriber.next({
+                                            type: 'text_chunk',
+                                            text: evt.data?.text || ''
+                                        });
+                                    } else if (evt.event === 'workflow_finished') {
+                                        subscriber.next({
+                                            type: 'workflow_finished',
+                                            outputs: evt.data?.outputs || {},
+                                            status: evt.data?.status || 'succeeded'
+                                        });
+                                    } else if (evt.event === 'error') {
+                                        subscriber.next({
+                                            type: 'error',
+                                            code: evt.code || 'DIFY_ERROR',
+                                            message: evt.message || 'Unknown error'
+                                        });
+                                    }
+                                } catch { /* skip malformed SSE lines */ }
+                            }
+                        });
+                        read();
+                    }).catch(err => {
+                        if (err.name !== 'AbortError') {
+                            this.ngZone.run(() => {
+                                this.agentActivity$.next({ agentId, status: 'error' });
+                                subscriber.error(err);
+                            });
+                        }
+                    });
+                };
+                read();
+            }).catch(err => {
+                if (err.name !== 'AbortError') {
+                    this.agentActivity$.next({ agentId, status: 'error' });
+                    subscriber.error(err);
+                }
+            });
+
+            return () => abortController.abort();
+        });
     }
 
     // ─── State Management ────────────────────────────────────────

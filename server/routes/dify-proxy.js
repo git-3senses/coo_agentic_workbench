@@ -793,7 +793,7 @@ router.post('/workflow', async (req, res) => {
                                 'Content-Type': 'application/json'
                             },
                             responseType: 'stream',
-                            timeout: 180000 // 3 minutes for network-level timeout
+                            timeout: 600000 // 10 minutes for network-level timeout (AUTOFILL takes ~8 min)
                         }
                     );
 
