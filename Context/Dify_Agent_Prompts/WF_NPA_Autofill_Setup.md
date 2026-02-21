@@ -1,6 +1,6 @@
 # AUTOFILL Workflow — Dify Setup Guide
-# Updated: 2026-02-20 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md
-# Version: 1.0
+# Updated: 2026-02-21 | Cross-verified against NPA_Business_Process_Deep_Knowledge.md
+# Version: 1.1 — Updated for slim prompt architecture (v3.0)
 
 ## Dify App Type: WORKFLOW (not Agent/Chat)
 
@@ -73,7 +73,15 @@ Input variables (define in Workflow input schema):
 
 ### Node 3: LLM Node (AutoFill Engine)
 - **Model**: Claude 3.5 Sonnet (or GPT-4o) — needs strong analytical reasoning for field categorization, adaptation logic, and QA checks
-- **System Prompt**: Copy from `WF_NPA_Autofill_Prompt.md`
+- **System Prompt**: Copy from `WF_NPA_Autofill_Prompt.md` (~330 lines / ~18K chars)
+
+> **ARCHITECTURE NOTE — Slim Prompt + KB Retrieval:**
+> The system prompt (v3.0) deliberately does NOT contain field-level reference tables, content examples, or detailed bucket categorizations. Those are stored in the KB (`KB_Template_Autofill_Agent.md`) and retrieved dynamically via the Knowledge Retrieval Node. This design:
+> - **Saves tokens** — reference data is only retrieved when relevant to the product type
+> - **Eliminates duplication** — one source of truth in the KB, not duplicated in the prompt
+> - **Enables targeted retrieval** — RAG fetches the most relevant KB sections for each product
+>
+> The prompt contains: Role + IO contract + decision logic + rules. The KB contains: field_key → section mapping (§1), content standards + examples (§1b), NPA Lite sub-type coverage (§1c), dormancy routing (§1d), bucket field tables with adaptation techniques (§2), and edge case guidance (§3–§9).
 - **User Message Template**:
 ```
 Auto-fill the NPA template for this product:

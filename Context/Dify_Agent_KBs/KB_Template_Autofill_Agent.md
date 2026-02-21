@@ -90,6 +90,46 @@ When NO reference NPA is available:
 
 ---
 
+## 1c. NPA Lite Sub-Type Coverage Adjustments (B1–B4)
+
+When `approval_track == NPA_LITE`, the sub-type determines the template scope and coverage target:
+
+| Sub-Type | Name | Template Adjustment | Coverage Target | Key Notes |
+|----------|------|---------------------|-----------------|-----------|
+| B1 | Impending Deal | Sign-off matrix + basic product info only | 50% | 48-hour express track; back-to-back with professional counterparty; auto-approve if no SOP objects within window |
+| B2 | NLNOC (No-Lodgement, No-Objection Concurrence) | Lighter template — product overview + risk summary | 55% | Simple payoff change or reactivation; GFM COO + RMG-MLR joint decision; 5–10 business days |
+| B3 | Fast-Track Dormant Reactivation | Reference existing approved NPA — copy most fields | 75% | 5 criteria must ALL pass: (1) existing live trade in past, (2) NOT prohibited, (3) PIR done, (4) no variation, (5) no booking change. 48-hour auto-approve |
+| B4 | Addendum | Minimal template — amendments only | 40% | Live NPA only; same GFM ID; validity NOT extended; field changes limited to amended sections; <5 business days |
+
+**Auto-fill implications:**
+- B1/B4: Only fill relevant sections (sign-offs for B1, amendments for B4). Leave other sections empty.
+- B2: Fill product overview and risk summary; lighter on operational/legal sections.
+- B3: Highest coverage — reference the dormant NPA directly as content source.
+
+---
+
+## 1d. Dormancy & Expiry Routing (Existing Products)
+
+When `classification_type == Existing`, the dormancy/expiry status determines the approval route and auto-fill approach:
+
+| Status | Condition | Route | Coverage Impact | Auto-Fill Strategy |
+|--------|-----------|-------|-----------------|-------------------|
+| Active | On Evergreen list | Evergreen | 85%+ | Near-verbatim copy from existing approved NPA; highest coverage |
+| Active | NOT on Evergreen list | NPA Lite (B2) | 75% | Copy from existing NPA with minor adaptations for new context |
+| Dormant <3yr | Meets all 5 fast-track criteria | NPA Lite B3 Fast-Track | 75% | Reference the dormant NPA directly; verify no stale regulatory refs |
+| Dormant <3yr | Has variations or fails fast-track | NPA Lite (B2) | 60% | Partial copy; variation sections need fresh content |
+| Dormant ≥3yr | Any | ESCALATE to GFM COO (may need Full NPA) | 50% | Significant content refresh needed; regulatory landscape may have changed |
+| Expired | No variations | NPA Lite - Reactivation | 65% | Copy expired NPA; update dates, regulatory refs, market data |
+| Expired | Has variations | Full NPA (treated as NTG-equivalent) | 45% | Treat like new; expired + variations = effectively new product |
+
+**Key rules:**
+- Dormant = no transactions booked in the last 12 months
+- Expired = approved but not launched within the validity period
+- Dormant ≥3yr is the critical threshold — product knowledge may be lost, original approvers may have moved on
+- Always flag stale regulatory references (>2 years old) regardless of dormancy status
+
+---
+
 ## 2. The Four-Step Auto-Fill Process
 
 ### Step 1: Find the Best Historical Match
