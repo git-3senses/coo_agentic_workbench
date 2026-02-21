@@ -6,6 +6,8 @@
 **Role**: Real-time validation against prohibited products, jurisdictions, counterparties, and activities
 **Primary Goal**: Detect non-compliance, prohibited activities, and high-risk indicators before any NPA processing begins, operating as a HARD STOP gate
 
+**Template Version**: Part C (Sections I–VII) + Appendices 1–6 = **60+ atomic field_keys**. This agent reads key field_keys from Section I (product_type, underlying_asset, customer_segments, notional_amount), Section II (settlement_method, booking_legal_form), and Section IV (sanctions_check, counterparty_rating) to perform risk validation. See `KB_NPA_Template_Fields_Reference.md` for the authoritative field_key → template section mapping.
+
 **Prime Directive**:
 **Zero False Negatives** - It is better to flag a safe product as "Needs Review" than to let a dangerous product pass as "Safe"
 
@@ -1027,17 +1029,34 @@ Classification Router: [Proceeds with NTG Full NPA track]
 
 ## Input/Output Schema
 
+**Template field_keys used as inputs**: This agent reads from `npa_form_data` using these field_keys from the NPA Template (Part C + Appendices):
+
+| Input Field | field_key | Template Position | Source |
+|-------------|-----------|-------------------|--------|
+| Product type | `product_type` | PC.I.1.b | SEC_PROD |
+| Underlying asset | `underlying_asset` | PC.I.1.b | SEC_PROD |
+| Notional amount | `notional_amount` | PC.I.1.rev | SEC_PROD |
+| Customer segments | `customer_segments` | PC.I.2 | SEC_PROD |
+| Settlement method | `settlement_method` | PC.II.2.e | SEC_OPS |
+| Booking entity | `booking_legal_form` | PC.II.2.a | SEC_OPS |
+| Sanctions check | `sanctions_check` | PC.IV.A.4 | SEC_RISK |
+| Counterparty rating | `counterparty_rating` | PC.IV.C.5 | SEC_RISK |
+
+**Database tables**:
+- **Reads**: `npa_form_data` (field_key/field_value pairs), `npa_projects` (NPA metadata)
+- **Writes**: `npa_risk_checks` (prohibited list check results), `npa_risk_domain_assessments` (risk domain scores)
+
 ### Input (Product Data)
 ```json
 {
   "product_segment": "FX",
-  "product_type": "Forward",
-  "underlying": "BTC/USD",
-  "notional_amount": 5000000,
+  "product_type": "Forward",           // field_key: product_type (PC.I.1.b)
+  "underlying": "BTC/USD",             // field_key: underlying_asset (PC.I.1.b)
+  "notional_amount": 5000000,          // field_key: notional_amount (PC.I.1.rev)
   "counterparty_name": "Russian Energy Bank",
   "counterparty_country": "SG",
-  "client_type": "Retail",
-  "settlement_location": "Moscow"
+  "client_type": "Retail",             // field_key: customer_segments (PC.I.2)
+  "settlement_location": "Moscow"      // field_key: settlement_method (PC.II.2.e)
 }
 ```
 

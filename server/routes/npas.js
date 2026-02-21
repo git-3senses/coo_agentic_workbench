@@ -233,7 +233,10 @@ router.post('/seed-demo', async (req, res) => {
                 hdr_legal_docs: 'SEC_LEGAL',
                 isda_agreement: 'SEC_LEGAL', tax_impact: 'SEC_LEGAL',
                 // SEC_DOCS
-                term_sheet: 'SEC_DOCS', supporting_documents: 'SEC_DOCS'
+                term_sheet: 'SEC_DOCS', supporting_documents: 'SEC_DOCS',
+                // Missing template field_keys (Part C + Appendices alignment)
+                data_privacy: 'SEC_DATA', booking_system: 'SEC_OPS',
+                risk_classification: 'SEC_RISK', regulatory_capital: 'SEC_RISK'
             };
             console.log(`[NPA SEED-DEMO] Adding ${missing.length} missing field keys to ref_npa_fields:`, missing);
             for (const key of missing) {
@@ -246,7 +249,8 @@ router.post('/seed-demo', async (req, res) => {
                     'underlying_asset', 'customer_segments', 'bundling_rationale',
                     'distribution_channels', 'sales_suitability', 'marketing_plan',
                     'aml_assessment', 'terrorism_financing', 'sanctions_assessment', 'fraud_risk', 'bribery_corruption',
-                    'collateral_types', 'valuation_method', 'funding_source', 'booking_schema'].includes(key) ? 'textarea' : 'text';
+                    'collateral_types', 'valuation_method', 'funding_source', 'booking_schema',
+                    'data_privacy', 'risk_classification', 'regulatory_capital'].includes(key) ? 'textarea' : 'text';
                 // Header labels come from seed data (the 'value' field), regular labels auto-generated from key
                 const headerLabels = {
                     hdr_prod_basic: 'Product Specifications (Basic Information)',

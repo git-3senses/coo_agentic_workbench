@@ -748,20 +748,22 @@ if approval_track == "Evergreen":
 
 ## 8. Input/Output Schemas
 
+**Template Reference**: All field_keys below map to NPA Template Part C + Appendices. See `KB_NPA_Template_Fields_Reference.md` for the complete field_key → template section mapping (60+ field_keys across Sections I–VII + Appendices 1–6).
+
 ### Input (from Ideation Agent)
 ```json
 {
   "product_description": "FX Option on GBP/USD, 6M tenor, cash-settled, corporate client hedging",
   "product_attributes": {
-    "product_type": "FX Option",
-    "underlying": "GBP/USD",
-    "tenor": "6M",
-    "settlement_method": "Cash",
-    "customer_segment": "Corporate",
-    "use_case": "Hedging",
-    "notional": 75000000,
-    "booking_location": "Singapore",
-    "counterparty_location": "Hong Kong"
+    "product_type": "FX Option",         // field_key: product_type (PC.I.1.b)
+    "underlying": "GBP/USD",             // field_key: underlying_asset (PC.I.1.b)
+    "tenor": "6M",                       // field_key: tenor (PC.I.1.c)
+    "settlement_method": "Cash",         // field_key: settlement_method (PC.II.2.e)
+    "customer_segment": "Corporate",     // field_key: customer_segments (PC.I.2)
+    "use_case": "Hedging",               // field_key: business_rationale (PC.I.1.e)
+    "notional": 75000000,                // field_key: notional_amount (PC.I.1.rev)
+    "booking_location": "Singapore",     // field_key: booking_legal_form (PC.II.2.a)
+    "counterparty_location": "Hong Kong" // cross-border detection input
   },
   "similarity_results": [
     {"npa_id": "TSG1917", "similarity": 0.94, "status": "Active"},
@@ -775,6 +777,9 @@ if approval_track == "Evergreen":
 ```
 
 ### Output (to Ideation Agent & UI)
+
+**Database writes**: Classification results are stored in `npa_classification_scorecards` and `npa_projects` (updates `npa_type` and `approval_track`). The agent does NOT write to `npa_form_data` — form field population is handled exclusively by the AutoFill Agent.
+
 ```json
 {
   "stage1_classification": "NTG" | "Variation" | "Existing",
@@ -810,7 +815,7 @@ if approval_track == "Evergreen":
   },
 
   "db_record": {
-    "total_score": 18, 
+    "total_score": 18,
     "calculated_tier": "FULL",
     "breakdown": {
       "rag_similarity": 0.94,
@@ -863,31 +868,42 @@ if signal_contradiction_detected:
 
 ## 10. Database Interaction Points
 
+**Template Version**: Part C (Sections I–VII) + Appendices 1–6 = **60+ atomic field_keys**. See `KB_NPA_Template_Fields_Reference.md` for the authoritative field_key → template section mapping.
+
 **Tables Used**:
-- `npa_instances`: Lookup historical NPAs for classification
-- `knowledge_base_documents`: Fed to RAG search
-- `prohibited_list_items`: Check for prohibited products
-- `npa_templates`: Validate product type taxonomy
-- `evergreen_list`: Check if product qualifies for Evergreen
+- `npa_projects`: Core NPA records (id, title, npa_type, current_stage, approval_track, created_by, etc.)
+- `npa_form_data`: All 60+ atomic field values (npa_id, field_key, field_value, source — AUTO/MANUAL/ADAPTED)
+- `ref_npa_fields`: Field definitions (field_key, label, section_id, field_type, tooltip)
+- `ref_npa_sections`: Section definitions (SEC_PROD, SEC_OPS, SEC_RISK, SEC_PRICE, SEC_DATA, SEC_REG, SEC_ENTITY, SEC_SIGN, SEC_LEGAL, SEC_DOCS)
+- `npa_classification_scorecards`: Classification results written by this agent (npa_id, total_score, calculated_tier, breakdown JSON)
+
+**Key field_keys read for classification inputs**:
+- `product_type`, `underlying_asset`, `tenor`, `product_role` — from SEC_PROD (Section I)
+- `booking_legal_form`, `booking_system`, `settlement_method` — from SEC_OPS (Section II)
+- `notional_amount`, `customer_segments` — from SEC_PROD (Section I)
+- `counterparty_rating` — from SEC_RISK (Section IV.C)
 
 **Sample Queries**:
 ```sql
--- Check if product type exists
-SELECT COUNT(*) FROM npa_instances
-WHERE product_type = 'Credit Default Swap';
+-- Check if product type exists in historical NPAs
+SELECT COUNT(*) FROM npa_projects
+WHERE JSON_EXTRACT(npa_type, '$.product_type') = 'Credit Default Swap';
 -- Result: 0 → NTG
 
--- Check Evergreen eligibility
-SELECT * FROM evergreen_list
-WHERE npa_id = 'TSG1917'
-  AND expiry_date > CURRENT_DATE;
--- Result: Found → Evergreen eligible
+-- Get form data for classification inputs
+SELECT field_key, field_value FROM npa_form_data
+WHERE npa_id = 'TSG2026-101'
+  AND field_key IN ('product_type', 'underlying_asset', 'tenor', 'product_role', 'notional_amount', 'settlement_method', 'counterparty_rating');
 
 -- Check dormancy period
-SELECT DATEDIFF(CURRENT_DATE, last_trade_date) / 30 AS dormancy_months
-FROM npa_instances
-WHERE id = 'TSG1917';
+SELECT DATEDIFF(CURRENT_DATE, updated_at) / 30 AS dormancy_months
+FROM npa_projects
+WHERE id = 'TSG1917' AND current_stage = 'DORMANT';
 -- Result: 10 months → <36 months → Fast-Track eligible
+
+-- Write classification result
+INSERT INTO npa_classification_scorecards (npa_id, total_score, calculated_tier, breakdown)
+VALUES ('TSG2026-101', 18, 'FULL', '{"rag_similarity": 0.94, "rule_match": 0.88}');
 ```
 
 ---
