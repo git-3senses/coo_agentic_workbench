@@ -14,7 +14,7 @@ The Ideation Agent is a **Tier 3 conversational Agent App** — it conducts a mu
 
 1. Go to Dify Cloud > Studio > Create App > **Agent**
 2. Name: `CF_NPA_Ideation`
-3. Description: "Conversational NPA Product Ideation Agent — replaces 60+ field manual form with intelligent interview. Guides users through discovery (Q1-Q9), runs pre-screen checks, searches for similar historical NPAs, detects classification signals, and creates draft NPA projects."
+3. Description: "Conversational NPA Product Ideation Agent — replaces 60+ field manual form with intelligent interview. Guides users through discovery (Q1-Q10), runs pre-screen checks, searches for similar historical NPAs, asks for reference NPA to boost auto-fill quality, detects classification signals, and creates draft NPA projects."
 4. Agent Mode: **Function Call** (recommended for structured tool use)
 
 **IMPORTANT — Dify App types:**
@@ -207,7 +207,33 @@ Expected: Agent extracts product_type=FX Option, underlying=GBP/USD, tenor=6M, u
 ### Test 3: Tool call — Similarity Search
 After sufficient discovery data, the agent should automatically call `ideation_find_similar` with search_term="FX Option GBP/USD". Verify the tool call appears in the Dify debug logs.
 
-### Test 4: Cross-border detection
+### Test 4: Reference NPA question (Q10)
+```bash
+curl -X POST http://localhost:3000/api/dify/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "IDEATION",
+    "query": "Yes, we had a similar FX Forward approved last year — TSG1917",
+    "conversation_id": "<conversation_id>"
+  }'
+```
+
+Expected: Agent recognizes TSG1917 as a reference NPA ID, calls `ideation_find_similar` to validate it exists, confirms with user: "I found TSG1917 (FX Forward EUR/USD 3M, approved Dec 2024). I'll use this as the reference NPA for auto-filling your draft — this should give us 85%+ coverage with comprehensive field content." Stores `reference_npa_id` for handoff.
+
+### Test 4b: Reference NPA — user doesn't have one
+```bash
+curl -X POST http://localhost:3000/api/dify/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "IDEATION",
+    "query": "No, I dont have a reference in mind",
+    "conversation_id": "<conversation_id>"
+  }'
+```
+
+Expected: Agent acknowledges, notes the auto-fill coverage may be lower (~45-55%) without a reference NPA, and proceeds to Phase 2 using similarity search results instead.
+
+### Test 5: Cross-border detection
 ```bash
 curl -X POST http://localhost:3000/api/dify/chat \
   -H "Content-Type: application/json" \
@@ -220,7 +246,7 @@ curl -X POST http://localhost:3000/api/dify/chat \
 
 Expected: Agent detects cross-border, warns about 5 mandatory sign-offs, adds ~4-5 days to timeline estimate.
 
-### Test 5: Prohibited product detection
+### Test 6: Prohibited product detection
 ```bash
 curl -X POST http://localhost:3000/api/dify/chat \
   -H "Content-Type: application/json" \
@@ -258,7 +284,7 @@ The Ideation Agent uses these markers to communicate with the Orchestrator:
 |--------|-----------|-----------|
 | `HARD_STOP` | Prohibited product detected | Red HARD_STOP card, blocks NPA creation |
 | `SHOW_KB_RESULTS` | Similarity search complete | Shows matching NPAs (informational) |
-| `FINALIZE_DRAFT` | NPA draft created | Triggers auto-classification workflow, shows "Draft Ready" banner |
+| `FINALIZE_DRAFT` | NPA draft created | Triggers auto-classification workflow, shows "Draft Ready" banner. NPA_DATA includes `reference_npa_id` if user confirmed one in Q10. |
 
 ### Angular Component: `OrchestratorChatComponent`
 - Selector: `app-orchestrator-chat`

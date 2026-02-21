@@ -52,11 +52,14 @@ Input variables (define in Workflow input schema):
   "dormancy_status": { "type": "string", "required": false, "default": "", "description": "active | dormant_under_3y | dormant_over_3y | expired" },
   "loop_back_count": { "type": "number", "required": false, "default": 0, "description": "Number of loop-backs on this NPA (circuit breaker at 3)" },
   "evergreen_notional_used": { "type": "number", "required": false, "default": 0, "description": "Current Evergreen notional usage in USD" },
-  "evergreen_deal_count": { "type": "number", "required": false, "default": 0, "description": "Current Evergreen deal count" }
+  "evergreen_deal_count": { "type": "number", "required": false, "default": 0, "description": "Current Evergreen deal count" },
+  "reference_npa_id": { "type": "string", "required": false, "default": "", "description": "User-confirmed reference NPA ID from Ideation Agent Q10 (e.g., TSG1917). Highest-priority content source for auto-fill." }
 }
 ```
 
 **CRITICAL:** The `product_description` field is the most important input — it contains the richest semantic context for both the Knowledge Retrieval query and the LLM analysis.
+
+**IMPORTANT:** The `reference_npa_id` field is the second most impactful input — when a user provides a reference NPA during Ideation (Q10), it becomes the primary content source for auto-fill. This can boost coverage from 45% to 85%+ and produce comprehensive, multi-paragraph field values.
 
 ### Node 2: Knowledge Retrieval (Recommended)
 - **Dataset**: "NPA AutoFill Templates" (upload the KB docs — see Step 4)
@@ -95,6 +98,7 @@ Dormancy Status: {{dormancy_status}}
 Loop-Back Count: {{loop_back_count}}
 Evergreen Notional Used: {{evergreen_notional_used}}
 Evergreen Deal Count: {{evergreen_deal_count}}
+Reference NPA ID: {{reference_npa_id}}
 
 Knowledge Base Context:
 {{#context#}}
@@ -142,7 +146,7 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
 
 ## Step 5: Testing
 
-### Test Case 1: Variation Product (Expected Coverage: 78%)
+### Test Case 1: Variation Product with Reference NPA (Expected Coverage: 78%)
 ```json
 {
   "product_description": "FX Forward on GBP/USD, 3-month tenor, $50M notional, for hedging purposes. Institutional client, booked in Singapore, counterparty in London.",
@@ -165,7 +169,8 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
   "dormancy_status": "active",
   "loop_back_count": 0,
   "evergreen_notional_used": 0,
-  "evergreen_deal_count": 0
+  "evergreen_deal_count": 0,
+  "reference_npa_id": "TSG1917"
 }
 ```
 
@@ -174,10 +179,12 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
 - Cross-border flags: 5 mandatory sign-offs added
 - Notional flags: ROAE required (>$20M), Finance VP required (=$50M)
 - Validation warnings: ROAE analysis needed
-- Source NPA: TSG1917 (94% similarity)
+- Source NPA: TSG1917 (94% similarity) — confirmed as reference_npa_id
+- **Comprehensive field values**: Each auto-filled field should contain multi-paragraph content with rationale, risk factors, mitigants, and regulatory references (not one-liners)
+- **Manual field draft suggestions**: business_rationale should have a 3-paragraph draft suggestion in smart_help
 - Rich markdown values with **bold headers**, bullet points, and tables
 
-### Test Case 2: NTG Product (Expected Coverage: 45%)
+### Test Case 2: NTG Product — No Reference NPA (Expected Coverage: 45%)
 ```json
 {
   "product_description": "Credit Default Swap on investment grade corporate bonds, 5-year tenor, $75M notional. First CDS product for DBS. Requires new legal framework and ISDA credit support.",
@@ -200,7 +207,8 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
   "dormancy_status": "",
   "loop_back_count": 0,
   "evergreen_notional_used": 0,
-  "evergreen_deal_count": 0
+  "evergreen_deal_count": 0,
+  "reference_npa_id": ""
 }
 ```
 
@@ -210,6 +218,8 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
 - Notional flags: ROAE + Finance VP required (>$50M)
 - PIR: Mandatory within 6 months
 - Validity: 12 months
+- **No reference NPA**: Auto-filled content generated from KB context and product category templates. Fields should still be comprehensive (multi-paragraph with rationale) even without a reference source.
+- **Manual field draft suggestions**: business_rationale should have a KB-generated draft in smart_help covering CDS market opportunity, strategic rationale for entering CDS market
 
 ### Test Case 3: Evergreen Product (Expected Coverage: 85%)
 ```json
@@ -234,7 +244,8 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
   "dormancy_status": "active",
   "loop_back_count": 0,
   "evergreen_notional_used": 120000000,
-  "evergreen_deal_count": 5
+  "evergreen_deal_count": 5,
+  "reference_npa_id": "TSG1800"
 }
 ```
 
@@ -243,6 +254,7 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
 - Evergreen flags: limits OK ($120M/$500M used, 5/20 deals used)
 - Validity: 36 months
 - Evergreen checklist fields populated
+- **Reference NPA TSG1800 (97% similarity)**: Comprehensive field values copied verbatim from reference. Each field should contain full multi-paragraph content with tables, risk factors, and regulatory references matching the depth of the reference NPA.
 
 ## Step 6: Downstream Integration
 
@@ -282,6 +294,9 @@ CREATE TABLE npa_form_data (
 | Coverage always same regardless of track | `approval_track` not mapped | Check that Classifier output feeds into AutoFill input |
 | Empty `filled_fields` array | LLM ran out of context | Reduce Knowledge Retrieval Top K from 5 to 3 |
 | Confidence scores all 0 | Confidence in 0-1 range instead of 0-100 | Prompt says 0-100; mapAutoFillSummary divides by 100 |
+| Field values are one-liners | LLM not producing comprehensive content | Reinforce Rule #10 in prompt: comprehensive multi-paragraph content is MANDATORY. Check KB retrieval returns `KB_Template_Autofill_Agent.md` §1b content standards |
+| Manual fields have no draft suggestions | `smart_help` empty or generic | Reinforce Rule #20 in prompt: manual fields must include comprehensive draft suggestions adapted from reference NPA |
+| reference_npa_id not used | Variable not mapped in START node | Ensure `reference_npa_id` is defined in workflow input schema and passed to LLM Node user message |
 
 ---
 

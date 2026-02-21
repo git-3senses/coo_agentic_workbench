@@ -8,7 +8,7 @@
 
 **Template Version**: Part C (Sections I–VII) + Appendices 1–6 = **60+ atomic field_keys** organized in a hierarchical tree. See `KB_NPA_Template_Fields_Reference.md` for the authoritative field_key → template section mapping.
 
-**Prime Directive**: Maximize auto-fill coverage (≥78%) while maintaining accuracy (≥92% user acceptance rate). NEVER auto-fill fields with uncertain information—flag for manual input instead. **Suggest, Don't Hallucinate**.
+**Prime Directive**: Maximize auto-fill coverage (≥78%) while maintaining accuracy (≥92% user acceptance rate). NEVER auto-fill fields with uncertain information—flag for manual input instead. **Suggest, Don't Hallucinate.** Every auto-filled field MUST contain comprehensive, multi-paragraph content with rationale, justification, risk factors, mitigants, and regulatory references — NOT one-line summaries.
 
 **Success Metrics**:
 - Auto-fill coverage: ≥78% of populated fields
@@ -24,6 +24,69 @@
 - Section V: Data Management — 6 field_keys (data_privacy, data_retention, gdpr_compliance, data_ownership, pure_assessment_id, reporting_requirements)
 - Section VI: Other Risk — 1 field_key (operational_risk)
 - Appendices: Financial crime (aml_assessment, terrorism_financing, sanctions_assessment, fraud_risk, bribery_corruption), Trading (collateral_types, valuation_method, funding_source, booking_schema)
+
+---
+
+## 1b. Comprehensive Field Value Standards
+
+**CRITICAL**: Sign-off parties (Risk, Legal, Compliance, Finance, Operations, Technology) review every field in the NPA draft. One-line summaries are ALWAYS rejected, causing loop-backs and delays. Every auto-filled field must contain production-quality content.
+
+### Minimum Content Requirements by Field Category
+
+**Risk Assessment Fields** (market_risk, credit_risk, operational_risk, liquidity_risk, reputational_risk, esg_assessment):
+```
+REQUIRED STRUCTURE:
+1. **Risk Rating:** [LOW | MEDIUM | MODERATE-TO-HIGH | HIGH]
+2. **Rationale:** 2-3 sentences explaining WHY this rating, with specific factors
+3. **Key Risk Factors:** Bulleted list of 3-5 specific risk drivers
+4. **Quantitative Analysis:** VaR, expected loss, exposure %, stress test results
+5. **Mitigants & Controls:** Bulleted list of 3-5 mitigating controls
+6. **Regulatory Reference:** Specific MAS Notices, Basel requirements
+```
+
+**Operational Fields** (booking_system, valuation_model, settlement_method, front/middle/back_office_model):
+```
+REQUIRED STRUCTURE:
+1. **System/Model Name:** Specific system (Murex MX.3, Bloomberg BVAL, etc.)
+2. **Integration Points:** How it connects to upstream/downstream systems
+3. **STP Flow:** Straight-through-processing description
+4. **Fallback Procedures:** Manual fallback if system fails
+5. **SLA Commitments:** Processing times, reconciliation frequency
+```
+
+**Pricing Fields** (pricing_methodology, roae_analysis, pricing_assumptions):
+```
+REQUIRED STRUCTURE:
+1. **Model Name:** Specific pricing model (Black-76, SABR, Hull-White, etc.)
+2. **Calibration:** Data sources, calibration window, frequency
+3. **Assumptions:** Key assumptions and their sensitivity
+4. **Stress Scenarios:** At least 3 scenarios with quantitative results
+5. **Validation:** Most recent model validation date and findings
+```
+
+**Financial Crime Fields** (aml_assessment, terrorism_financing, sanctions_assessment, fraud_risk):
+```
+REQUIRED STRUCTURE:
+1. **Risk Rating:** [LOW | MEDIUM | HIGH]
+2. **Key Risk Factors:** Specific to product type and booking location
+3. **Controls:** Automated and manual controls in place
+4. **Screening Procedures:** Systems, lists monitored, frequency
+5. **Escalation:** Procedures and SLAs for potential matches
+```
+
+### Reference NPA Usage
+
+When a `reference_npa_id` is available:
+- **Use it as the primary content source** — adapt the reference NPA's field values
+- **Preserve depth**: if the reference NPA has 5 paragraphs in market_risk, produce 5 paragraphs
+- **Adapt specifics**: swap counterparty names, amounts, dates, ratings
+- **Keep analytical framework**: risk factors, mitigants, regulatory references carry over
+- **Flag differences**: note where the new product diverges from the reference
+
+When NO reference NPA is available:
+- **Generate from KB context** — use product category templates to build comprehensive content
+- **Same depth standard** — sign-off parties expect identical quality regardless of source
+- **Be explicit about uncertainty** — mark fields where content is generic with lower confidence scores
 
 ---
 
@@ -184,7 +247,9 @@ Product-type-specific fields (not deal-specific), copied verbatim from source NP
 **Implementation**:
 ```python
 for field_key in BUCKET_1_FIELDS:
-  template[field_key] = source_npa[field_key]  # Verbatim copy
+  template[field_key] = source_npa[field_key]  # Verbatim copy — PRESERVE FULL DEPTH
+  # CRITICAL: Copy the ENTIRE multi-paragraph content, not a summary
+  # If source has 4 paragraphs with tables, copy all 4 paragraphs with tables
   field_color[field_key] = "green"
   field_metadata[field_key] = {
     "source": "direct_copy",
@@ -192,6 +257,8 @@ for field_key in BUCKET_1_FIELDS:
     "is_verified": False  # User should still review
   }
 ```
+
+**IMPORTANT**: Direct copy means copying the FULL content of each field from the source NPA. If the source NPA's `booking_system` field has 3 paragraphs describing Murex integration, STP flow, and settlement — copy ALL 3 paragraphs. Never summarize or thin out content during copy.
 
 ---
 
@@ -246,14 +313,21 @@ Deal-specific fields that cannot be auto-filled:
 **Implementation**:
 ```python
 for field_key in BUCKET_3_FIELDS:
-  template[field_key] = ""  # Blank
+  # IMPORTANT: Don't leave blank — provide a DRAFT SUGGESTION from reference NPA
+  draft = generate_draft_suggestion(field_key, reference_npa, product_description)
+  template[field_key] = ""  # Value left blank for user to fill
   field_color[field_key] = "red"
   field_metadata[field_key] = {
     "source": "manual_input_required",
     "prompt": MANUAL_PROMPTS[field_key],
-    "required": field_key in MANDATORY_FIELDS
+    "required": field_key in MANDATORY_FIELDS,
+    "smart_help": draft  # Comprehensive draft suggestion — not just a hint
+    # Draft should be multi-paragraph, adapted from reference NPA or generated
+    # from KB context, giving the user a strong starting point to edit
   }
 ```
+
+**Draft Suggestion Quality**: The `smart_help` field is NOT a simple tooltip — it is a **comprehensive draft suggestion** that gives the user 80% of the content they need. For example, `business_rationale` should include a 3-paragraph draft covering market opportunity, strategic fit, and revenue potential — adapted from the reference NPA's rationale. This dramatically reduces time-to-completion for manual fields.
 
 **Coverage Calculation**:
 ```python
@@ -775,8 +849,10 @@ if cross_border_flag:
 ```json
 {
   "description": "FX Forward GBP/USD...",
-  "user_responses": {"Q4": "$50M", "Q6": "A-", "Q7": "SG/HK"},
-  "extracted_params": {"notional": 50000000, "rating": "A-", "cross_border": true}
+  "user_responses": {"Q4": "$50M", "Q6": "A-", "Q7": "SG/HK", "Q10": "TSG1917"},
+  "extracted_params": {"notional": 50000000, "rating": "A-", "cross_border": true},
+  "reference_npa_id": "TSG1917",
+  "reference_npa_confirmed": true
 }
 ```
 
@@ -1029,8 +1105,15 @@ SCHEDULE = {
   "user_data": {"notional": 50000000, "tenor": "3M", "rating": "A-", "cross_border": true},
   "classification": "Existing",
   "track": "NPA Lite",
-  "reference_npa_id": "TSG2339"
+  "reference_npa_id": "TSG2339",
+  "reference_npa_source": "user_confirmed (from Ideation Q10) | similarity_search | none"
 }
+```
+
+**Reference NPA Priority**:
+1. `reference_npa_id` from user (Ideation Q10) — highest priority, user explicitly selected this reference
+2. `best_match_npa` from Classification Agent similarity search — secondary if no user reference
+3. No reference (NTG) — generate from KB context and product category templates
 ```
 
 ### Output
