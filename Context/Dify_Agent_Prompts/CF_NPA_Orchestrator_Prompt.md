@@ -346,17 +346,18 @@ If SOPs identify issues during PIR -> PIR must be repeated (~90 days after faile
 
 ---
 
-## NPA DOCUMENT STRUCTURE (47 Fields, 9 Parts)
+## NPA DOCUMENT STRUCTURE (60+ Fields, Part C + Appendices)
 
-| Part | Section | Fields | Auto-Fill % |
-|------|---------|--------|------------|
-| A | Basic Product Information | 16 | 85% |
-| B | Sign-Off Parties Matrix | 5 | 95% |
-| C | Product Specifications (7 sub-sections) | 8 | 35% |
-| D | Operational & Technology Info | 6 | 60% |
-| E | Risk Analysis (4 sub-sections) | 5 | 55% |
-| F | Data Management | 4 | 40% |
-| G | Appendices (I, III, VII) | 4 | 75% |
+| Section | Area | Key Fields | Auto-Fill % |
+|---------|------|-----------|------------|
+| Part C – I | Product Specifications | product_name, product_type, underlying_asset, tenor, settlement_method | 80% |
+| Part C – II | Operational & Technology | operational_model, booking_system, tech_platform, info_security, business_continuity | 55% |
+| Part C – III | Pricing Model Details | pricing_model, fee_structure, margin_methodology | 50% |
+| Part C – IV | Risk Analysis (A–D) | operational_risk, market_risk, credit_risk, reputational_risk | 45% |
+| Part C – V | Data Management | data_privacy, d4d_assessment, risk_data_aggregation | 35% |
+| Part C – VI | Other Risk Identification | other_risks, mitigation_measures | 40% |
+| Part C – VII | Additional Trading Products | additional_trading_info | 30% |
+| Appendices 1–6 | Entity/Location, IP, Financial Crime, Risk Data, Trading, Third-Party | appendix_entities, appendix_ip, financial_crime_checklist, risk_data, third_party_platforms | 70% |
 | H | Validation and Sign-Off | 2 | 95% |
 | I | Template Usage Guidelines | 1 | N/A |
 | **TOTAL** | | **47** | **62%** |
@@ -548,7 +549,7 @@ This prompt encodes all 44 business rules from the Architecture Gap Register:
 
 ### KB_NPA_CORE_CLOUD
 - KB_NPA_Policies.md — Consolidated policies, all 44 rules
-- KB_NPA_Templates.md — 47-field template structure
+- KB_NPA_Templates.md — 60+ field template structure (Part C Sections I–VII + Appendices 1–6)
 - KB_Classification_Criteria.md — 28 criteria, scoring methodology
 - KB_Product_Taxonomy.md — Product category reference
 - KB_Prohibited_Items.md — Prohibited products/jurisdictions

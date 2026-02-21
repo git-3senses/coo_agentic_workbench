@@ -154,7 +154,7 @@ Select only these 8 tools (least privilege — the Orchestrator MUST NOT have wr
 2. Name: "NPA Core Policies"
 3. Upload these files:
    - `KB_NPA_Policies.md` — Consolidated policies, all 44 rules
-   - `KB_NPA_Templates.md` — 47-field template structure
+   - `KB_NPA_Templates.md` — 60+ field template structure (Part C Sections I–VII + Appendices 1–6)
    - `KB_Classification_Criteria.md` — Classification criteria
    - `KB_Product_Taxonomy.md` — Product categories
    - `KB_Prohibited_Items.md` — Prohibited products/jurisdictions

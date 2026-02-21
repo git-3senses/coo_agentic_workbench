@@ -69,7 +69,7 @@ Angular UI --> Express API --> Dify Cloud (api.dify.ai)
 | 4 | **CF_NPA_Query_Assistant** | Chatflow | POST /v1/chat-messages | Read-only Q&A across all NPA data and KB |
 | 5 | **WF_NPA_Classify_Predict** | Workflow | POST /v1/workflows/run | Classification + ML prediction |
 | 6 | **WF_NPA_Risk** | Workflow | POST /v1/workflows/run | 4-layer risk assessment |
-| 7 | **WF_NPA_Autofill** | Workflow | POST /v1/workflows/run | Template auto-fill (47 fields) |
+| 7 | **WF_NPA_Autofill** | Workflow | POST /v1/workflows/run | Template auto-fill (60+ fields, Part C + Appendices) |
 | 8 | **WF_NPA_Governance** | Workflow | POST /v1/workflows/run | Sign-off orchestration, SLA, loop-backs, escalations |
 | 9 | **WF_NPA_Doc_Lifecycle** | Workflow | POST /v1/workflows/run | Document completeness, validation, expiry enforcement |
 | 10 | **WF_NPA_Monitoring** | Workflow | POST /v1/workflows/run | Post-launch monitoring, PIR, dormancy, breach detection |
@@ -364,7 +364,7 @@ NPA sits at the intersection of all COO functions:
 
 ### KB_NPA_CORE_CLOUD
 - KB_NPA_Policies.md — Consolidated policies, all 44 rules
-- KB_NPA_Templates.md — 47-field template structure
+- KB_NPA_Templates.md — 60+ field template structure (Part C Sections I–VII + Appendices 1–6)
 - KB_Classification_Criteria.md — 28 criteria, scoring methodology
 - KB_Product_Taxonomy.md — Product category reference
 - KB_Prohibited_Items.md — Prohibited products/jurisdictions

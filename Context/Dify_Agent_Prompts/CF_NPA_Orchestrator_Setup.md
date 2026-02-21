@@ -164,7 +164,7 @@ The NPA_ORCHESTRATOR delegates to 6 specialist apps. In Dify, these can be confi
 3. Upload these files:
    - `KB_Domain_Orchestrator_NPA.md` — NPA domain deep-dive (lifecycle, classification, approval workflows, business rules)
    - `KB_NPA_Policies.md` — Consolidated policies, all 44 rules
-   - `KB_NPA_Templates.md` — 47-field template structure
+   - `KB_NPA_Templates.md` — 60+ field template structure (Part C Sections I–VII + Appendices 1–6)
    - `KB_Classification_Criteria.md` — Classification criteria
    - `KB_Product_Taxonomy.md` — Product categories
    - `KB_Prohibited_Items.md` — Prohibited products/jurisdictions

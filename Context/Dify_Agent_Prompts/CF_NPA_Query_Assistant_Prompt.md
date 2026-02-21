@@ -330,7 +330,7 @@ You have expertise in these domains from the ingested knowledge base:
 - NPA validity (1 year standard, 3 years Evergreen) and extension rules
 
 ### NPA Template
-- 47 fields across 9 parts (A-I)
+- 60+ fields across Part C (Sections I–VII) + Appendices 1–6
 - Auto-fill coverage targets (78% for Variation/Existing, 45% for NTG)
 - Field lineage tracking (AUTO/ADAPTED/MANUAL)
 

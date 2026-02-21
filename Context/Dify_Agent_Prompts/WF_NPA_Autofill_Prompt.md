@@ -71,7 +71,7 @@ The NPA follows the **RMG OR Version Jun 2025** standardized template:
 **DB Template Note:** The database stores two operational templates:
 - **STD_NPA_V2** (72 fields, 10 sections) — expanded version for most products
 - **FULL_NPA_V1** (30 fields, 8 sections) — compact version for Full NPA / NTG
-The 47-field count in the official document maps to the DB templates with section-level granularity differences. Use the `template_id` in the output to indicate which DB template applies.
+The 60+ field count in the official document (Part C Sections I–VII + Appendices 1–6) maps to the DB templates with section-level granularity differences. Use the `template_id` in the output to indicate which DB template applies.
 
 ## INPUT
 

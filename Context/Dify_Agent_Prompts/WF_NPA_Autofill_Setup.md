@@ -60,7 +60,7 @@ Input variables (define in Workflow input schema):
 
 ### Node 2: Knowledge Retrieval (Recommended)
 - **Dataset**: "NPA AutoFill Templates" (upload the KB docs — see Step 4)
-  - `KB_Template_Autofill_Agent.md` (primary — 47-field categorization, adaptation techniques, QA rules)
+  - `KB_Template_Autofill_Agent.md` (primary — 60+ field categorization, adaptation techniques, QA rules)
   - `KB_NPA_Templates.md` (supporting — full template structure reference)
   - `KB_NPA_Policies.md` (supporting — policy rules, thresholds, cross-border)
 - **Query**: `{{product_description}}`
@@ -128,7 +128,7 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
 1. Go to Dify Cloud > Knowledge > Create Knowledge
 2. Name: "NPA AutoFill Templates"
 3. Upload these files:
-   - `KB_Template_Autofill_Agent.md` — 47-field categorization, 5 adaptation techniques, QA checks, edge cases
+   - `KB_Template_Autofill_Agent.md` — 60+ field categorization, 5 adaptation techniques, QA checks, edge cases
    - `KB_NPA_Templates.md` — Full template structure reference with Part A/B/C and all sections
 4. **Chunking settings**:
    - Chunk size: **800 tokens** (AutoFill KB has detailed field-level content; smaller chunks improve precision)

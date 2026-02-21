@@ -14,7 +14,7 @@ The Ideation Agent is a **Tier 3 conversational Agent App** — it conducts a mu
 
 1. Go to Dify Cloud > Studio > Create App > **Agent**
 2. Name: `CF_NPA_Ideation`
-3. Description: "Conversational NPA Product Ideation Agent — replaces 47-field manual form with intelligent interview. Guides users through discovery (Q1-Q9), runs pre-screen checks, searches for similar historical NPAs, detects classification signals, and creates draft NPA projects."
+3. Description: "Conversational NPA Product Ideation Agent — replaces 60+ field manual form with intelligent interview. Guides users through discovery (Q1-Q9), runs pre-screen checks, searches for similar historical NPAs, detects classification signals, and creates draft NPA projects."
 4. Agent Mode: **Function Call** (recommended for structured tool use)
 
 **IMPORTANT — Dify App types:**
