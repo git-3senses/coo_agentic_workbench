@@ -569,7 +569,7 @@ Result: ❌ NPA Lite NOT available
 Reason: Cross-border + Physical delivery = Full NPA required
 
 This means:
-- Full template (47 fields vs 28 fields for NPA Lite)
+- Full template (60+ fields vs 28 fields for NPA Lite)
 - Full approval chain (6-8 days vs 3-4 days for NPA Lite)
 
 But don't worry - I'll help you fill the template efficiently using auto-fill.
@@ -606,7 +606,7 @@ I'm going to auto-fill your NPA template using:
 
 Filling template...
 
-✅ Auto-filled 34 out of 47 fields (72% coverage)
+✅ Auto-filled 47 out of 60 fields (78% coverage)
 
 Fields you still need to fill manually (13 fields):
 - Field 12: Mark-to-Market Limit (requires trader input)
@@ -663,7 +663,7 @@ Let me run final checks before submission...
 
 Running validation checks:
 
-✅ All 47 fields filled
+✅ All 60 fields filled
 ✅ No prohibited jurisdictions detected
 ✅ Credit rating confirmed (A- is investment grade, no credit approval needed)
 ✅ Notional within approval limits ($35M < $50M Group Risk threshold)
@@ -722,7 +722,7 @@ Agent:
 Your NPA is now ready for submission!
 
 Final Summary:
-- Template: 100% complete (47/47 fields)
+- Template: 100% complete (60/60 fields)
 - Validation: All checks passed (1 warning about Q4 timing)
 - Pre-engagement: Legal team notified
 - Predicted timeline: 7-9 days

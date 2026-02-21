@@ -17,7 +17,7 @@ INSERT IGNORE INTO ref_npa_sections (id, template_id, title, description, order_
 ('SEC_DOCS',  'STD_NPA_V2', 'Supporting Documents', 'Attached files and evidence', 10);
 
 -- ==========================================
--- Add all 47 fields to ref_npa_fields
+-- Add all 60+ fields to ref_npa_fields
 -- ==========================================
 
 -- Section 1: Product & Business Case (10 fields)

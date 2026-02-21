@@ -702,7 +702,7 @@ When `WF_NPA_Risk` returns `hardStop: true`:
 
 | Document | Source | Auto-Fill % | Critical Path |
 |----------|--------|-----------|--------------|
-| NPA Submission Form (47-field template) | Business | 62% | Yes |
+| NPA Submission Form (60+ field template, Part C + Appendices) | Business | 62% | Yes |
 | Product Specification Document | Business | 35% | Yes |
 | Business Case | Business | 20% | Yes |
 | Risk Assessment Matrix | Business/Risk | 55% | Yes |
@@ -813,7 +813,7 @@ System Documentation --> Operational Procedures --> Implementation Planning
 
 ---
 
-## 7. NPA Template Deep-Dive (47 Fields, 9 Parts)
+## 7. NPA Template Deep-Dive (60+ Fields, Part C Sections I–VII + Appendices 1–6)
 
 ### 7.1 Template Structure
 
@@ -945,7 +945,7 @@ Body: { "inputs": {}, "query": "<user_message>", "conversation_id": "<ideation_c
 
 ### 8.6 WF_NPA_Autofill (Workflow — Step 5)
 
-**Role**: Auto-populate 47-field template with lineage tracking.
+**Role**: Auto-populate 60+ field template (Part C + Appendices) with lineage tracking.
 
 **Tools (7):** `autofill_get_template_fields`, `autofill_populate_field`, `autofill_populate_batch`, `autofill_get_form_data`, `autofill_get_field_options`, `get_npa_by_id`, `audit_log_action`
 
@@ -1240,7 +1240,7 @@ Existing products have the most complex routing logic:
 |-------|---------|---------|
 | `ref_npa_templates` | Ideation, Autofill | Template definitions (id, name, version, is_active) |
 | `ref_npa_sections` | Autofill | Template sections (template_id, title, description, order_index) |
-| `ref_npa_fields` | Autofill | 47 field definitions (section_id, field_key, label, field_type, is_required) |
+| `ref_npa_fields` | Autofill | 60+ field definitions (section_id, field_key, label, field_type, is_required, tooltip) |
 | `ref_field_options` | Autofill | Dropdown options for select fields (field_id, value, label) |
 | `ref_classification_criteria` | Classification | 28 classification criteria with scoring rubrics (category, criterion_code, indicator_type, weight) |
 | `ref_signoff_routing_rules` | Governance | Sign-off party routing by approval_track (party_group, sla_hours, can_parallel) |

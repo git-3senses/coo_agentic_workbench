@@ -155,7 +155,7 @@ Effort Required: 2 minutes
 ### Model Choice: XGBoost (Extreme Gradient Boosting)
 
 **Why XGBoost vs Neural Networks?**
-- **Better for tabular data**: NPAs are structured (47 fields, categorical + numerical)
+- **Better for tabular data**: NPAs are structured (60+ fields across Part C + Appendices, categorical + numerical)
 - **Less training data needed**: 1,784 NPAs sufficient (neural networks need millions)
 - **More interpretable**: Can explain feature importance via SHAP values
 - **Faster**: <1 second prediction vs minutes for deep learning

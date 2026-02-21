@@ -133,9 +133,9 @@ if (today - best_match.approval_date).days > 730:
 
 ### Step 2: Categorize Fields (3 Buckets)
 
-**Complete 47-Field Categorization**:
+**Field Categorization** (60+ field_keys across Part C Sections I–VII + Appendices 1–6; see `KB_NPA_Template_Fields_Reference.md` for authoritative mapping):
 
-#### **Bucket 1: Direct Copy (28 fields = 60%)**
+#### **Bucket 1: Direct Copy (~36 fields = 60%)**
 
 Product-specific fields (not deal-specific), copied verbatim:
 
@@ -184,7 +184,7 @@ for field_id in BUCKET_1_FIELDS:
 
 ---
 
-#### **Bucket 2: Intelligent Adaptation (9 fields = 19%)**
+#### **Bucket 2: Intelligent Adaptation (~12 fields = 20%)**
 
 Fields needing customization based on new product specifics:
 
@@ -205,7 +205,7 @@ Fields needing customization based on new product specifics:
 
 ---
 
-#### **Bucket 3: Manual Input Required (10 fields = 21%)**
+#### **Bucket 3: Manual Input Required (~12 fields = 20%)**
 
 Deal-specific fields that cannot be auto-filled:
 

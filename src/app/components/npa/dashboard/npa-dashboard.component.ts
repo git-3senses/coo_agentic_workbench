@@ -389,7 +389,7 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
                           </div>
                           <div>
                              <h4 class="text-sm font-bold text-slate-900 group-hover:text-cyan-600">Templates Library</h4>
-                             <p class="text-xs text-slate-500">15 Forms • Auto-fill ready (47 fields)</p>
+                             <p class="text-xs text-slate-500">15 Forms • Auto-fill ready (60+ fields)</p>
                           </div>
                        </div>
                        <div class="flex items-center gap-3">

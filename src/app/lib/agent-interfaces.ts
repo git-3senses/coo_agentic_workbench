@@ -25,7 +25,7 @@ export const AGENT_REGISTRY: AgentDefinition[] = [
     // Tier 3 — Specialist Workers
     { id: 'IDEATION', name: 'Ideation Agent', tier: 3, icon: 'lightbulb', color: 'bg-indigo-50 text-indigo-600', difyType: 'chat', description: 'Product concept development and NPA creation' },
     { id: 'CLASSIFIER', name: 'Classification Agent', tier: 3, icon: 'git-branch', color: 'bg-purple-50 text-purple-600', difyType: 'workflow', description: 'NTG/Variation/Existing classification and approval track assignment' },
-    { id: 'AUTOFILL', name: 'Template AutoFill Agent', tier: 3, icon: 'file-edit', color: 'bg-blue-50 text-blue-600', difyType: 'workflow', description: '47-field NPA template auto-fill with RAG' },
+    { id: 'AUTOFILL', name: 'Template AutoFill Agent', tier: 3, icon: 'file-edit', color: 'bg-blue-50 text-blue-600', difyType: 'workflow', description: '60+ field NPA template auto-fill with RAG (Part C + Appendices)' },
     { id: 'ML_PREDICT', name: 'ML Prediction Agent', tier: 3, icon: 'trending-up', color: 'bg-amber-50 text-amber-600', difyType: 'workflow', description: 'Approval likelihood, timeline, and bottleneck prediction' },
     { id: 'RISK', name: 'Risk Agent', tier: 3, icon: 'shield-alert', color: 'bg-red-50 text-red-600', difyType: 'workflow', description: '5-layer risk cascade + 7-domain assessment: Credit, Market, Operational, Liquidity, Legal, Reputational, Cyber' },
     { id: 'GOVERNANCE', name: 'Governance Agent', tier: 3, icon: 'workflow', color: 'bg-slate-50 text-slate-600', difyType: 'workflow', description: 'Sign-off routing, SLA monitoring, loop-back, circuit breaker' },

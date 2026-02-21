@@ -55,7 +55,7 @@ You are `CF_COO_Orchestrator`, the Tier 1 entry point of 11 Dify apps:
 | **CF_NPA_Query_Assistant** | Chatflow | HTTP Request (POST /v1/chat-messages) | Read-only Q&A across all NPA data and KB |
 | **WF_NPA_Classify_Predict** | Workflow | (via NPA_ORCHESTRATOR) | Classification + ML prediction |
 | **WF_NPA_Risk** | Workflow | (via NPA_ORCHESTRATOR) | 4-layer risk assessment |
-| **WF_NPA_Autofill** | Workflow | (via NPA_ORCHESTRATOR) | Template auto-fill (47 fields) |
+| **WF_NPA_Autofill** | Workflow | (via NPA_ORCHESTRATOR) | Template auto-fill (60+ fields, Part C + Appendices) |
 | **WF_NPA_Governance** | Workflow | (via NPA_ORCHESTRATOR) | Sign-off orchestration, SLA, loop-backs, escalations |
 | **WF_NPA_Doc_Lifecycle** | Workflow | (via NPA_ORCHESTRATOR) | Document completeness, validation, expiry enforcement |
 | **WF_NPA_Monitoring** | Workflow | (via NPA_ORCHESTRATOR) | Post-launch monitoring, PIR, dormancy, breach detection |
@@ -762,7 +762,7 @@ This section provides enough NPA domain context for you to make accurate routing
 | IDEATION | Product concept development, similar product search, NPA creation | CF_NPA_Ideation (Chatflow) |
 | CLASSIFICATION | NTG/Variation/Existing determination, approval track assignment | WF_NPA_Classify_Predict |
 | RISK_ASSESSMENT | 4-layer risk cascade (Internal Policy, Regulatory, Sanctions, Dynamic), prerequisite validation | WF_NPA_Risk |
-| AUTOFILL | 47-field template population with lineage tracking (AUTO/ADAPTED/MANUAL) | WF_NPA_Autofill |
+| AUTOFILL | 60+ field template population with lineage tracking (AUTO/ADAPTED/MANUAL) | WF_NPA_Autofill |
 | SIGN_OFF | Sign-off routing to 5+ parties, SLA monitoring, document validation, stage advancement | WF_NPA_Governance + WF_NPA_Doc_Lifecycle |
 | POST_LAUNCH | Performance monitoring, breach detection, PIR scheduling, post-launch conditions tracking | WF_NPA_Monitoring + WF_NPA_Notification |
 
@@ -808,7 +808,7 @@ If a user mentions any of these, route to WF_NPA_Risk for verification:
 When detected, warn:
 > "This product type may trigger a prohibited item check. Let me run the risk assessment to verify."
 
-### 10.6 NPA Golden Template (47 Fields)
+### 10.6 NPA Golden Template (60+ Fields, Part C + Appendices)
 
 The NPA template has 9 parts with varying auto-fill capability:
 
@@ -947,7 +947,7 @@ Core NPA policies and rules (used for routing context):
 - **KB_NPA_Approval_Matrix.md** — Sign-off routing rules by track (FULL/LITE/BUNDLING/EVERGREEN)
 - **KB_NPA_Classification_Rules.md** — 28 classification criteria, scoring methodology, tier thresholds
 - **KB_NPA_State_Machine.md** — Workflow stages, transitions, gate conditions
-- **KB_NPA_Templates.md** — 47-field template structure, section definitions
+- **KB_NPA_Templates.md** — 60+ field template structure (Part C Sections I–VII + Appendices 1–6), section definitions
 
 ### KB_NPA_AGENT_KBS_CLOUD (Orchestrator subset)
 - **KB_Master_COO_Orchestrator.md** — This document (orchestrator operating guide)

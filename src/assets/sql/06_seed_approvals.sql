@@ -130,7 +130,7 @@ INSERT INTO npa_comments (project_id, comment_type, comment_text, author_name, a
 -- NPA #2 comments
 INSERT INTO npa_comments (project_id, comment_type, comment_text, author_name, author_role, generated_by_ai, ai_agent, ai_confidence, created_at) VALUES
 ('NPA-2026-002', 'SYSTEM_ALERT',     'NPA classified as Variation by Classification Router Agent. Confidence: 92%. Approval Track: NPA Lite.', 'Classification Router', 'Agent', TRUE, 'Classification Router', 92.00, '2025-12-01 10:35:00'),
-('NPA-2026-002', 'SYSTEM_ALERT',     'Template Auto-Fill completed: 37/47 fields populated (78%). Source: TSG1917 (94% similarity).', 'Template Auto-Fill Engine', 'Agent', TRUE, 'Template Auto-Fill', 94.00, '2025-12-01 10:40:00'),
+('NPA-2026-002', 'SYSTEM_ALERT',     'Template Auto-Fill completed: 47/60 fields populated (78%). Source: TSG1917 (94% similarity).', 'Template Auto-Fill Engine', 'Agent', TRUE, 'Template Auto-Fill', 94.00, '2025-12-01 10:40:00'),
 ('NPA-2026-002', 'SYSTEM_ALERT',     'ML Prediction: 78% approval likelihood. Predicted timeline: 4.2 days. Bottleneck: Finance.', 'ML Prediction Agent', 'Agent', TRUE, 'ML Prediction', 78.00, '2025-12-01 10:42:00'),
 ('NPA-2026-002', 'CHECKER_NOTE',     'All auto-filled fields verified. Manual fields completed by maker. Ready for sign-off routing.', 'David Chen', 'Checker', FALSE, NULL, NULL, '2025-12-05 14:00:00');
 
