@@ -8,7 +8,7 @@ import { NpaSection, NpaField, FieldLineage } from '../../../lib/npa-interfaces'
 import { NpaService, NpaListItem } from '../../../services/npa.service';
 import { AgentGovernanceService, ReadinessResult } from '../../../services/agent-governance.service';
 import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFieldKeys, getNavSections } from '../../../lib/npa-template-definition';
-import { WorkflowStreamEvent } from '../../../lib/agent-interfaces';
+import { WorkflowStreamEvent, AutoFillField } from '../../../lib/agent-interfaces';
 
 @Component({
    selector: 'app-npa-template-editor',
@@ -198,8 +198,51 @@ import { WorkflowStreamEvent } from '../../../lib/agent-interfaces';
                   </div>
                 </div>
 
-                <!-- Streaming Text Output -->
-                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <!-- Live Field Cards (primary display when fields are streaming) -->
+                <div *ngIf="liveFields.length > 0" class="space-y-3 mb-4">
+                  <div class="flex items-center justify-between">
+                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                      <lucide-icon name="layers" class="w-3.5 h-3.5"></lucide-icon>
+                      Fields Populated
+                      <span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                        {{ liveFields.length }}
+                      </span>
+                    </h4>
+                    <span *ngIf="liveWorkflowStatus === 'running'"
+                          class="flex items-center gap-1 text-[10px] text-blue-500 font-medium">
+                      <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                      Streaming
+                    </span>
+                  </div>
+                  <div *ngFor="let lf of liveFields; let i = index"
+                       class="bg-white rounded-lg border border-slate-200 p-4 transition-all duration-300">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span class="text-[13px] font-semibold text-slate-800">{{ lf.label || lf.fieldName }}</span>
+                      <span class="w-2 h-2 rounded-full flex-none"
+                            [class.bg-emerald-400]="lf.lineage === 'AUTO'"
+                            [class.bg-amber-400]="lf.lineage === 'ADAPTED'"
+                            [class.bg-blue-400]="lf.lineage === 'MANUAL'"></span>
+                      <span class="text-[10px] font-mono px-1 py-0.5 rounded"
+                            [class.bg-emerald-50]="lf.lineage === 'AUTO'" [class.text-emerald-700]="lf.lineage === 'AUTO'"
+                            [class.bg-amber-50]="lf.lineage === 'ADAPTED'" [class.text-amber-700]="lf.lineage === 'ADAPTED'"
+                            [class.bg-blue-50]="lf.lineage === 'MANUAL'" [class.text-blue-700]="lf.lineage === 'MANUAL'">
+                        {{ lf.lineage }}
+                      </span>
+                      <span *ngIf="lf.confidence" class="text-[10px] text-slate-400 font-mono ml-auto">
+                        {{ (lf.confidence * 100).toFixed(0) }}%
+                      </span>
+                    </div>
+                    <div class="text-[13px] text-slate-700 leading-relaxed doc-content"
+                         [innerHTML]="formatDocContent(lf.value)">
+                    </div>
+                    <div *ngIf="lf.source" class="mt-2 text-[10px] text-slate-400 italic">
+                      Source: {{ lf.source }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Raw text fallback (shown when no fields parsed yet, or agent output before filled_fields) -->
+                <div *ngIf="liveFields.length === 0 && liveStreamText" class="bg-white rounded-xl border border-slate-200 overflow-hidden">
                   <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                     <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                       <lucide-icon name="file-text" class="w-3.5 h-3.5"></lucide-icon> Agent Output
@@ -210,8 +253,8 @@ import { WorkflowStreamEvent } from '../../../lib/agent-interfaces';
                       Streaming
                     </span>
                   </div>
-                  <div class="p-6 font-mono text-xs text-slate-700 leading-relaxed whitespace-pre-wrap max-h-[60vh] overflow-y-auto"
-                       [innerHTML]="formatLiveText(liveStreamText)">
+                  <div class="p-6 text-xs text-slate-700 leading-relaxed whitespace-pre-wrap max-h-[60vh] overflow-y-auto doc-content"
+                       [innerHTML]="formatDocContent(liveStreamText)">
                   </div>
                 </div>
 
@@ -1092,6 +1135,11 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
    @Output() onSave = new EventEmitter<any>();
    @Input() autofillStream: Subject<WorkflowStreamEvent> | null = null;
    @Input() initialViewMode: 'live' | 'document' | 'form' = 'document';
+   @Input() set autofillParsedFields(fields: AutoFillField[] | null) {
+      if (fields && fields.length > 0) {
+         this.applyAutofillFields(fields);
+      }
+   }
 
    private http = inject(HttpClient);
    private governanceService = inject(AgentGovernanceService);
@@ -1119,6 +1167,10 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
    private liveTimerInterval: any = null;
    private liveStartTime = 0;
    Math = Math; // Expose Math to template
+
+   // Live rich-text field cards — incrementally parsed from streaming JSON
+   liveFields: { fieldName: string; label: string; value: string; lineage: string; confidence?: number; source?: string }[] = [];
+   private liveFieldsParsedIndex = 0; // tracks how far we've scanned in liveStreamText
 
    sections: NpaSection[] = [];
 
@@ -1205,6 +1257,8 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
       this.liveStreamText = '';
       this.liveNodes = [];
       this.liveError = null;
+      this.liveFields = [];
+      this.liveFieldsParsedIndex = 0;
 
       // Elapsed-time timer
       this.liveTimerInterval = setInterval(() => {
@@ -1235,6 +1289,7 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
                }
                case 'text_chunk':
                   this.liveStreamText += event.text;
+                  this.tryParseLiveFields();
                   break;
                case 'workflow_finished':
                   this.liveWorkflowStatus = event.status === 'succeeded' ? 'succeeded' : 'failed';
@@ -1267,7 +1322,84 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
       }
    }
 
-   /** Escape HTML for Live view text rendering */
+   /**
+    * Incrementally parse filled_fields from the streaming JSON text.
+    * Scans from liveFieldsParsedIndex to find complete field objects.
+    * Each field object looks like: { "field_key": "...", "value": "...", "lineage": "AUTO", ... }
+    */
+   private tryParseLiveFields(): void {
+      const text = this.liveStreamText;
+      if (text.length < 20) return; // too short to contain a field
+
+      // Scan from where we left off to avoid re-parsing
+      const searchText = text.substring(this.liveFieldsParsedIndex);
+
+      // Match individual field objects that contain "field_key"
+      // Uses a non-greedy pattern to find complete JSON objects
+      const fieldPattern = /\{\s*"field_key"\s*:\s*"[^"]*"[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+      let match: RegExpExecArray | null;
+      let lastMatchEnd = 0;
+
+      while ((match = fieldPattern.exec(searchText)) !== null) {
+         try {
+            const fieldObj = JSON.parse(match[0]);
+            // Check if this field_key was already parsed
+            const fieldKey = fieldObj.field_key || '';
+            if (fieldKey && !this.liveFields.some(f => f.fieldName === fieldKey)) {
+               // Look up a friendly label from fieldMap if available
+               const existing = this.fieldMap.get(fieldKey);
+               this.liveFields.push({
+                  fieldName: fieldKey,
+                  label: existing?.label || fieldObj.label || this.fieldKeyToLabel(fieldKey),
+                  value: fieldObj.value || '',
+                  lineage: fieldObj.lineage || 'AUTO',
+                  confidence: fieldObj.confidence ? fieldObj.confidence / 100 : undefined,
+                  source: fieldObj.source || fieldObj.document_section
+               });
+            }
+            lastMatchEnd = match.index + match[0].length;
+         } catch (_) {
+            // Partial JSON — skip this match, try next
+         }
+      }
+
+      if (lastMatchEnd > 0) {
+         this.liveFieldsParsedIndex += lastMatchEnd;
+      }
+   }
+
+   /** Convert a field_key like 'product_name' to 'Product Name' */
+   private fieldKeyToLabel(key: string): string {
+      return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+   }
+
+   /**
+    * Apply parsed autofill fields to the in-memory sections/fieldMap.
+    * Mutates existing NpaField objects so Doc/Form views immediately reflect changes.
+    */
+   private applyAutofillFields(fields: AutoFillField[]): void {
+      let applied = 0;
+      for (const f of fields) {
+         const key = f.fieldName || '';
+         const existing = this.fieldMap.get(key);
+         if (existing) {
+            existing.value = f.value || '';
+            existing.lineage = (f.lineage || 'AUTO') as FieldLineage;
+            existing.lineageMetadata = {
+               confidenceScore: f.confidence ? f.confidence * 100 : undefined,
+               sourceSnippet: f.source,
+               sourceDocId: f.documentSection
+            };
+            applied++;
+         }
+      }
+      if (applied > 0) {
+         this.completionCache.clear();
+         console.log(`[TemplateEditor] Applied ${applied}/${fields.length} autofill fields to fieldMap`);
+      }
+   }
+
+   /** Escape HTML for Live view text rendering (fallback) */
    formatLiveText(text: string): string {
       if (!text) return '<span class="text-slate-300 italic">Waiting for output...</span>';
       return text

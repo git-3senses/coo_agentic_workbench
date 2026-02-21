@@ -13,7 +13,7 @@ import { MonitoringAlertsComponent } from '../../../components/npa/agent-results
 import { DocCompletenessComponent } from '../../../components/npa/agent-results/doc-completeness.component';
 import { DifyService } from '../../../services/dify/dify.service';
 import { OrchestratorChatComponent } from '../../../components/npa/ideation-chat/ideation-chat.component';
-import { RiskAssessment, RiskDomainAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, AutoFillSummary, WorkflowStreamEvent } from '../../../lib/agent-interfaces';
+import { RiskAssessment, RiskDomainAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, AutoFillSummary, AutoFillField, WorkflowStreamEvent } from '../../../lib/agent-interfaces';
 import { RiskCheckService } from '../../../services/risk-check.service';
 import { AutofillSummaryComponent } from '../../../components/npa/agent-results/autofill-summary.component';
 import { GovernanceStatusComponent } from '../../../components/npa/agent-results/governance-status.component';
@@ -34,7 +34,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
       AutofillSummaryComponent, GovernanceStatusComponent, ClassificationResultComponent
    ],
    template: `
-    <app-npa-template-editor *ngIf="showTemplateEditor" (close)="showTemplateEditor = false" (onSave)="onSave.emit($event)" [inputData]="npaContext" [autofillStream]="autofillStream$" [initialViewMode]="editorInitialViewMode"></app-npa-template-editor>
+    <app-npa-template-editor *ngIf="showTemplateEditor" (close)="onEditorClosed()" (onSave)="onSave.emit($event)" [inputData]="npaContext" [autofillStream]="autofillStream$" [initialViewMode]="editorInitialViewMode" [autofillParsedFields]="autofillParsedFields"></app-npa-template-editor>
     
     <!-- FULL SCREEN OVERLAY -->
     <div class="fixed inset-0 z-[100] flex flex-col h-screen w-screen bg-slate-50 overscroll-none font-sans">
@@ -292,11 +292,11 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
                          <lucide-icon name="file-edit" class="w-4 h-4 text-blue-500"></lucide-icon>
                          Template AutoFill Agent
                       </h4>
-                      <div (click)="showTemplateEditor = true" class="cursor-pointer hover:ring-2 hover:ring-blue-200 rounded-xl transition-all">
+                      <div (click)="openEditor()" class="cursor-pointer hover:ring-2 hover:ring-blue-200 rounded-xl transition-all">
                          <app-autofill-summary [result]="autoFillSummary"></app-autofill-summary>
                       </div>
                       <!-- Open NPA Draft CTA -->
-                      <button (click)="showTemplateEditor = true"
+                      <button (click)="openEditor()"
                               class="mt-4 w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-sm hover:shadow-md hover:from-blue-700 hover:to-indigo-700 transition-all text-sm font-semibold">
                          <lucide-icon name="file-text" class="w-4 h-4"></lucide-icon>
                          View Full NPA Draft
@@ -306,7 +306,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
 
                    <!-- Loading State: AutoFill agent running -->
                    <div *ngIf="!autoFillSummary" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div (click)="showTemplateEditor = true" class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
+                      <div (click)="openEditor()" class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
                          <h3 class="text-sm font-bold text-slate-900 mb-4 group-hover:text-blue-700">NPA Draft</h3>
                          <div *ngIf="agentLoading['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
                             <lucide-icon name="loader-2" class="w-8 h-8 text-blue-400 animate-spin"></lucide-icon>
@@ -959,10 +959,22 @@ export class NpaDetailComponent implements OnInit {
       // Pre-populate autoFillSummary from form data field coverage
       if (data.formData && data.formData.length > 0 && !this.autoFillSummary) {
          const total = data.formData.length;
-         const filled = data.formData.filter((f: any) => f.field_value && f.field_value.trim() !== '').length;
+         const filledRows = data.formData.filter((f: any) => f.field_value && f.field_value.trim() !== '');
+         const filled = filledRows.length;
          const auto = data.formData.filter((f: any) => f.lineage === 'AUTO' || f.lineage === 'auto').length;
          const adapted = data.formData.filter((f: any) => f.lineage === 'ADAPTED' || f.lineage === 'adapted').length;
          const manual = filled - auto - adapted;
+
+         // Build fields array from persisted form data so template editor can hydrate via @Input
+         const restoredFields: AutoFillField[] = filledRows.map((f: any) => ({
+            fieldName: f.field_key || '',
+            value: f.field_value || '',
+            lineage: (f.lineage || 'AUTO') as 'AUTO' | 'ADAPTED' | 'MANUAL',
+            source: f.metadata?.sourceSnippet,
+            confidence: f.confidence_score ? f.confidence_score / 100 : undefined,
+            documentSection: f.metadata?.sourceDocId
+         }));
+
          this.autoFillSummary = {
             fieldsFilled: auto,
             fieldsAdapted: adapted,
@@ -970,7 +982,7 @@ export class NpaDetailComponent implements OnInit {
             totalFields: total,
             coveragePct: Math.round((filled / Math.max(total, 1)) * 100),
             timeSavedMinutes: Math.round(auto * 1.2),
-            fields: [],
+            fields: restoredFields,
             templateId: '',
             sourceNpa: '',
             sourceSimilarity: 0,
@@ -980,6 +992,12 @@ export class NpaDetailComponent implements OnInit {
             pirRequired: false,
             validityMonths: 12
          } as AutoFillSummary;
+
+         // Set autofillParsedFields so template editor can hydrate fieldMap as backup
+         if (restoredFields.length > 0) {
+            this.autofillParsedFields = restoredFields;
+            console.log('[mapBackendDataToView] Restored', restoredFields.length, 'autofill fields from DB');
+         }
          console.log('[mapBackendDataToView] Pre-populated autoFillSummary from formData: coverage=', this.autoFillSummary.coveragePct, '%');
       }
 
@@ -1102,11 +1120,30 @@ export class NpaDetailComponent implements OnInit {
    }
 
    showTemplateEditor = false;
+   /** When true, the AUTOFILL stream will NOT force-reopen the template editor.
+    *  Set when the user explicitly clicks "Save & Close" or dismisses the editor. */
+   private userDismissedEditor = false;
+
+   /** Called when user explicitly closes the template editor (Save & Close / X button) */
+   onEditorClosed(): void {
+      this.showTemplateEditor = false;
+      this.userDismissedEditor = true;
+      console.log('[NpaDetail] User dismissed editor — autofill stream will not reopen it');
+   }
+
+   /** Called when user explicitly opens the template editor (click on summary / View NPA Draft) */
+   openEditor(): void {
+      this.showTemplateEditor = true;
+      // Don't reset userDismissedEditor here — that's only reset on refreshAgentAnalysis()
+      // This allows the user to manually view/edit without the stream force-reopening later
+   }
 
    /** Observable for the live AUTOFILL stream — passed to template editor via @Input */
    autofillStream$: Subject<WorkflowStreamEvent> | null = null;
    /** Initial viewMode for the template editor */
    editorInitialViewMode: 'live' | 'document' | 'form' = 'document';
+   /** Parsed autofill fields — passed to template editor to populate fieldMap after workflow_finished */
+   autofillParsedFields: AutoFillField[] | null = null;
 
    // ─── Agent Analysis Engine ──────────────────────────────────────
 
@@ -1163,6 +1200,7 @@ export class NpaDetailComponent implements OnInit {
       this._agentsLaunched = false;
       this._loadStartedForId = null; // allow re-load if needed
       NpaDetailComponent._activeAgentRunId = null; // clear static guard for manual refresh
+      this.userDismissedEditor = false; // allow editor to open again on fresh run
       // Clear dedup flags so agents can re-fire
       if (this.projectId) {
          sessionStorage.removeItem(`_npa_agents_running_${this.projectId}`);
@@ -1256,9 +1294,13 @@ export class NpaDetailComponent implements OnInit {
          // Create a Subject to relay stream events to the template editor
          this.autofillStream$ = new Subject<WorkflowStreamEvent>();
 
-         // Open template editor in Live mode
-         this.editorInitialViewMode = 'live';
-         this.showTemplateEditor = true;
+         // Only open template editor in Live mode if user hasn't explicitly dismissed it
+         if (!this.userDismissedEditor) {
+            this.editorInitialViewMode = 'live';
+            this.showTemplateEditor = true;
+         } else {
+            console.log('[fireAgent] AUTOFILL — user dismissed editor, running in background');
+         }
 
          return this.difyService.runWorkflowStreamed('AUTOFILL', agentInputs).pipe(
             tap(event => {
@@ -1382,6 +1424,8 @@ export class NpaDetailComponent implements OnInit {
             break;
          case 'AUTOFILL':
             this.autoFillSummary = this.mapAutoFillSummary(outputs);
+            // Pass parsed fields to template editor for in-memory field population
+            this.autofillParsedFields = this.autoFillSummary?.fields || null;
             this.updateTabBadge('PRODUCT_SPECS', null);
             if (projectId && this.autoFillSummary?.fields?.length) {
                this.persistAgentResult(projectId, 'autofill', {
@@ -1448,11 +1492,25 @@ export class NpaDetailComponent implements OnInit {
       }
    }
 
-   /** Sprint 2 (Obs 1): Fire-and-forget persist of agent results to DB */
+   /**
+    * Sprint 2 (Obs 1): Fire-and-forget persist of agent results to DB.
+    * Uses raw fetch() instead of Angular HttpClient so the request survives
+    * component destruction (Angular cancels HttpClient subscriptions on destroy,
+    * which caused silent persist failures due to the triple-mount issue).
+    */
    private persistAgentResult(projectId: string, agentType: string, payload: any): void {
-      this.http.post(`/api/agents/npas/${projectId}/persist/${agentType}`, payload).subscribe({
-         next: () => console.log(`[persist] ${agentType} result saved`),
-         error: (err) => console.warn(`[persist] ${agentType} save failed:`, err.message || err.statusText)
+      const url = `/api/agents/npas/${projectId}/persist/${agentType}`;
+      fetch(url, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(payload)
+      }).then(res => {
+         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+         return res.json();
+      }).then(data => {
+         console.log(`[persist] ${agentType} result saved:`, data.fields_saved ?? data.status ?? 'ok');
+      }).catch(err => {
+         console.warn(`[persist] ${agentType} save failed:`, err.message);
       });
    }
 
