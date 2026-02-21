@@ -170,12 +170,12 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
 ```
 
 **Expected Results:**
-- Template: STD_NPA_V2 (72 fields)
-- Coverage: ~78% (42 auto, 14 adapted, 16 manual)
+- Coverage: ~78% (~50 auto, ~18 adapted, ~12 manual out of 80+ field_keys)
 - Cross-border flags: 5 mandatory sign-offs added
 - Notional flags: ROAE required (>$20M), Finance VP required (=$50M)
 - Validation warnings: ROAE analysis needed
 - Source NPA: TSG1917 (94% similarity)
+- Rich markdown values with **bold headers**, bullet points, and tables
 
 ### Test Case 2: NTG Product (Expected Coverage: 45%)
 ```json
@@ -205,8 +205,7 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
 ```
 
 **Expected Results:**
-- Template: FULL_NPA_V1 (30 fields)
-- Coverage: ~45% (generic template, no historical match)
+- Coverage: ~45% (generic template, no historical match — 80+ field_keys, ~35 auto-filled)
 - Validation warnings: HARD_STOP (PAC not approved for NTG)
 - Notional flags: ROAE + Finance VP required (>$50M)
 - PIR: Mandatory within 6 months
@@ -240,11 +239,10 @@ DIFY_KEY_AUTOFILL=app-xxxxxxxxxxxxxxxxxx
 ```
 
 **Expected Results:**
-- Template: STD_NPA_V2
-- Coverage: ~85% (near-verbatim copy from existing NPA)
+- Coverage: ~85% (near-verbatim copy from existing NPA — 80+ field_keys, ~68 auto-filled)
 - Evergreen flags: limits OK ($120M/$500M used, 5/20 deals used)
 - Validity: 36 months
-- Appendix VII: Evergreen FAQ generated
+- Evergreen checklist fields populated
 
 ## Step 6: Downstream Integration
 
@@ -281,7 +279,7 @@ CREATE TABLE npa_form_data (
 | LLM returns markdown instead of JSON | System prompt not strict enough | Ensure Rule #1 in prompt: "Output MUST be pure JSON" |
 | Coverage always 0% | No KB context retrieved | Check Knowledge Retrieval query uses `{{product_description}}` |
 | Missing cross-border sign-offs | `is_cross_border` not passed | Ensure START node maps this variable from input |
-| Template always STD_NPA_V2 | `approval_track` not mapped | Check that Classifier output feeds into AutoFill input |
+| Coverage always same regardless of track | `approval_track` not mapped | Check that Classifier output feeds into AutoFill input |
 | Empty `filled_fields` array | LLM ran out of context | Reduce Knowledge Retrieval Top K from 5 to 3 |
 | Confidence scores all 0 | Confidence in 0-1 range instead of 0-100 | Prompt says 0-100; mapAutoFillSummary divides by 100 |
 

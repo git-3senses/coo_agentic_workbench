@@ -135,47 +135,58 @@ if (today - best_match.approval_date).days > 730:
 
 **Field Categorization** (60+ field_keys across Part C Sections I–VII + Appendices 1–6; see `KB_NPA_Template_Fields_Reference.md` for authoritative mapping):
 
-#### **Bucket 1: Direct Copy (~36 fields = 60%)**
+#### **Bucket 1: Direct Copy (~50 field_keys = 60%)**
 
-Product-specific fields (not deal-specific), copied verbatim:
+Product-type-specific fields (not deal-specific), copied verbatim from source NPA:
 
-| ID | Section | Field Name | Justification |
-|----|---------|------------|---------------|
-| F01 | II | Booking System | System is product-specific (FX Forwards → Murex) |
-| F02 | II | Valuation Model | Model is product-specific (FX Options → Black-Scholes) |
-| F03 | II | Settlement Method | Convention is product-specific (FX → T+2 CLS) |
-| F04 | II | Confirmation Process | Process is product-specific (FX → SWIFT MT300) |
-| F05 | III | Pricing Methodology | Approach is product-specific (mid-market + bid-offer) |
-| F06 | III | Market Data Sources | Sources are product-specific (Bloomberg BFIX, Reuters) |
-| F07 | IV.D | Liquidity Risk Framework | Framework is product-specific |
-| F08 | V | Regulatory Requirements | Regulations apply to product types (MAS 656, CFTC Part 20) |
-| F09 | V | Reporting Obligations | Reporting is product-specific (DTCC SDR for derivatives) |
-| F10 | VI | Sign-Off Parties (baseline) | Baseline parties by product type |
-| F11 | VI | Approval Sequence | Standard sequence by product type |
-| F12 | VII | Governing Law | Law is location-specific (Singapore → Singapore law) |
-| F13 | VII | Documentation Type | Standard docs by product (derivatives → ISDA Master) |
-| F14 | II | Risk Measurement Approach | Approach is product-specific (VaR for derivatives) |
-| F15 | II | Collateral Framework | Framework is product-specific (CSA for derivatives) |
-| F16 | V | Capital Treatment | Treatment is product-specific (Basel III for derivatives) |
-| F17 | II | Booking Entity | Entity is location-specific |
-| F18 | III | Fee Structure | Standard fee structure by product type |
-| F19 | II | Operational Workflow | Standard workflow by product type |
-| F20 | V | MAS Notices Applicable | Notices apply to product types |
-| F21 | VII | Netting Agreement Type | Standard by product (derivatives → ISDA) |
-| F22 | II | Trade Capture System | System is product-specific |
-| F23 | III | P&L Attribution Method | Method is product-specific |
-| F24 | IV.D | Liquidity Contingency Plan | Plan is product-specific |
-| F25 | VI | Escalation Path | Standard path by product type |
-| F26 | II | Valuation Frequency | Frequency is product-specific (daily for derivatives) |
-| F27 | V | Transaction Reporting | Reporting regime is product-specific |
-| F28 | VII | Enforceability Opinion | Standard by jurisdiction |
+| field_key | Template Position | Justification |
+|-----------|------------------|---------------|
+| booking_system | PC.II.2.a | System is product-specific (FX → Murex IRD, Credit → Murex CRD) |
+| valuation_model | PC.II.2.b | Model is product-specific (FX Options → Garman-Kohlhagen, IR → SABR/Hull-White) |
+| settlement_method | PC.II.2.c | Convention is product-specific (FX → T+2 CLS, CDS → DTCC) |
+| confirmation_process | PC.II.1.b | Process is product-specific (FX → SWIFT MT300, derivatives → MarkitWire) |
+| reconciliation | PC.II.1.b | Reconciliation frequency/method is product-specific |
+| front_office_model | PC.II.1.a | Murex module and pre-deal check integration |
+| middle_office_model | PC.II.1.a | P&L attribution, IPV via Bloomberg/Markit |
+| back_office_model | PC.II.1.a | Settlement instruction generation, SWIFT/CLS |
+| booking_legal_form | PC.II.1.b | Legal form (OTC bilateral, unit trust, exchange-traded) |
+| booking_family | PC.II.1.b | Product family classification |
+| booking_typology | PC.II.1.b | Booking system typology code (Family|Group|Type) |
+| portfolio_allocation | PC.II.1.b | Portfolio hierarchy assignment |
+| iss_deviations | PC.II.3 | Standard — no ISS deviations for most products |
+| pentest_status | PC.II.3 | Existing infrastructure already tested |
+| hsm_required | PC.II.4 | Based on risk classification |
+| pricing_methodology | PC.III.1 | Approach is product-specific (mid-market + bid-offer) |
+| pricing_model_name | PC.III.2 | Model name (ISDA CDS Standard, Black-76, SABR) |
+| model_validation_date | PC.III.2 | Most recent validation date |
+| simm_treatment | PC.III.3 | SIMM risk class by product category |
+| primary_regulation | PC.IV.A.1 | MAS Notice 637 + product-specific regulations |
+| secondary_regulations | PC.IV.A.1 | Additional regulatory frameworks |
+| regulatory_reporting | PC.IV.A.1 | MAS Trade Repository and reporting obligations |
+| sanctions_check | PC.IV.A.1 | Standard Dow Jones screening process |
+| var_capture | PC.IV.B.3 | VaR model, coverage, back-testing methodology |
+| regulatory_capital | PC.IV.B.3 | SA-CCR methodology and capital treatment |
+| custody_risk | PC.IV.C.4 | Custody arrangements (BNP Paribas or N/A for unfunded) |
+| data_retention | PC.V.1 | Standard retention schedule per MAS Notices |
+| gdpr_compliance | PC.V.1 | PDPA framework, no EU exposure for most |
+| data_ownership | PC.V.1 | Standard ownership matrix (FO/MO/BO) |
+| pure_assessment_id | PC.V.2 | Auto-generated PURE reference ID |
+| reporting_requirements | PC.V.3 | Regulatory and internal reporting obligations |
+| booking_entity | APP.1 | DBS Bank Ltd — Singapore |
+| collateral_types | APP.5.3 | CSA eligible collateral by product type |
+| valuation_method | APP.5.4 | IPV methodology, tolerance thresholds |
+| funding_source | APP.5.4 | Treasury funding structure and FTP rate |
+| booking_schema | APP.5.5 | Booking architecture and lifecycle management |
+| sanctions_assessment | APP.3 | Standard sanctions screening framework |
+| fraud_risk | APP.3 | Standard fraud risk controls |
+| bribery_corruption | APP.3 | Standard anti-bribery framework |
 
 **Implementation**:
 ```python
-for field_id in BUCKET_1_FIELDS:
-  template[field_id] = source_npa[field_id]  # Verbatim copy
-  field_color[field_id] = "green"
-  field_metadata[field_id] = {
+for field_key in BUCKET_1_FIELDS:
+  template[field_key] = source_npa[field_key]  # Verbatim copy
+  field_color[field_key] = "green"
+  field_metadata[field_key] = {
     "source": "direct_copy",
     "confidence": 0.95,
     "is_verified": False  # User should still review
@@ -184,53 +195,63 @@ for field_id in BUCKET_1_FIELDS:
 
 ---
 
-#### **Bucket 2: Intelligent Adaptation (~12 fields = 20%)**
+#### **Bucket 2: Intelligent Adaptation (~18 field_keys = 22%)**
 
 Fields needing customization based on new product specifics:
 
-| ID | Section | Field | Adaptation Technique | Example |
-|----|---------|-------|---------------------|---------|
-| F29 | IV.A | Market Risk Assessment | Numerical Scaling + Rating Adjustment | VaR $180K → $360K (2x notional), risk "moderate" → "moderate-to-high" |
-| F30 | IV.B | Credit Risk Assessment | Entity Replacement + Lookup Table | Rating BBB+ → A-, expected loss 15bps → 8bps, collateral daily → weekly |
-| F31 | IV.C | Operational Risk Assessment | Conditional Expansion | Add cross-border reconciliation paragraph if cross_border_flag == True |
-| F32 | III | ROAE Sensitivity Analysis | Threshold-Triggered Insertion | Insert template if notional >$20M, leave blank otherwise |
-| F33 | I | Business Rationale | Entity Replacement | Replace counterparty name, notional references, tenor mentions |
-| F34 | I | Product Structure Description | Entity Replacement | Replace underlying asset (EUR/USD → GBP/USD), notional, tenor |
-| F35 | VI | Enhanced Sign-Off Matrix | Override Rules | Add 5 mandatory parties if cross-border, adjust timeline estimate |
-| F36 | II | Technology Requirements | Conditional Expansion | Add inter-company reconciliation requirements if cross-border |
-| F37 | VII | Cross-Border Legal Provisions | Conditional Expansion | Insert multi-paragraph cross-border legal section if flag == True |
-| F48 | V | Data Management (D4D) | Template Insertion | Insert D4D requirements (Data Owner, Source, Quality) based on product type |
+| field_key | Template Position | Adaptation Technique | Example |
+|-----------|------------------|---------------------|---------|
+| market_risk | PC.IV.B.1 | Numerical Scaling + Rating Adjustment | VaR $180K → $360K (2x notional), risk "moderate" → "moderate-to-high" |
+| credit_risk | PC.IV.C.1 | Entity Replacement + Lookup Table | Rating BBB+ → A-, expected loss 15bps → 8bps |
+| operational_risk | PC.VI | Conditional Expansion | If is_cross_border → add reconciliation, transfer pricing paragraphs |
+| roae_analysis | PC.III.1 | Threshold-Triggered Insertion | If notional >$20M → populate with stress scenarios |
+| stress_scenarios | PC.IV.C.3 | Numerical Scaling | Scale scenario counts and loss amounts with notional |
+| counterparty_default | PC.IV.C.2 | Entity Replacement | Update EAD/LGD for new counterparty rating |
+| liquidity_risk | PC.IV.B.2 | Qualitative Rating | Re-rate based on product category and market depth |
+| reputational_risk | PC.IV.D | Conditional | NTG → MEDIUM; Existing → LOW |
+| esg_assessment | PC.IV.D | Category-Based | Commodity → REQUIRES REVIEW; ESG → POSITIVE |
+| risk_classification | PC.IV.B.1 | Rating Adjustment | Re-derive from notional, cross-border, complexity |
+| tax_impact | PC.IV.A.2 | Conditional Expansion | Cross-border → add withholding tax, DTA provisions |
+| tech_requirements | PC.II.2.a | Conditional | NTG → new build 6-8 weeks; Variation → config 1-2 weeks |
+| pricing_assumptions | PC.III.1 | Category-Based | Swap market data sources by product type |
+| data_privacy | PC.V.1 | Conditional | Cross-border → add SCCs; domestic → standard PDPA |
+| aml_assessment | APP.3 | Risk-Based | Cross-border + NTG → HIGH; domestic existing → MEDIUM |
+| terrorism_financing | APP.3 | Risk-Based | Cross-border → MEDIUM; domestic → LOW |
+| mrf_* (8 fields) | PC.IV.B.1.table | Category Mapping | Set Yes/No per risk factor based on product_category |
+| required_signoffs | SEC_SIGN | Override Rules | Cross-border → add 5 mandatory SOPs |
 
 **Adaptation Details** (see Section 3 for 5 techniques)
 
 ---
 
-#### **Bucket 3: Manual Input Required (~12 fields = 20%)**
+#### **Bucket 3: Manual Input Required (~12 field_keys = 18%)**
 
 Deal-specific fields that cannot be auto-filled:
 
-| ID | Section | Field | Why Manual | User Prompt |
-|----|---------|-------|------------|-------------|
-| F38 | I | Specific Counterparty Name | Deal-specific entity | "Enter counterparty legal name (e.g., ABC Corporation Ltd.)" |
-| F39 | I | Exact Trade Date | Deal hasn't occurred | "Enter expected trade date or 'TBD - subject to market conditions'" |
-| F40 | I | Unique Product Features | User customizations | "Describe custom features if any (e.g., knock-in barrier at 1.25)" |
-| F41 | III | Bespoke Pricing Adjustments | Deal-specific discounts | "Enter pricing deviations from standard (if any, else leave blank)" |
-| F42 | IV | Custom Risk Mitigants | Deal-specific controls | "Describe special risk mitigants (e.g., upfront cash collateral)" |
-| F43 | VII | Special Legal Provisions | Deal-specific legal | "Enter non-standard legal terms (if any, else leave blank)" |
-| F44 | II | Desk-Specific Procedures | Unique workflows | "Describe desk-specific procedures (if any, else leave blank)" |
-| F45 | I | Customer Relationship Context | Deal background | "Explain customer relationship context and deal rationale" |
-| F46 | III | Revenue/ROAE Assumptions | Deal forecasts | "Enter expected revenue scenarios and ROAE projections" |
-| F47 | VI | Escalation Justification | Non-standard approval | "Justify escalation if required (leave blank if standard approval)" |
+| field_key | Template Position | Why Manual | User Prompt |
+|-----------|------------------|------------|-------------|
+| business_rationale | PC.I.1.a | Deal-specific value proposition | "Describe the purpose and rationale for this product proposal" |
+| notional_amount | PC.I.1.c | Exact deal amount | "Enter expected notional in base currency (USD)" |
+| revenue_year1 | PC.I.1.c | Revenue forecast | "Enter Year 1 revenue estimate" |
+| npa_process_type | — | Classification rationale | "Describe NPA classification rationale" |
+| business_case_status | — | PAC approval details | "Enter PAC approval status and conditions" |
+| term_sheet | SEC_DOCS | Deal-specific document | "Upload the product term sheet" |
+| bespoke_adjustments | PC.III.1 | Deal-specific pricing | "Enter pricing deviations from standard (if any)" |
+| counterparty_rating | PC.IV.C.5 | Specific credit grade | "Enter counterparty credit rating" |
+| isda_agreement | SEC_LEGAL | ISDA negotiation status | "Describe ISDA agreement status and special terms" |
+| ip_considerations | PC.I.5 | External parties and IP | "Describe external parties and IP involvement" |
+| strike_price | SEC_ENTITY | Deal-specific pricing level | "Enter strike price or barrier levels" |
+| supporting_documents | SEC_DOCS | Deal-specific attachments | "List required supporting documents" |
 
 **Implementation**:
 ```python
-for field_id in BUCKET_3_FIELDS:
-  template[field_id] = ""  # Blank
-  field_color[field_id] = "red"
-  field_metadata[field_id] = {
+for field_key in BUCKET_3_FIELDS:
+  template[field_key] = ""  # Blank
+  field_color[field_key] = "red"
+  field_metadata[field_key] = {
     "source": "manual_input_required",
-    "prompt": MANUAL_PROMPTS[field_id],
-    "required": field_id in MANDATORY_FIELDS
+    "prompt": MANUAL_PROMPTS[field_key],
+    "required": field_key in MANDATORY_FIELDS
   }
 ```
 
@@ -260,27 +281,27 @@ Verify auto-filled fields don't contradict each other.
 CONSISTENCY_RULES = {
   "risk_var_alignment": {
     "condition": "IF risk_rating == 'Low' THEN var_amount < 100000",
-    "fields": ["F29.risk_rating", "F29.var_amount"],
+    "fields": ["market_risk.risk_rating", "market_risk.var_amount"],
     "error": "Low risk contradicts $500K VaR. Expected <$100K."
   },
   "rating_loss_alignment": {
     "condition": "IF rating >= 'A-' THEN expected_loss < 10",  # bps
-    "fields": ["F30.rating", "F30.expected_loss"],
+    "fields": ["credit_risk.rating", "credit_risk.expected_loss"],
     "error": "A- rating should have <10bps loss, found 15bps."
   },
   "notional_roae": {
     "condition": "IF notional > 20000000 THEN roae_section IS NOT NULL",
-    "fields": ["notional", "F32"],
+    "fields": ["notional_amount", "roae_analysis"],
     "error": "Notional >$20M requires ROAE sensitivity."
   },
   "cross_border_signoffs": {
     "condition": "IF cross_border THEN 'Tech' IN signoffs AND 'Ops' IN signoffs",
-    "fields": ["cross_border_flag", "F35.signoffs"],
+    "fields": ["cross_border_flag", "required_signoffs"],
     "error": "Cross-border missing mandatory Tech/Ops sign-offs."
   },
   "book_percentage_risk": {
     "condition": "IF (notional/desk_book) > 0.05 THEN risk_rating >= 'High'",
-    "fields": ["F29.book_pct", "F29.risk_rating"],
+    "fields": ["market_risk.book_pct", "market_risk.risk_rating"],
     "error": "5.5% of book → High risk (>5% threshold)."
   }
 }
@@ -342,22 +363,22 @@ Verify all mandatory fields have values.
 **Mandatory Fields** (23 critical fields):
 ```python
 MANDATORY_FIELDS = [
-  "F01",  # Product Name
-  "F02",  # Product Type
-  "F05",  # Booking System
-  "F07",  # Valuation Model
-  "F29",  # Market Risk
-  "F30",  # Credit Risk
-  "F31",  # Operational Risk
-  "F32",  # ROAE (if notional >$20M)
-  "F08",  # Regulatory Requirements
-  "F10",  # Sign-Off Parties
-  "F12",  # Governing Law
-  "F33",  # Business Rationale
-  "F34",  # Product Structure
-  "F38",  # Counterparty Name
-  "F45",  # Customer Context
-  # ... 8 more
+  "product_name",          # Product Name
+  "product_type",          # Product Type
+  "booking_system",        # Booking System
+  "valuation_model",       # Valuation Model
+  "market_risk",           # Market Risk Assessment
+  "credit_risk",           # Credit Risk Assessment
+  "operational_risk",      # Operational Risk
+  "roae_analysis",         # ROAE (if notional >$20M)
+  "primary_regulation",    # Regulatory Requirements
+  "required_signoffs",     # Sign-Off Parties
+  "legal_opinion",         # Legal/Compliance
+  "business_rationale",    # Business Rationale
+  "underlying_asset",      # Product Structure/Scope
+  "settlement_method",     # Settlement Method
+  "pricing_methodology",   # Pricing Methodology
+  # ... remaining mandatory fields
 ]
 
 for field_id in MANDATORY_FIELDS:
@@ -388,15 +409,15 @@ if cross_border_flag == True:
     "Operations"
   ]
 
-  current_signoffs = template["F35.signoff_parties"]
+  current_signoffs = template["required_signoffs"]
 
   for party in MANDATORY_SIGNOFFS:
     if party NOT IN current_signoffs:
       current_signoffs.append(party)
       user_notifications.append(f"✓ Added {party} (cross-border mandatory)")
 
-  template["F35.signoff_parties"] = current_signoffs
-  template["F35.timeline_days"] += 1.5
+  template["required_signoffs"] = current_signoffs
+  template["estimated_timeline_days"] += 1.5
 
   alert = "⚠️ Cross-border: 5 mandatory sign-offs added. Timeline: 4-5 days."
   user_notifications.append(alert)
@@ -413,26 +434,26 @@ THRESHOLDS = [
   {
     "amount": 20000000,
     "action": "add_roae",
-    "field": "F32",
+    "field": "roae_analysis",
     "msg": "⚠️ >$20M requires ROAE. Template added, populate scenarios."
   },
   {
     "amount": 50000000,
     "action": "add_finance_vp",
-    "field": "F35",
+    "field": "required_signoffs",
     "msg": "⚠️ >$50M requires Finance VP approval."
   },
   {
     "amount": 100000000,
     "action": "add_cfo",
-    "field": "F35",
+    "field": "required_signoffs",
     "msg": "⚠️ >$100M requires GFM COO pre-approval."
   },
   {
     "amount": 10000000,
     "condition": "product_type == 'Derivative'",
     "action": "add_mlr",
-    "field": "F35",
+    "field": "required_signoffs",
     "msg": "⚠️ Derivative >$10M requires MLR review."
   }
 ]
@@ -445,15 +466,15 @@ for threshold in THRESHOLDS:
         continue
 
     if threshold.action == "add_roae":
-      template["F32"] = load_roae_template()
-      field_color["F32"] = "yellow"
+      template["roae_analysis"] = load_roae_template()
+      field_color["roae_analysis"] = "yellow"
     elif threshold.action == "add_finance_vp":
-      template["F35.signoffs"].append("Finance VP")
+      template["required_signoffs"].append("Finance VP")
     elif threshold.action == "add_cfo":
-      template["F35.signoffs"].append("GFM COO (pre-approval)")
+      template["required_signoffs"].append("GFM COO (pre-approval)")
     elif threshold.action == "add_mlr":
-      if "MLR" NOT IN template["F35.signoffs"]:
-        template["F35.signoffs"].append("MLR")
+      if "MLR" NOT IN template["required_signoffs"]:
+        template["required_signoffs"].append("MLR")
 
     user_notifications.append(threshold.msg)
 ```
@@ -795,7 +816,7 @@ if cross_border_flag:
 ```json
 {
   "auto_filled_template": {...},
-  "field_colors": {"F01": "green", "F29": "yellow", "F38": "red"},
+  "field_colors": {"booking_system": "green", "market_risk": "yellow", "business_rationale": "red"},
   "section_completion": {"I": "80%", "II": "100%", ...},
   "overall": 78,
   "notifications": ["⚠️ Cross-border: 5 sign-offs added", ...],
@@ -808,7 +829,7 @@ if cross_border_flag:
 **To Completeness Agent (Stage 1)**:
 ```json
 {
-  "manual_remaining": ["F38: Counterparty", "F39: Date", ...],
+  "manual_remaining": ["business_rationale", "notional_amount", "term_sheet", ...],
   "completion_pct": 78,
   "est_manual_time": 10
 }
@@ -817,7 +838,7 @@ if cross_border_flag:
 **To Validation Agent (Stage 1)**:
 ```json
 {
-  "adapted_for_validation": ["F29: VaR calc", "F30: A- rating", ...],
+  "adapted_for_validation": ["market_risk: VaR scaled", "credit_risk: A- rating", ...],
   "checks_passed": {
     "consistency": true,
     "regulatory": true,
@@ -858,7 +879,7 @@ if scale > 10:
   adj_scale = math.sqrt(scale)  # √50 ≈ 7.07
   new_var = source_var * adj_scale
   user_notifications.append(f"⚠️ Notional {scale}x larger. VaR may be inaccurate. Consult Risk team.")
-  field_color["F29"] = "yellow"
+  field_color["market_risk"] = "yellow"
 ```
 
 ---
@@ -931,8 +952,8 @@ for field in auto_filled:
 
 # Monthly
 override_rates = calc_override_rate_by_field()
-if override_rates["F29"] > 0.20:
-  trigger_root_cause("F29")
+if override_rates["market_risk"] > 0.20:
+  trigger_root_cause("market_risk")
 
 # Action: Increase recency bias in source selection
 ```
@@ -1003,24 +1024,26 @@ SCHEDULE = {
 ### Input
 ```json
 {
-  "template_id": "FX_OPT_VANILLA",
+  "product_description": "FX Forward on GBP/USD, 3-month tenor, $50M notional, for hedging purposes...",
   "best_match_npa": "TSG1917",
   "user_data": {"notional": 50000000, "tenor": "3M", "rating": "A-", "cross_border": true},
   "classification": "Existing",
-  "track": "NPA Lite"
+  "track": "NPA Lite",
+  "reference_npa_id": "TSG2339"
 }
 ```
 
 ### Output
 ```json
 {
-  "auto_filled": 37,
-  "manual": 10,
-  "colors": {"green": 28, "yellow": 9, "red": 10},
-  "sections": {"I": "80%", "II": "100%", "III": "75%", "IV": "80%", "V": "100%", "VI": "100%", "VII": "50%"},
+  "auto_filled": 50,
+  "adapted": 20,
+  "manual": 12,
+  "colors": {"green": 50, "yellow": 20, "red": 12},
+  "sections": {"I": "75%", "II": "90%", "III": "80%", "IV": "70%", "V": "95%", "VI": "85%", "Appendices": "80%"},
   "notifications": [...],
   "steps": [...],
-  "source": "TSG1917",
+  "source": "TSG2339",
   "time_saved": 70
 }
 ```
