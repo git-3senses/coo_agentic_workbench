@@ -876,9 +876,10 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                 // Remove streaming placeholder on error
                 const idx = this.messages.indexOf(streamingMsg);
                 if (idx !== -1) this.messages.splice(idx, 1);
+                const errorAgentId = this.difyService.activeAgentId || 'MASTER_COO';
                 this.messages.push({
                     role: 'agent', content: 'Sorry, I encountered an error. Please try again.',
-                    timestamp: new Date(), agentIdentity: this.AGENTS['MASTER_COO']
+                    timestamp: new Date(), agentIdentity: this.AGENTS[errorAgentId] || this.AGENTS['MASTER_COO']
                 });
                 this.isThinking = false;
                 this.stopThinkingTimer();

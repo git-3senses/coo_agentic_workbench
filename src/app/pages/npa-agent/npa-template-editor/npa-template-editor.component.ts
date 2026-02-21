@@ -149,7 +149,7 @@ import { WorkflowStreamEvent } from '../../../lib/agent-interfaces';
                       <lucide-icon *ngIf="liveWorkflowStatus === 'running'" name="loader-2" class="w-5 h-5 text-blue-600 animate-spin"></lucide-icon>
                       <lucide-icon *ngIf="liveWorkflowStatus === 'succeeded'" name="check-circle" class="w-5 h-5 text-emerald-600"></lucide-icon>
                       <lucide-icon *ngIf="liveWorkflowStatus === 'failed'" name="x-circle" class="w-5 h-5 text-red-600"></lucide-icon>
-                      <lucide-icon *ngIf="liveWorkflowStatus === 'idle'" name="radio" class="w-5 h-5 text-slate-400"></lucide-icon>
+                      <lucide-icon *ngIf="liveWorkflowStatus === 'idle'" name="circle" class="w-5 h-5 text-slate-400"></lucide-icon>
                     </div>
                     <div>
                       <h3 class="text-sm font-bold text-slate-900">

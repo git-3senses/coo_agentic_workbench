@@ -371,23 +371,33 @@ export class DifyService {
             let msgId: string | undefined;
             let abortController = new AbortController();
 
-            fetch('/api/dify/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    agent_id: targetAgent,
-                    query,
-                    inputs: userContext,
-                    conversation_id: conversationId,
-                    user: 'user-123',
-                    response_mode: 'streaming'
-                }),
-                signal: abortController.signal
-            }).then(response => {
-                if (!response.ok) {
-                    subscriber.error(new Error(`HTTP ${response.status}`));
-                    return;
-                }
+            const maxRetries = 3;
+            const doFetch = (attempt: number): void => {
+                fetch('/api/dify/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: targetAgent,
+                        query,
+                        inputs: userContext,
+                        conversation_id: conversationId,
+                        user: 'user-123',
+                        response_mode: 'streaming'
+                    }),
+                    signal: abortController.signal
+                }).then(response => {
+                    if (!response.ok) {
+                        const retryable = response.status === 502 || response.status === 503 || response.status === 504;
+                        if (retryable && attempt < maxRetries) {
+                            const delayMs = (attempt + 1) * 3000; // 3s, 6s, 9s
+                            console.warn(`[DifyService] Chat stream retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (HTTP ${response.status})`);
+                            subscriber.next({ type: 'thought', thought: `Service temporarily unavailable, retrying (${attempt + 1}/${maxRetries})...` });
+                            setTimeout(() => doFetch(attempt + 1), delayMs);
+                            return;
+                        }
+                        subscriber.error(new Error(`HTTP ${response.status}`));
+                        return;
+                    }
                 const reader = response.body?.getReader();
                 if (!reader) { subscriber.error(new Error('No stream')); return; }
                 const decoder = new TextDecoder();
@@ -440,8 +450,20 @@ export class DifyService {
                 };
                 read();
             }).catch(err => {
-                if (err.name !== 'AbortError') subscriber.error(err);
+                if (err.name === 'AbortError') return;
+                // Retry on network errors (fetch rejection, e.g. ECONNRESET)
+                if (attempt < maxRetries) {
+                    const delayMs = (attempt + 1) * 3000;
+                    console.warn(`[DifyService] Chat stream retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (network error: ${err.message})`);
+                    subscriber.next({ type: 'thought', thought: `Connection error, retrying (${attempt + 1}/${maxRetries})...` });
+                    setTimeout(() => doFetch(attempt + 1), delayMs);
+                    return;
+                }
+                subscriber.error(err);
             });
+            };
+
+            doFetch(0);
 
             // Teardown: abort fetch on unsubscribe
             return () => abortController.abort();
@@ -531,7 +553,7 @@ export class DifyService {
             // e.g. "routing you to CF_NPA_Ideation", "I need to route this to CF_NPA_Ideation",
             //      "Let me proceed" (after mentioning ideation), "initiating ideation session"
             const delegationPatterns: { pattern: RegExp; agentId: string; intent: string }[] = [
-                { pattern: /(?:rout(?:e|ing)\b.*?cf_npa_ideation|rout(?:e|ing)\b.*?ideation\s+agent)|initiating\s+ideation\s+session|starting\s+(?:the\s+)?ideation\s+interview|delegate.*ideation|conduct\s+(?:the\s+)?structured\s+intake.*ideation/i, agentId: 'IDEATION', intent: 'create_npa' },
+                { pattern: /(?:rout(?:e|ing)\b.*?(?:cf_npa_ideation|ideation\s+(?:agent|specialist|workflow|module)))|rout(?:e|ing)\b.*?ideation\b.*?(?:interview|session|process)|initiating\s+ideation\s+(?:session|workflow)|starting\s+(?:the\s+)?ideation\s+interview|delegate.*ideation|conduct\s+(?:the\s+)?structured\s+(?:intake|interview).*ideation|structured\s+multi.?turn\s+interview/i, agentId: 'IDEATION', intent: 'create_npa' },
                 { pattern: /(?:rout(?:e|ing)\b.*?(?:the\s+)?classifier)|starting\s+classification|initiating\s+classification/i, agentId: 'CLASSIFIER', intent: 'classify_product' },
                 { pattern: /(?:rout(?:e|ing)\b.*?(?:the\s+)?risk\s+assess)|starting\s+risk\s+assessment|initiating\s+risk/i, agentId: 'RISK', intent: 'assess_risk' },
                 { pattern: /(?:rout(?:e|ing)\b.*?(?:the\s+)?autofill)|starting\s+(?:template\s+)?autofill|initiating\s+autofill/i, agentId: 'AUTOFILL', intent: 'autofill_template' },
@@ -674,6 +696,8 @@ export class DifyService {
         return new Observable<WorkflowStreamEvent>(subscriber => {
             const abortController = new AbortController();
 
+            const maxRetries = 3;
+            const doFetch = (attempt: number): void => {
             fetch('/api/dify/workflow', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -686,6 +710,13 @@ export class DifyService {
                 signal: abortController.signal
             }).then(response => {
                 if (!response.ok) {
+                    const retryable = response.status === 502 || response.status === 503 || response.status === 504;
+                    if (retryable && attempt < maxRetries) {
+                        const delayMs = (attempt + 1) * 3000;
+                        console.warn(`[DifyService] Workflow stream retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (HTTP ${response.status})`);
+                        setTimeout(() => doFetch(attempt + 1), delayMs);
+                        return;
+                    }
                     subscriber.error(new Error(`HTTP ${response.status}`));
                     return;
                 }
@@ -770,11 +801,19 @@ export class DifyService {
                 };
                 read();
             }).catch(err => {
-                if (err.name !== 'AbortError') {
-                    this.agentActivity$.next({ agentId, status: 'error' });
-                    subscriber.error(err);
+                if (err.name === 'AbortError') return;
+                if (attempt < maxRetries) {
+                    const delayMs = (attempt + 1) * 3000;
+                    console.warn(`[DifyService] Workflow stream retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (network error: ${err.message})`);
+                    setTimeout(() => doFetch(attempt + 1), delayMs);
+                    return;
                 }
+                this.agentActivity$.next({ agentId, status: 'error' });
+                subscriber.error(err);
             });
+            };
+
+            doFetch(0);
 
             return () => abortController.abort();
         });
