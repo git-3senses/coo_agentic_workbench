@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { NpaTemplateEditorComponent } from '../npa-template-editor/npa-template-editor.component';
+import { NpaDraftBuilderComponent } from '../npa-draft-builder/npa-draft-builder.component';
 import { ActivatedRoute } from '@angular/router';
 import { AgentGovernanceService } from '../../../services/agent-governance.service';
 import { NpaWorkflowVisualizerComponent } from '../../../components/npa/npa-workflow-visualizer/npa-workflow-visualizer.component';
@@ -29,7 +30,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
    selector: 'app-npa-detail',
    standalone: true,
    imports: [
-      CommonModule, FormsModule, LucideAngularModule, NpaTemplateEditorComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent,
+      CommonModule, FormsModule, LucideAngularModule, NpaTemplateEditorComponent, NpaDraftBuilderComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent,
       RiskAssessmentResultComponent, MlPredictionResultComponent,
       MonitoringAlertsComponent, DocCompletenessComponent, OrchestratorChatComponent,
       AutofillSummaryComponent, GovernanceStatusComponent, ClassificationResultComponent
@@ -80,6 +81,7 @@ export class NpaDetailComponent implements OnInit {
 
    // Editor state
    showTemplateEditor = false;
+   showDraftBuilder = false;
    private userDismissedEditor = false;
    autofillStream$: Subject<WorkflowStreamEvent> | null = null;
    editorInitialViewMode: 'live' | 'document' | 'form' = 'document';
@@ -400,6 +402,14 @@ export class NpaDetailComponent implements OnInit {
 
    openEditor(): void {
       this.showTemplateEditor = true;
+   }
+
+   openDraftBuilder(): void {
+      this.showDraftBuilder = true;
+   }
+
+   onDraftBuilderClosed(): void {
+      this.showDraftBuilder = false;
    }
 
    // ─── Data Loading ─────────────────────────────────────────────────

@@ -1,5 +1,24 @@
 export type FieldLineage = 'AUTO' | 'ADAPTED' | 'MANUAL';
 
+/** All supported field types in the NPA Draft Builder */
+export type NpaFieldType =
+   | 'text'              // Single-line text input
+   | 'textarea'          // Multi-line text area (auto-resize)
+   | 'dropdown'          // Single-select dropdown
+   | 'multiselect'       // Multi-select tag input
+   | 'yesno'             // Yes/No radio buttons (optionally triggers conditional)
+   | 'checkbox_group'    // Multiple checkboxes (operational adequacy)
+   | 'bullet_list'       // Dynamic add/remove list (PAC conditions)
+   | 'file_upload'       // Drag-and-drop file attachment
+   | 'table_grid'        // Editable table (market risk matrix, entity table)
+   | 'flowchart'         // Mermaid diagram or attached flowchart
+   | 'date'              // Date picker
+   | 'repeatable'        // Repeatable section block (external parties)
+   | 'conditional'       // Shows/hides based on parent field value
+   | 'reference_link'    // Read-only link to external resource
+   | 'currency'          // Currency-formatted number input
+   | 'header';           // Section header (non-editable display label)
+
 export interface LineageMetadata {
    sourceDocId?: string;       // e.g., 'TSG1917'
    sourceSnippet?: string;     // The exact text from the source
@@ -14,11 +33,15 @@ export interface NpaField {
    value: string;
    lineage: FieldLineage;
    lineageMetadata?: LineageMetadata;
-   type?: 'text' | 'textarea' | 'date' | 'select' | 'currency' | 'file' | 'header';
-   options?: string[]; // For select types
-   tooltip?: string;   // Explanation for adaptation or source
+   type?: NpaFieldType;
+   options?: string[];          // For dropdown / multiselect types
+   tooltip?: string;            // Explanation for adaptation or source
    placeholder?: string;
    required?: boolean;
+   dependsOn?: { field: string; value: string }; // For conditional fields
+   attachable?: boolean;        // If true, field supports file attachment
+   bulletItems?: string[];      // For bullet_list type
+   repeatableFields?: NpaField[]; // For repeatable type
 }
 
 export interface NpaSection {

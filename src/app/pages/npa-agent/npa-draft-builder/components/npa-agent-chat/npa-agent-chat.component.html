@@ -1,0 +1,117 @@
+<!-- Agent Selector Tabs -->
+<div class="flex-none border-b border-slate-200 bg-slate-50/50">
+   <div class="flex items-center gap-0.5 px-2 py-2 overflow-x-auto npa-scrollbar-x">
+      <button *ngFor="let group of signOffGroups"
+              (click)="selectAgent(group.id)"
+              class="flex-none flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all whitespace-nowrap"
+              [class.bg-white]="activeAgentId === group.id"
+              [class.shadow-sm]="activeAgentId === group.id"
+              [class.border]="activeAgentId === group.id"
+              [class.border-slate-200]="activeAgentId === group.id"
+              [class]="activeAgentId === group.id ? group.textClass : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'">
+         <lucide-icon [name]="group.icon" class="w-3 h-3"></lucide-icon>
+         {{ group.shortLabel }}
+      </button>
+   </div>
+</div>
+
+<!-- Agent Info Bar -->
+<div class="flex-none px-4 py-2.5 border-b border-slate-100 flex items-center justify-between"
+     [class]="getActiveGroup().bgClass">
+   <div class="flex items-center gap-2">
+      <lucide-icon [name]="getActiveGroup().icon" class="w-4 h-4" [class]="getActiveGroup().textClass"></lucide-icon>
+      <div>
+         <p class="text-[11px] font-bold" [class]="getActiveGroup().textClass">{{ getActiveGroup().label }}</p>
+         <p class="text-[9px] text-slate-500">Sections: {{ getActiveGroup().sections.join(', ') }}</p>
+      </div>
+   </div>
+   <div class="flex items-center gap-1">
+      <div class="w-1.5 h-1.5 rounded-full"
+           [class.bg-emerald-400]="getActiveAgentChat()?.isConnected"
+           [class.bg-slate-300]="!getActiveAgentChat()?.isConnected"></div>
+      <span class="text-[9px] font-medium"
+            [class.text-emerald-600]="getActiveAgentChat()?.isConnected"
+            [class.text-slate-400]="!getActiveAgentChat()?.isConnected">
+         {{ getActiveAgentChat()?.isConnected ? 'Connected' : 'Ready' }}
+      </span>
+   </div>
+</div>
+
+<!-- Chat Messages -->
+<div class="flex-1 overflow-y-auto px-3 py-3 space-y-3 npa-scrollbar">
+   <ng-container *ngIf="getActiveAgentChat() as chat">
+      <div *ngFor="let msg of chat.messages; trackBy: trackByMsgIndex"
+           class="flex gap-2"
+           [class.justify-end]="msg.role === 'user'">
+
+         <!-- Agent/System avatar -->
+         <div *ngIf="msg.role !== 'user'"
+              class="flex-none w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+              [class]="msg.role === 'system' ? 'bg-slate-100 text-slate-500' : getActiveGroup().bgClass + ' ' + getActiveGroup().textClass">
+            <lucide-icon [name]="msg.role === 'system' ? 'info' : getActiveGroup().icon" class="w-3 h-3"></lucide-icon>
+         </div>
+
+         <!-- Message bubble -->
+         <div class="max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed"
+              [class.bg-blue-600]="msg.role === 'user'"
+              [class.text-white]="msg.role === 'user'"
+              [class.bg-slate-100]="msg.role === 'agent'"
+              [class.text-slate-700]="msg.role === 'agent'"
+              [class.bg-slate-50]="msg.role === 'system'"
+              [class.text-slate-500]="msg.role === 'system'"
+              [class.italic]="msg.role === 'system'"
+              [class.border]="msg.role === 'system'"
+              [class.border-slate-200]="msg.role === 'system'">
+            {{ msg.content }}
+         </div>
+      </div>
+
+      <!-- Streaming indicator -->
+      <div *ngIf="chat.isStreaming" class="flex gap-2">
+         <div class="flex-none w-6 h-6 rounded-full flex items-center justify-center"
+              [class]="getActiveGroup().bgClass + ' ' + getActiveGroup().textClass">
+            <lucide-icon name="loader-2" class="w-3 h-3 animate-spin"></lucide-icon>
+         </div>
+         <div class="bg-slate-100 px-3 py-2 rounded-xl">
+            <div class="flex items-center gap-1.5">
+               <div class="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+               <div class="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+               <div class="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+            </div>
+         </div>
+      </div>
+   </ng-container>
+</div>
+
+<!-- Chat Input -->
+<div class="flex-none px-3 py-3 border-t border-slate-200 bg-white">
+   <div class="flex items-center gap-2">
+      <input type="text"
+             [(ngModel)]="chatInput"
+             (keydown.enter)="sendChatMessage()"
+             placeholder="Ask the agent..."
+             class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all">
+      <button (click)="sendChatMessage()"
+              class="flex-none p-2 rounded-lg transition-colors"
+              [class.bg-blue-600]="chatInput.trim()"
+              [class.text-white]="chatInput.trim()"
+              [class.hover:bg-blue-700]="chatInput.trim()"
+              [class.bg-slate-100]="!chatInput.trim()"
+              [class.text-slate-400]="!chatInput.trim()"
+              [disabled]="!chatInput.trim()">
+         <lucide-icon name="send" class="w-3.5 h-3.5"></lucide-icon>
+      </button>
+   </div>
+   <div class="flex items-center gap-2 mt-2">
+      <button (click)="autoFillRequested.emit()"
+              class="text-[9px] font-medium text-slate-400 hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors">
+         <lucide-icon name="sparkles" class="w-2.5 h-2.5 inline mr-0.5"></lucide-icon>
+         Auto-fill section
+      </button>
+      <button (click)="validateRequested.emit()"
+              class="text-[9px] font-medium text-slate-400 hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors">
+         <lucide-icon name="check-circle-2" class="w-2.5 h-2.5 inline mr-0.5"></lucide-icon>
+         Validate
+      </button>
+   </div>
+</div>
