@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedIconsModule } from '../../../shared/icons/shared-icons.module';
 import { GovernanceState } from '../../../lib/agent-interfaces';
@@ -39,6 +39,7 @@ import { GovernanceState } from '../../../lib/agent-interfaces';
               <th class="text-left px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase">Status</th>
               <th class="text-left px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase">Assignee</th>
               <th class="text-left px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase">SLA</th>
+              <th class="text-right px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -72,6 +73,27 @@ import { GovernanceState } from '../../../lib/agent-interfaces';
                   <span *ngIf="item.slaBreached"
                         class="text-[10px] font-bold text-red-600 uppercase ml-1">
                     Breached
+                  </span>
+                </div>
+              </td>
+              <td class="px-5 py-3 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button *ngIf="item.status === 'PENDING' || item.status === 'REWORK'"
+                          (click)="onNudge.emit(item.department)"
+                          class="px-2 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded border border-amber-200 transition-colors"
+                          title="Send reminder to approver">
+                    <lucide-icon name="bell" class="w-3 h-3 inline -mt-0.5 mr-0.5"></lucide-icon>
+                    Nudge
+                  </button>
+                  <button *ngIf="!item.assignee"
+                          (click)="onAssign.emit(item.department)"
+                          class="px-2 py-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                          title="Assign approver">
+                    <lucide-icon name="user-plus" class="w-3 h-3 inline -mt-0.5 mr-0.5"></lucide-icon>
+                    Assign
+                  </button>
+                  <span *ngIf="item.status === 'APPROVED'" class="text-[10px] text-green-600 font-medium">
+                    <lucide-icon name="check" class="w-3 h-3 inline -mt-0.5"></lucide-icon> Done
                   </span>
                 </div>
               </td>
@@ -149,6 +171,8 @@ import { GovernanceState } from '../../../lib/agent-interfaces';
 })
 export class GovernanceStatusComponent {
     @Input() result!: GovernanceState;
+    @Output() onNudge = new EventEmitter<string>();
+    @Output() onAssign = new EventEmitter<string>();
 
     getStatusBadgeClass(status: string): string {
         switch (status) {

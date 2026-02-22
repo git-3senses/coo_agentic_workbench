@@ -58,13 +58,18 @@ export interface WorkflowStage {
                       <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
                     </span>
                   </h3>
-                  <p class="text-sm text-slate-500 mt-1">Target Completion: {{ targetCompletion | date:'mediumDate' }} • <span class="text-amber-600 font-semibold">2 Blockers</span> detected</p>
+                  <p class="text-sm text-slate-500 mt-1">
+                    <ng-container *ngIf="targetCompletion">Target Completion: {{ targetCompletion | date:'mediumDate' }} • </ng-container>
+                    <span *ngIf="blockerCount > 0" class="text-amber-600 font-semibold">{{ blockerCount }} Blocker{{ blockerCount > 1 ? 's' : '' }}</span>
+                    <span *ngIf="blockerCount === 0" class="text-green-600 font-semibold">No Blockers</span>
+                  </p>
               </div>
               <div class="flex items-center gap-2">
-                  <span class="text-xs font-semibold text-slate-500 uppercase">Total Velocity</span>
+                  <span class="text-xs font-semibold text-slate-500 uppercase">Progress</span>
                   <div class="h-2 w-24 bg-slate-100 rounded-full overflow-hidden">
-                      <div class="h-full bg-green-500 w-2/3 rounded-full"></div>
+                      <div class="h-full bg-green-500 rounded-full transition-all duration-500" [style.width]="velocityPercent + '%'"></div>
                   </div>
+                  <span class="text-[10px] font-mono text-slate-400">{{ velocityPercent }}%</span>
               </div>
           </div>
 
@@ -104,8 +109,8 @@ export interface WorkflowStage {
           </div>
           
           <!-- Footer -->
-          <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs text-center text-slate-500">
-              Process ID: NPA_WF_v2.4 • SLA Policy: Global Markets Standard
+          <div *ngIf="stages.length > 0" class="px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs text-center text-slate-500">
+              {{ projectId ? 'NPA: ' + projectId : 'Workflow' }} • {{ stages.length }} Stages
           </div>
 
       </div>
@@ -115,41 +120,35 @@ export interface WorkflowStage {
     styles: []
 })
 export class NpaWorkflowVisualizerComponent implements OnInit {
-    @Input() stages: WorkflowStage[] = [
-        {
-            id: 'INITIATION', label: 'Initiation', status: 'COMPLETED', date: new Date('2025-12-16'),
-            subTasks: [
-                { label: 'Product Ideation Interview', status: 'COMPLETED', assignee: 'Sarah Lim' },
-                { label: 'Readiness Gate Check', status: 'COMPLETED', assignee: 'AI Agent' },
-                { label: 'Document Assembly', status: 'COMPLETED', assignee: 'System' }
-            ]
-        },
-        {
-            id: 'REVIEW', label: 'Review & Sign-Off', status: 'IN_PROGRESS',
-            subTasks: [
-                { label: 'RMG-Credit Approval', status: 'IN_PROGRESS', assignee: 'Jane Tan' },
-                { label: 'RMG-Market Approval', status: 'PENDING', assignee: 'Mike Ross' },
-                { label: 'Finance (Product Control)', status: 'IN_PROGRESS', assignee: 'Mark Lee' },
-                { label: 'Legal & Compliance', status: 'PENDING', assignee: 'Rachel Green' },
-                { label: 'Ops Readiness', status: 'PENDING', assignee: 'Ops Team' }
-            ]
-        },
-        { id: 'LAUNCH', label: 'Launch Prep', status: 'PENDING' },
-        { id: 'MONITORING', label: 'Post-Launch', status: 'PENDING' },
-        { id: 'ARCHIVE', label: 'Closure', status: 'PENDING' }
-    ];
+    @Input() stages: WorkflowStage[] = [];
+    @Input() targetCompletion: Date | null = null;
+    @Input() projectId: string = '';
 
     get currentStage() {
-        return this.stages.find(s => s.status === 'IN_PROGRESS') || this.stages.find(s => s.status === 'COMPLETED'); // Fallback
+        return this.stages.find(s => s.status === 'IN_PROGRESS')
+            || this.stages.filter(s => s.status === 'COMPLETED').pop(); // Last completed as fallback
     }
 
     get progressPercentage(): number {
+        if (!this.stages.length) return 0;
         const idx = this.stages.findIndex(s => s.status === 'IN_PROGRESS');
-        if (idx === -1) return 100; // All done or none started
+        if (idx === -1) {
+            // All completed or all pending
+            const allDone = this.stages.every(s => s.status === 'COMPLETED');
+            return allDone ? 100 : 0;
+        }
         return (idx / (this.stages.length - 1)) * 100;
     }
 
-    targetCompletion = new Date('2025-12-25');
+    get blockerCount(): number {
+        return this.stages.filter(s => s.status === 'BLOCKED').length;
+    }
+
+    get velocityPercent(): number {
+        if (!this.stages.length) return 0;
+        const completed = this.stages.filter(s => s.status === 'COMPLETED').length;
+        return Math.round((completed / this.stages.length) * 100);
+    }
 
     constructor() { }
 
@@ -169,6 +168,7 @@ export class NpaWorkflowVisualizerComponent implements OnInit {
         switch (id) {
             case 'INITIATION': return 'play';
             case 'REVIEW': return 'users';
+            case 'SIGN_OFF': return 'pen-tool';
             case 'LAUNCH': return 'rocket';
             case 'MONITORING': return 'activity';
             case 'ARCHIVE': return 'archive';

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db');
+const { validatePersistBatch } = require('../validation/autofill-schema');
 
 // ─── Chat Session CRUD ─────────────────────────────────────────────────────
 
@@ -513,45 +514,73 @@ router.post('/npas/:id/persist/risk', async (req, res) => {
 });
 
 // POST /api/agents/npas/:id/persist/autofill — Save AUTOFILL results to npa_form_data
+// P13 fix: Added Zod validation, transaction wrapping, proper lineage handling
 router.post('/npas/:id/persist/autofill', async (req, res) => {
-    const { fields } = req.body;
     try {
-        if (!Array.isArray(fields) || fields.length === 0) {
-            return res.status(400).json({ error: 'fields array is required' });
+        // Normalize: client sends {fields: [...]} but Zod expects {filled_fields: [...]}
+        const payload = req.body.filled_fields ? req.body : { filled_fields: req.body.fields || [] };
+        const validation = validatePersistBatch(payload);
+        if (!validation.success) {
+            return res.status(400).json({ error: 'Validation failed', details: validation.errors });
         }
+
+        const fields = validation.data.filled_fields;
+        if (fields.length === 0) {
+            return res.status(400).json({ error: 'fields array is required and must not be empty' });
+        }
+
+        // Use transaction for atomicity
+        const conn = db.getConnection ? await db.getConnection() : db;
+        const useTransaction = typeof conn.beginTransaction === 'function';
+        if (useTransaction) await conn.beginTransaction();
 
         let saved = 0;
-        for (const field of fields) {
-            if (!field.field_key || field.value === undefined) continue;
-            // Upsert: update if exists, insert if not
-            const [existing] = await db.query(
-                'SELECT id FROM npa_form_data WHERE project_id = ? AND field_key = ?',
-                [req.params.id, field.field_key]
-            );
-            if (existing.length > 0) {
-                await db.query(
-                    `UPDATE npa_form_data SET field_value = ?, lineage = 'AUTO', confidence_score = ?, metadata = ?
-                     WHERE project_id = ? AND field_key = ?`,
-                    [String(field.value), field.confidence || null, field.metadata ? JSON.stringify(field.metadata) : null, req.params.id, field.field_key]
-                );
-            } else {
-                await db.query(
+        try {
+            for (const field of fields) {
+                const lineage = field.lineage || 'AUTO';
+                const confidence = typeof field.confidence === 'number'
+                    ? Math.min(100, Math.max(0, field.confidence))
+                    : null;
+                const metadata = JSON.stringify({
+                    source: field.source || 'autofill_agent',
+                    strategy: field.strategy || 'LLM',
+                    document_section: field.document_section,
+                    persisted_at: new Date().toISOString()
+                });
+
+                // UPSERT using INSERT ... ON DUPLICATE KEY UPDATE
+                await (useTransaction ? conn : db).query(
                     `INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score, metadata)
-                     VALUES (?, ?, ?, 'AUTO', ?, ?)`,
-                    [req.params.id, field.field_key, String(field.value), field.confidence || null, field.metadata ? JSON.stringify(field.metadata) : null]
+                     VALUES (?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE
+                        field_value = VALUES(field_value),
+                        lineage = VALUES(lineage),
+                        confidence_score = VALUES(confidence_score),
+                        metadata = VALUES(metadata),
+                        updated_at = NOW()`,
+                    [req.params.id, field.field_key, String(field.value), lineage, confidence, metadata]
                 );
+                saved++;
             }
-            saved++;
+
+            if (useTransaction) await conn.commit();
+        } catch (innerErr) {
+            if (useTransaction) await conn.rollback();
+            throw innerErr;
+        } finally {
+            if (useTransaction && conn.release) conn.release();
         }
 
+        // Audit log
         await db.query(
             `INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action, agent_name)
              VALUES (?, 'AUTOFILL_AGENT', 'AGENT_AUTOFILLED', ?, 1, 'AUTOFILL')`,
-            [req.params.id, JSON.stringify({ fields_saved: saved })]
+            [req.params.id, JSON.stringify({ fields_saved: saved, source: 'llm_autofill' })]
         );
 
         res.json({ status: 'PERSISTED', fields_saved: saved });
     } catch (err) {
+        console.error('[persist/autofill] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

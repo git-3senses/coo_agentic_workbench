@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { getNpaProfiles } = require('./seed-npas');
+const { validatePersistMiddleware } = require('../validation/autofill-schema');
 
 // GET /api/npas — List all NPAs (with optional filters)
 router.get('/', async (req, res) => {
@@ -78,6 +79,302 @@ router.get('/:id', async (req, res) => {
             postLaunchConditions: postConditions
         });
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// GET /api/npas/:id/prefill — AUTOFILL Step 1: Deterministic pre-fill
+// ═══════════════════════════════════════════════════════════════
+//
+// Returns pre-filled values for RULE + COPY fields WITHOUT calling an LLM.
+// RULE fields: resolved from the NPA record, product config, or lookup tables.
+// COPY fields: copied from the most similar previously-approved NPA.
+// LLM/MANUAL fields: returned as empty (to be filled by Dify Chatflow later).
+//
+// Query params:
+//   ?similar_npa_id=xxx  — optional: explicit ID of the NPA to copy from
+//
+router.get('/:id/prefill', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const similarNpaId = req.query.similar_npa_id;
+
+        // ── 1. Load the NPA record (source for RULE fields) ──
+        const [npaRows] = await db.query('SELECT * FROM npa_projects WHERE id = ?', [id]);
+        if (npaRows.length === 0) return res.status(404).json({ error: 'NPA not found' });
+        const npa = npaRows[0];
+
+        // Load jurisdictions for jurisdiction-based lookups
+        const [jurisdictionRows] = await db.query(
+            'SELECT jurisdiction_code FROM npa_jurisdictions WHERE project_id = ?', [id]
+        );
+        const jurisdictions = jurisdictionRows.map(j => j.jurisdiction_code);
+
+        // ── 2. Find the most similar approved NPA (for COPY fields) ──
+        let similarNpa = null;
+        let similarFormData = [];
+
+        if (similarNpaId) {
+            // Explicit: use the provided similar NPA
+            const [rows] = await db.query('SELECT * FROM npa_projects WHERE id = ?', [similarNpaId]);
+            if (rows.length > 0) similarNpa = rows[0];
+        } else {
+            // Auto: find best match by product_type + product_category
+            const [candidates] = await db.query(`
+                SELECT * FROM npa_projects
+                WHERE id != ? AND status IN ('Approved', 'Launched', 'In Monitoring')
+                ORDER BY
+                    (CASE WHEN product_category = ? THEN 2 ELSE 0 END) +
+                    (CASE WHEN npa_type = ? THEN 2 ELSE 0 END) +
+                    (CASE WHEN risk_level = ? THEN 1 ELSE 0 END) DESC,
+                    created_at DESC
+                LIMIT 1
+            `, [id, npa.product_category || '', npa.npa_type || '', npa.risk_level || '']);
+
+            if (candidates.length > 0) similarNpa = candidates[0];
+        }
+
+        // Load the similar NPA's form data (for COPY fields)
+        if (similarNpa) {
+            const [rows] = await db.query(
+                'SELECT field_key, field_value, lineage, confidence_score FROM npa_form_data WHERE project_id = ?',
+                [similarNpa.id]
+            );
+            similarFormData = rows;
+        }
+        const similarDataMap = new Map(similarFormData.map(r => [r.field_key, r.field_value]));
+
+        // ── 3. Build the RULE field values ──
+        // These are deterministic: derived from the NPA record, org config, or lookup tables.
+        const ruleValues = {};
+
+        // From npa_projects record
+        if (npa.title) ruleValues['product_name'] = npa.title;
+        if (npa.npa_type) ruleValues['product_type'] = npa.npa_type;
+        if (npa.notional) ruleValues['notional_amount'] = String(npa.notional);
+
+        // From product config (heuristic based on product_category/type)
+        const category = (npa.product_category || '').toLowerCase();
+        const npaType = (npa.npa_type || '').toLowerCase();
+
+        // Booking system — deterministic by product family
+        if (category.includes('derivative') || category.includes('ird') || category.includes('swap')) {
+            ruleValues['booking_system'] = 'Murex (MX.3) - IRD Module';
+            ruleValues['booking_family'] = 'OTC Derivatives';
+            ruleValues['booking_typology'] = 'ISDA Master Agreement';
+            ruleValues['settlement_method'] = 'T+2 Standard Settlement';
+            ruleValues['funding_type'] = 'Unfunded';
+        } else if (category.includes('fx') || category.includes('foreign exchange')) {
+            ruleValues['booking_system'] = 'Murex (MX.3) - FX Module';
+            ruleValues['booking_family'] = 'FX Spot/Forward';
+            ruleValues['booking_typology'] = 'FX Standard';
+            ruleValues['settlement_method'] = 'CLS / T+2';
+            ruleValues['funding_type'] = 'Unfunded';
+        } else if (category.includes('structured') || category.includes('note')) {
+            ruleValues['booking_system'] = 'Murex (MX.3) - Structured Products';
+            ruleValues['booking_family'] = 'Structured Notes';
+            ruleValues['booking_typology'] = 'EMTN Programme';
+            ruleValues['settlement_method'] = 'Euroclear / Clearstream';
+            ruleValues['funding_type'] = 'Funded';
+        } else {
+            ruleValues['booking_system'] = 'Murex (MX.3)';
+            ruleValues['booking_family'] = 'General';
+            ruleValues['booking_typology'] = 'Standard';
+            ruleValues['settlement_method'] = 'T+2 Standard Settlement';
+            ruleValues['funding_type'] = npa.is_funded ? 'Funded' : 'Unfunded';
+        }
+
+        // Booking entity — from org chart (by jurisdiction)
+        if (jurisdictions.includes('SG')) {
+            ruleValues['booking_entity'] = 'DBS Bank Ltd (Singapore)';
+            ruleValues['booking_legal_form'] = 'DBS Bank Ltd';
+            ruleValues['counterparty'] = 'Institutional / Corporate (SG)';
+        } else if (jurisdictions.includes('HK')) {
+            ruleValues['booking_entity'] = 'DBS Bank (Hong Kong) Ltd';
+            ruleValues['booking_legal_form'] = 'DBS Bank (Hong Kong) Ltd';
+            ruleValues['counterparty'] = 'Institutional / Corporate (HK)';
+        } else if (jurisdictions.includes('CN')) {
+            ruleValues['booking_entity'] = 'DBS Bank (China) Ltd';
+            ruleValues['booking_legal_form'] = 'DBS Bank (China) Ltd';
+            ruleValues['counterparty'] = 'Institutional / Corporate (CN)';
+        } else {
+            ruleValues['booking_entity'] = 'DBS Bank Ltd';
+            ruleValues['booking_legal_form'] = 'DBS Bank Ltd';
+            ruleValues['counterparty'] = 'Institutional / Corporate';
+        }
+
+        // Portfolio allocation — by risk level
+        ruleValues['portfolio_allocation'] = npa.risk_level === 'HIGH'
+            ? 'Trading Book — Market Risk Capital Required'
+            : 'Banking Book — Standard Allocation';
+
+        // Market Risk Factor matrix — defaults based on product type
+        const isIRD = category.includes('ird') || category.includes('swap') || category.includes('rate');
+        const isFX = category.includes('fx') || category.includes('currency');
+        const isEquity = category.includes('equity') || category.includes('eq');
+        const isCredit = category.includes('credit') || category.includes('cds');
+        const isCommodity = category.includes('commodity');
+
+        ruleValues['mrf_ir_delta'] = (isIRD || isFX) ? 'Yes | Yes | Yes | Yes' : 'No | No | No | No';
+        ruleValues['mrf_ir_vega'] = isIRD ? 'Yes | Yes | No | No' : 'No | No | No | No';
+        ruleValues['mrf_fx_delta'] = isFX ? 'Yes | Yes | Yes | Yes' : 'No | No | No | No';
+        ruleValues['mrf_fx_vega'] = isFX ? 'Yes | Yes | No | No' : 'No | No | No | No';
+        ruleValues['mrf_eq_delta'] = isEquity ? 'Yes | Yes | Yes | Yes' : 'No | No | No | No';
+        ruleValues['mrf_commodity'] = isCommodity ? 'Yes | Yes | No | No' : 'No | No | No | No';
+        ruleValues['mrf_credit'] = isCredit ? 'Yes | Yes | Yes | No' : 'No | No | No | No';
+        ruleValues['mrf_correlation'] = (isIRD && isFX) ? 'Yes | Yes | No | No' : 'No | No | No | No';
+
+        // Regulation lookup — by jurisdiction
+        if (jurisdictions.includes('SG')) {
+            ruleValues['primary_regulation'] = 'Monetary Authority of Singapore (MAS) — Securities and Futures Act';
+            ruleValues['secondary_regulations'] = 'MAS Notice SFA 04-N12 (OTC Derivatives), MAS Guidelines on Risk Management Practices';
+            ruleValues['regulatory_reporting'] = 'DTCC (MAS-mandated trade repository), MAS Form 25A/25B';
+            ruleValues['sanctions_check'] = 'MAS Sanctions List + OFAC/EU/UN consolidated list screening required';
+        } else if (jurisdictions.includes('HK')) {
+            ruleValues['primary_regulation'] = 'Hong Kong Monetary Authority (HKMA) — Securities and Futures Ordinance (SFO)';
+            ruleValues['secondary_regulations'] = 'HKMA CR-G-14 (Counterparty Risk), SFC Code of Conduct';
+            ruleValues['regulatory_reporting'] = 'HKTR (HKMA Trade Repository), SFC Large Position Reporting';
+            ruleValues['sanctions_check'] = 'HKMA Sanctions List + OFAC/EU/UN consolidated list screening required';
+        } else {
+            ruleValues['primary_regulation'] = 'Local regulatory authority — Securities and Banking regulations';
+            ruleValues['secondary_regulations'] = 'Applicable OTC derivatives and risk management regulations';
+            ruleValues['regulatory_reporting'] = 'Trade repository reporting per local requirements';
+            ruleValues['sanctions_check'] = 'OFAC/EU/UN consolidated list screening required';
+        }
+
+        // Pricing model (from NPA record or product config)
+        ruleValues['pricing_model_name'] = category.includes('derivative')
+            ? 'Black-Scholes / Monte Carlo Simulation'
+            : category.includes('structured')
+            ? 'Discounted Cash Flow + Monte Carlo'
+            : 'Mark-to-Market / Fair Value';
+        ruleValues['model_validation_date'] = new Date().toISOString().slice(0, 10);
+
+        // Misc RULE fields from NPA record
+        if (npa.underlying_asset) ruleValues['underlying_asset'] = npa.underlying_asset;
+        if (npa.tenor) ruleValues['tenor'] = npa.tenor;
+        ruleValues['booking_schema'] = ruleValues['booking_family'] + ' — ' + ruleValues['booking_typology'];
+
+        // ── 4. Build COPY field values (from similar NPA) ──
+        const copyFieldKeys = [
+            'product_role', 'product_maturity', 'product_lifecycle', 'distribution_channels',
+            'sales_suitability', 'front_office_model', 'middle_office_model', 'back_office_model',
+            'confirmation_process', 'reconciliation', 'legal_opinion', 'tax_impact',
+            'data_privacy', 'data_retention', 'gdpr_compliance', 'data_ownership',
+            'collateral_types', 'valuation_method', 'funding_source'
+        ];
+
+        const copyValues = {};
+        for (const key of copyFieldKeys) {
+            const val = similarDataMap.get(key);
+            if (val && val.trim()) {
+                copyValues[key] = val;
+            }
+        }
+
+        // ── 5. Merge and return ──
+        const filledFields = [];
+
+        // Add RULE fields
+        for (const [key, value] of Object.entries(ruleValues)) {
+            if (value) {
+                filledFields.push({
+                    field_key: key,
+                    value: value,
+                    lineage: 'AUTO',
+                    confidence: 95,
+                    source: 'deterministic_rule',
+                    strategy: 'RULE'
+                });
+            }
+        }
+
+        // Add COPY fields
+        for (const [key, value] of Object.entries(copyValues)) {
+            filledFields.push({
+                field_key: key,
+                value: value,
+                lineage: 'AUTO',
+                confidence: 75,
+                source: similarNpa ? `copied_from_npa:${similarNpa.id}` : 'similar_npa',
+                strategy: 'COPY'
+            });
+        }
+
+        // Return summary
+        res.json({
+            npa_id: id,
+            similar_npa_id: similarNpa?.id || null,
+            similar_npa_title: similarNpa?.title || null,
+            filled_fields: filledFields,
+            summary: {
+                rule_count: Object.keys(ruleValues).length,
+                copy_count: Object.keys(copyValues).length,
+                total_prefilled: filledFields.length,
+                remaining_for_llm: 'Use POST /api/dify/workflow with app=WF_NPA_Autofill for LLM fields'
+            }
+        });
+
+    } catch (err) {
+        console.error('[PREFILL] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// POST /api/npas/:id/prefill/persist — Persist pre-filled values to DB
+// ═══════════════════════════════════════════════════════════════
+router.post('/:id/prefill/persist', validatePersistMiddleware, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const { filled_fields } = req.validatedBody;
+
+        const conn = await db.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            for (const field of filled_fields) {
+                if (!field.field_key || !field.value) continue;
+
+                // Upsert into npa_form_data
+                await conn.query(`
+                    INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        field_value = VALUES(field_value),
+                        lineage = VALUES(lineage),
+                        confidence_score = VALUES(confidence_score),
+                        metadata = VALUES(metadata)
+                `, [
+                    id,
+                    field.field_key,
+                    field.value,
+                    field.lineage || 'AUTO',
+                    field.confidence || null,
+                    JSON.stringify({
+                        source: field.source || 'prefill',
+                        strategy: field.strategy || 'RULE',
+                        prefilled_at: new Date().toISOString()
+                    })
+                ]);
+            }
+
+            await conn.commit();
+
+            res.json({
+                status: 'PERSISTED',
+                npa_id: id,
+                fields_saved: filled_fields.length
+            });
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
+    } catch (err) {
+        console.error('[PREFILL-PERSIST] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

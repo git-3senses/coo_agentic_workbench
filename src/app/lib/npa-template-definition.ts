@@ -723,6 +723,243 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
 
 
 // ────────────────────────────────────────────────────────────
+// Field Registry — AUTOFILL Classification
+// ────────────────────────────────────────────────────────────
+//
+// Every field_key is classified into one of 4 fill strategies:
+//
+// RULE   — Deterministic: Can be resolved via DB lookup, product config,
+//          or simple business rules WITHOUT calling an LLM.
+//          Examples: product_name (from NPA record), booking_entity (from
+//          org chart), regulatory_reporting (from jurisdiction lookup table).
+//          → Filled by Express endpoint: GET /api/npas/:id/prefill
+//
+// COPY   — Template Copy: Value can be copied from a similar previously-
+//          approved NPA and adapted slightly. The LLM reviews and optionally
+//          tweaks the copied value but the baseline comes from DB.
+//          → Filled by Express endpoint + LLM delta pass
+//
+// LLM    — Analytical: Requires LLM reasoning over product context,
+//          risk documents, and regulatory knowledge. Cannot be derived
+//          from simple lookups.
+//          → Filled by Dify Chatflow LLM nodes
+//
+// MANUAL — Human-only: Requires human judgment, sign-off, or input that
+//          an AI should not auto-fill (legal attestations, manager names,
+//          specific internal reference numbers).
+//          → Left empty with guidance; user must fill manually
+//
+
+export type FieldFillStrategy = 'RULE' | 'COPY' | 'LLM' | 'MANUAL';
+
+export interface FieldRegistryEntry {
+  /** The field_key as stored in npa_form_data */
+  key: string;
+  /** Human-readable label */
+  label: string;
+  /** Which autofill strategy to use */
+  strategy: FieldFillStrategy;
+  /** For RULE: name of the lookup source (e.g., 'npa_record', 'org_chart', 'jurisdiction_table') */
+  ruleSource?: string;
+  /** For COPY: which section of a similar NPA to copy from */
+  copySection?: string;
+  /** For LLM: the prompt category (e.g., 'risk_analysis', 'product_description', 'compliance') */
+  llmCategory?: string;
+  /** Template node ID where this field appears (e.g., 'PC.I.1.a') */
+  nodeId?: string;
+}
+
+/**
+ * Master Field Registry — classifies all 87 field_keys by fill strategy.
+ *
+ * Distribution:
+ *   RULE   ~30 fields — deterministic from DB/config
+ *   COPY   ~15 fields — baseline from similar NPA
+ *   LLM    ~30 fields — requires AI reasoning
+ *   MANUAL ~12 fields — human-only
+ */
+export const NPA_FIELD_REGISTRY: FieldRegistryEntry[] = [
+
+  // ═══════ SECTION I: Product Specifications ═══════
+
+  // RULE — straight from NPA record or product config
+  { key: 'product_name',       label: 'Product Name',                strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b' },
+  { key: 'product_type',       label: 'Product Type',                strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b' },
+  { key: 'underlying_asset',   label: 'Underlying Asset',            strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b' },
+  { key: 'tenor',              label: 'Tenor',                       strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b' },
+  { key: 'notional_amount',    label: 'Transaction Volume (Notional)', strategy: 'RULE', ruleSource: 'npa_record',       nodeId: 'PC.I.1.c' },
+  { key: 'funding_type',       label: 'Funding Type',                strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b' },
+
+  // COPY — from similar NPA baseline
+  { key: 'product_role',       label: 'Role of Proposing Unit',      strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.1.b' },
+  { key: 'product_maturity',   label: 'Product Maturity',            strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.1.b' },
+  { key: 'product_lifecycle',  label: 'Product Life Cycle',          strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.1.b' },
+  { key: 'distribution_channels', label: 'Distribution Channels',   strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.3.a' },
+  { key: 'sales_suitability',  label: 'Sales Suitability',           strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.3.b' },
+
+  // LLM — requires reasoning
+  { key: 'business_rationale', label: 'Business Rationale',          strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.1.a' },
+  { key: 'revenue_year1',      label: 'Revenue Year 1',              strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c' },
+  { key: 'revenue_year2',      label: 'Revenue Year 2',              strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c' },
+  { key: 'revenue_year3',      label: 'Revenue Year 3',              strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c' },
+  { key: 'target_roi',         label: 'Target ROI',                  strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.d' },
+  { key: 'marketing_plan',     label: 'Marketing & Communication',   strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.3.c' },
+
+  // MANUAL — human judgment required
+  { key: 'customer_segments',  label: 'Target Customer Segments',    strategy: 'MANUAL',  nodeId: 'PC.I.2' },
+  { key: 'pac_reference',      label: 'PAC Reference / Conditions',  strategy: 'MANUAL',  nodeId: 'PC.I.4' },
+  { key: 'spv_details',        label: 'Special Purpose Vehicle Details', strategy: 'MANUAL', nodeId: 'PC.I.1.e' },
+  { key: 'ip_considerations',  label: 'IP Considerations',           strategy: 'MANUAL',  nodeId: 'PC.I.5' },
+
+  // ═══════ SECTION II: Operational & Technology ═══════
+
+  // COPY — operational model can be copied from similar product
+  { key: 'front_office_model', label: 'Front Office Operating Model', strategy: 'COPY',  copySection: 'operational',     nodeId: 'PC.II.1.a' },
+  { key: 'middle_office_model', label: 'Middle Office Operating Model', strategy: 'COPY', copySection: 'operational',    nodeId: 'PC.II.1.a' },
+  { key: 'back_office_model',  label: 'Back Office Operating Model',  strategy: 'COPY',  copySection: 'operational',     nodeId: 'PC.II.1.a' },
+  { key: 'confirmation_process', label: 'Confirmation Process',       strategy: 'COPY',  copySection: 'operational',     nodeId: 'PC.II.1.b' },
+  { key: 'reconciliation',     label: 'Reconciliation',               strategy: 'COPY',  copySection: 'operational',     nodeId: 'PC.II.1.b' },
+
+  // RULE — from org/system config
+  { key: 'booking_legal_form', label: 'Booking Legal Form',          strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.II.1.b' },
+  { key: 'booking_family',     label: 'Booking Family',              strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.II.1.b' },
+  { key: 'booking_typology',   label: 'Booking Typology',            strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.II.1.b' },
+  { key: 'portfolio_allocation', label: 'Portfolio Allocation',      strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.II.1.b' },
+  { key: 'booking_system',     label: 'Booking System',              strategy: 'RULE',   ruleSource: 'system_config',    nodeId: 'PC.II.2.a' },
+  { key: 'settlement_method',  label: 'Settlement Method',           strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.II.2.c' },
+  { key: 'booking_entity',     label: 'Booking Entity',              strategy: 'RULE',   ruleSource: 'org_chart',        nodeId: 'APP.1' },
+
+  // LLM — needs analysis
+  { key: 'tech_requirements',  label: 'Technology Requirements',     strategy: 'LLM',    llmCategory: 'operational',     nodeId: 'PC.II.2.a' },
+  { key: 'valuation_model',    label: 'Valuation Model',             strategy: 'LLM',    llmCategory: 'pricing',         nodeId: 'PC.II.2.b' },
+
+  // MANUAL — security/BCM assessments
+  { key: 'iss_deviations',     label: 'ISS Deviations',              strategy: 'MANUAL',  nodeId: 'PC.II.3' },
+  { key: 'pentest_status',     label: 'Penetration Test Status',     strategy: 'MANUAL',  nodeId: 'PC.II.3' },
+  { key: 'hsm_required',       label: 'HSM Required',                strategy: 'MANUAL',  nodeId: 'PC.II.4' },
+
+  // ═══════ SECTION III: Pricing Model ═══════
+
+  // LLM — pricing analysis needs reasoning
+  { key: 'pricing_methodology', label: 'Pricing Methodology',        strategy: 'LLM',    llmCategory: 'pricing',         nodeId: 'PC.III.1' },
+  { key: 'roae_analysis',      label: 'ROAE Analysis',               strategy: 'LLM',    llmCategory: 'pricing',         nodeId: 'PC.III.1' },
+  { key: 'pricing_assumptions', label: 'Pricing Assumptions',        strategy: 'LLM',    llmCategory: 'pricing',         nodeId: 'PC.III.1' },
+  { key: 'bespoke_adjustments', label: 'Bespoke Adjustments',        strategy: 'LLM',    llmCategory: 'pricing',         nodeId: 'PC.III.1' },
+  { key: 'simm_treatment',     label: 'SIMM Treatment',              strategy: 'LLM',    llmCategory: 'pricing',         nodeId: 'PC.III.3' },
+
+  // RULE — model metadata
+  { key: 'pricing_model_name', label: 'Pricing Model Name',          strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.III.2' },
+  { key: 'model_validation_date', label: 'Model Validation Date',    strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.III.2' },
+
+  // ═══════ SECTION IV: Risk Analysis ═══════
+
+  // LLM — core risk analysis
+  { key: 'market_risk',        label: 'Market Risk Assessment',      strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.B.1' },
+  { key: 'risk_classification', label: 'Risk Classification',        strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.B.1' },
+  { key: 'liquidity_risk',     label: 'Funding/Liquidity Risk',      strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.B.2' },
+  { key: 'regulatory_capital', label: 'Regulatory Capital',          strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.B.3' },
+  { key: 'var_capture',        label: 'VaR Capture',                 strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.B.3' },
+  { key: 'credit_risk',        label: 'Credit Risk Assessment',      strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.C.1' },
+  { key: 'counterparty_default', label: 'Counterparty Default',      strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.C.2' },
+  { key: 'stress_scenarios',   label: 'Stress Scenarios',            strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.C.3' },
+  { key: 'counterparty_rating', label: 'Counterparty Rating',        strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.C.5' },
+  { key: 'reputational_risk',  label: 'Reputational Risk',           strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.D' },
+  { key: 'esg_assessment',     label: 'ESG Assessment',              strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.D' },
+  { key: 'operational_risk',   label: 'Operational Risk',            strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.VI' },
+
+  // RULE — market risk factor matrix (table values: Yes/No per factor)
+  { key: 'mrf_ir_delta',       label: 'MRF: IR Delta',               strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.IV.B.1' },
+  { key: 'mrf_ir_vega',        label: 'MRF: IR Vega',                strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.IV.B.1' },
+  { key: 'mrf_fx_delta',       label: 'MRF: FX Delta',               strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.IV.B.1' },
+  { key: 'mrf_fx_vega',        label: 'MRF: FX Vega',                strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.IV.B.1' },
+  { key: 'mrf_eq_delta',       label: 'MRF: Equity Delta',           strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.IV.B.1' },
+  { key: 'mrf_commodity',      label: 'MRF: Commodity',              strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.IV.B.1' },
+  { key: 'mrf_credit',         label: 'MRF: Credit',                 strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.IV.B.1' },
+  { key: 'mrf_correlation',    label: 'MRF: Correlation',            strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'PC.IV.B.1' },
+
+  // COPY — legal/compliance (can copy structure from similar NPA)
+  { key: 'legal_opinion',      label: 'Legal Opinion',               strategy: 'COPY',   copySection: 'legal',           nodeId: 'PC.IV.A.1' },
+  { key: 'tax_impact',         label: 'Tax Impact',                  strategy: 'COPY',   copySection: 'legal',           nodeId: 'PC.IV.A.2' },
+
+  // RULE — from jurisdiction lookup
+  { key: 'primary_regulation', label: 'Primary Regulation',          strategy: 'RULE',   ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1' },
+  { key: 'secondary_regulations', label: 'Secondary Regulations',    strategy: 'RULE',   ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1' },
+  { key: 'regulatory_reporting', label: 'Regulatory Reporting',      strategy: 'RULE',   ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1' },
+  { key: 'sanctions_check',    label: 'Sanctions Check',             strategy: 'RULE',   ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1' },
+
+  // LLM — credit risk detail
+  { key: 'custody_risk',       label: 'Custody Risk',                strategy: 'LLM',    llmCategory: 'risk_analysis',   nodeId: 'PC.IV.C.4' },
+
+  // ═══════ SECTION V: Data Management ═══════
+
+  // COPY — data governance fields follow similar patterns
+  { key: 'data_privacy',       label: 'Data Privacy Assessment',     strategy: 'COPY',   copySection: 'data_mgmt',       nodeId: 'PC.V.1' },
+  { key: 'data_retention',     label: 'Data Retention Policy',       strategy: 'COPY',   copySection: 'data_mgmt',       nodeId: 'PC.V.1' },
+  { key: 'gdpr_compliance',    label: 'GDPR Compliance',             strategy: 'COPY',   copySection: 'data_mgmt',       nodeId: 'PC.V.1' },
+  { key: 'data_ownership',     label: 'Data Ownership',              strategy: 'COPY',   copySection: 'data_mgmt',       nodeId: 'PC.V.1' },
+
+  // MANUAL — internal reference
+  { key: 'pure_assessment_id', label: 'PURE Assessment ID',          strategy: 'MANUAL',  nodeId: 'PC.V.2' },
+
+  // LLM — aggregation/reporting analysis
+  { key: 'reporting_requirements', label: 'Risk Data Aggregation & Reporting', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.V.3' },
+
+  // ═══════ APPENDICES ═══════
+
+  // RULE — entity info from org chart
+  { key: 'counterparty',       label: 'Counterparty',                strategy: 'RULE',   ruleSource: 'org_chart',        nodeId: 'APP.1' },
+
+  // LLM — financial crime assessment
+  { key: 'aml_assessment',     label: 'AML Assessment',              strategy: 'LLM',    llmCategory: 'compliance',      nodeId: 'APP.3' },
+  { key: 'terrorism_financing', label: 'Terrorism Financing Risk',   strategy: 'LLM',    llmCategory: 'compliance',      nodeId: 'APP.3' },
+  { key: 'sanctions_assessment', label: 'Sanctions Assessment',      strategy: 'LLM',    llmCategory: 'compliance',      nodeId: 'APP.3' },
+  { key: 'fraud_risk',         label: 'Fraud Risk',                  strategy: 'LLM',    llmCategory: 'compliance',      nodeId: 'APP.3' },
+  { key: 'bribery_corruption', label: 'Bribery & Corruption Risk',   strategy: 'LLM',    llmCategory: 'compliance',      nodeId: 'APP.3' },
+
+  // COPY — trading product details
+  { key: 'collateral_types',   label: 'Collateral Types',            strategy: 'COPY',   copySection: 'trading',         nodeId: 'APP.5.3' },
+  { key: 'valuation_method',   label: 'Valuation Method',            strategy: 'COPY',   copySection: 'trading',         nodeId: 'APP.5.4' },
+  { key: 'funding_source',     label: 'Funding Source',              strategy: 'COPY',   copySection: 'trading',         nodeId: 'APP.5.4' },
+  { key: 'booking_schema',     label: 'Booking Schema',              strategy: 'RULE',   ruleSource: 'product_config',   nodeId: 'APP.5.5' },
+];
+
+/**
+ * Lookup helpers for the Field Registry
+ */
+export const FIELD_REGISTRY_MAP = new Map<string, FieldRegistryEntry>(
+  NPA_FIELD_REGISTRY.map(entry => [entry.key, entry])
+);
+
+/** Get all fields for a given strategy */
+export function getFieldsByStrategy(strategy: FieldFillStrategy): FieldRegistryEntry[] {
+  return NPA_FIELD_REGISTRY.filter(f => f.strategy === strategy);
+}
+
+/** Get field keys grouped by strategy — used by Express prefill endpoint */
+export function getFieldKeysByStrategy(): Record<FieldFillStrategy, string[]> {
+  return {
+    RULE:   NPA_FIELD_REGISTRY.filter(f => f.strategy === 'RULE').map(f => f.key),
+    COPY:   NPA_FIELD_REGISTRY.filter(f => f.strategy === 'COPY').map(f => f.key),
+    LLM:    NPA_FIELD_REGISTRY.filter(f => f.strategy === 'LLM').map(f => f.key),
+    MANUAL: NPA_FIELD_REGISTRY.filter(f => f.strategy === 'MANUAL').map(f => f.key),
+  };
+}
+
+/** Get LLM fields grouped by prompt category — used to build LLM prompts */
+export function getLlmFieldsByCategory(): Record<string, FieldRegistryEntry[]> {
+  const categories: Record<string, FieldRegistryEntry[]> = {};
+  for (const entry of NPA_FIELD_REGISTRY) {
+    if (entry.strategy === 'LLM' && entry.llmCategory) {
+      if (!categories[entry.llmCategory]) {
+        categories[entry.llmCategory] = [];
+      }
+      categories[entry.llmCategory].push(entry);
+    }
+  }
+  return categories;
+}
+
+// ────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────
 
