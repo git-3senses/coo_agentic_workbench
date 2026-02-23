@@ -5,6 +5,7 @@ const db = require('../db');
 const { getNpaProfiles } = require('./seed-npas');
 const { validatePersistMiddleware } = require('../validation/autofill-schema');
 const { bulkUpsertNpaFormData } = require('../utils/bulk-upsert');
+const { requireAuth } = require('../middleware/auth');
 
 // GET /api/npas — List all NPAs (with optional filters)
 router.get('/', async (req, res) => {
@@ -137,6 +138,175 @@ router.get('/:id/form-data', async (req, res) => {
         if (msg.includes('doesn\'t exist') || msg.includes('ER_NO_SUCH_TABLE')) {
             return res.json([]);
         }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/npas/:id/form-data — Persist Draft Builder field key/value pairs
+// Body: { filled_fields: Array<{ field_key, value, lineage, confidence?, source?, strategy? }> }
+router.post('/:id/form-data', requireAuth(), validatePersistMiddleware, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const { filled_fields } = req.validatedBody;
+
+        const conn = await db.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            const rows = (filled_fields || []).map((field) => ({
+                field_key: field.field_key,
+                value: field.value,
+                lineage: field.lineage || 'MANUAL',
+                confidence: field.confidence ?? null,
+                metadata: {
+                    source: field.source || 'draft_builder',
+                    sourceSnippet: field.source || null,
+                    strategy: field.strategy || 'MANUAL',
+                    saved_by: req.user?.email || req.user?.display_name || null,
+                    saved_role: req.user?.role || null,
+                    saved_at: new Date().toISOString(),
+                },
+            }));
+
+            const result = await bulkUpsertNpaFormData(conn, id, rows, { batchSize: 400 });
+
+            await conn.commit();
+            res.json({ status: 'PERSISTED', npa_id: id, fields_saved: result.rows, batches: result.batches });
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── Draft Builder comments (draft-level + field-level) ──────────────────────
+// GET /api/npas/:id/comments?scope=DRAFT|FIELD&field_key=...
+// Returns a flat list; client can build threads via parent_comment_id.
+router.get('/:id/comments', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const scope = req.query.scope ? String(req.query.scope).toUpperCase() : null;
+        const fieldKey = req.query.field_key ? String(req.query.field_key) : null;
+
+        const conditions = ['project_id = ?'];
+        const params = [id];
+
+        // scope/field_key are optional for backward compatibility with older DBs
+        if (scope) {
+            conditions.push('(scope = ? OR scope IS NULL)');
+            params.push(scope);
+        }
+        if (fieldKey) {
+            conditions.push('field_key = ?');
+            params.push(fieldKey);
+        }
+
+        const sql = `
+            SELECT
+                id,
+                project_id,
+                comment_type,
+                scope,
+                field_key,
+                comment_text,
+                author_user_id,
+                author_name,
+                author_role,
+                parent_comment_id,
+                created_at
+            FROM npa_comments
+            WHERE ${conditions.join(' AND ')}
+            ORDER BY created_at ASC, id ASC
+        `;
+
+        try {
+            const [rows] = await db.query(sql, params);
+            return res.json(rows);
+        } catch (err) {
+            const msg = String(err?.message || '');
+            // Back-compat: older DBs may not have scope/field_key/author_user_id yet.
+            if (msg.includes('Unknown column') && (msg.includes('scope') || msg.includes('field_key') || msg.includes('author_user_id'))) {
+                const legacySql = `
+                    SELECT
+                        id,
+                        project_id,
+                        comment_type,
+                        NULL as scope,
+                        NULL as field_key,
+                        comment_text,
+                        NULL as author_user_id,
+                        author_name,
+                        author_role,
+                        parent_comment_id,
+                        created_at
+                    FROM npa_comments
+                    WHERE project_id = ?
+                    ORDER BY created_at ASC, id ASC
+                `;
+                const [legacyRows] = await db.query(legacySql, [id]);
+                return res.json(legacyRows);
+            }
+            throw err;
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/npas/:id/comments
+// Body: { scope?: 'DRAFT'|'FIELD', field_key?: string, text: string, parent_id?: number|null }
+router.post('/:id/comments', requireAuth(), async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const scope = (req.body?.scope ? String(req.body.scope) : 'DRAFT').toUpperCase();
+        const fieldKey = req.body?.field_key ? String(req.body.field_key) : null;
+        const text = req.body?.text ? String(req.body.text).trim() : '';
+        const parentIdRaw = req.body?.parent_id;
+        const parentId = (parentIdRaw === null || parentIdRaw === undefined || parentIdRaw === '')
+            ? null
+            : Number(parentIdRaw);
+
+        if (!text) return res.status(400).json({ error: 'text is required' });
+        if (scope !== 'DRAFT' && scope !== 'FIELD') return res.status(400).json({ error: 'scope must be DRAFT or FIELD' });
+        if (scope === 'FIELD' && (!fieldKey || !fieldKey.trim())) {
+            return res.status(400).json({ error: 'field_key is required when scope=FIELD' });
+        }
+        if (parentId !== null && !Number.isFinite(parentId)) {
+            return res.status(400).json({ error: 'parent_id must be a number or null' });
+        }
+
+        const authorName = req.user?.display_name || req.user?.full_name || req.user?.email || 'User';
+        const authorRole = req.user?.role || null;
+        const authorUserId = req.user?.user_id || req.user?.id || null;
+
+        // Keep legacy comment_type field populated for existing consumers.
+        const commentType = scope === 'FIELD' ? 'FIELD_COMMENT' : 'DRAFT_COMMENT';
+
+        const [result] = await db.query(
+            `INSERT INTO npa_comments
+                (project_id, comment_type, scope, field_key, comment_text, author_user_id, author_name, author_role, parent_comment_id, generated_by_ai, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP())`,
+            [projectId, commentType, scope, fieldKey, text, authorUserId, authorName, authorRole, parentId]
+        );
+
+        res.status(201).json({
+            id: result.insertId,
+            project_id: projectId,
+            comment_type: commentType,
+            scope,
+            field_key: fieldKey,
+            comment_text: text,
+            author_user_id: authorUserId,
+            author_name: authorName,
+            author_role: authorRole,
+            parent_comment_id: parentId,
+            created_at: new Date().toISOString()
+        });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

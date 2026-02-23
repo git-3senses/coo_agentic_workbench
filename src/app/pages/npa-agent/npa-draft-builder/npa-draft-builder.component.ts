@@ -105,14 +105,14 @@ export interface ChatMessage {
 // ────────────────────────────────────────────────────────────
 
 interface CommentReply {
-   id: string;
+   id: number;
    author: string;
    when: string;
    text: string;
 }
 
 interface CommentItem {
-   id: string;
+   id: number;
    author: string;
    when: string;
    text: string;
@@ -124,6 +124,22 @@ interface CommentThread {
    title: string;
    ref: string;
    comments: CommentItem[];
+}
+
+type CommentScope = 'DRAFT' | 'FIELD';
+
+interface DbCommentRow {
+   id: number;
+   project_id: string;
+   comment_type: string;
+   scope?: string | null;
+   field_key?: string | null;
+   comment_text: string;
+   author_user_id?: string | null;
+   author_name?: string | null;
+   author_role?: string | null;
+   parent_comment_id?: number | null;
+   created_at: string;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -221,10 +237,15 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    commentsDrawerTitle = '';
    commentsDrawerRef = '';
    commentDraft = '';
-   replyToCommentId: string | null = null;
+   replyToCommentId: number | null = null;
    replyDraft = '';
    activeThread: CommentThread | null = null;
-   private threads = new Map<string, CommentThread>();
+   private threads = new Map<string, CommentThread>(); // fallback cache if DB unavailable
+   commentsLoading = false;
+   commentsError = '';
+   private activeCommentScope: CommentScope = 'DRAFT';
+   private activeCommentFieldKey: string | null = null;
+   private draftCommentsCountValue = 0;
 
    // ─── Stepper State ──────────────────────────────────────────
    stepperSections: StepperSection[] = [];
@@ -248,6 +269,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    private autoSaveTimer: ReturnType<typeof setInterval> | null = null;
    lastSavedAt: Date | null = null;
    isDirty = false;
+   isSavingDraft = false;
 
    // ─── Completion Tracking ────────────────────────────────────
    overallProgress = 0;
@@ -313,6 +335,12 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          this.isDirty = false;
          console.log(`[DraftBuilder] Auto-saved ${Object.keys(data).length} fields`);
       } catch (e) { /* quota exceeded */ }
+
+      // Also persist to DB when we have a real NPA ID (keeps drafts shareable across devices).
+      const projectId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      if (projectId) {
+         this.persistFormDataToDb('autosave');
+      }
    }
 
    // ═══════════════════════════════════════════════════════════
@@ -569,16 +597,11 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    }
 
    // ────────────────────────────────────────────────────────────
-   // Comments Drawer (UI placeholder)
+   // Comments Drawer (DB-backed)
    // ────────────────────────────────────────────────────────────
 
    private nowLabel(): string {
       return new Date().toLocaleString();
-   }
-
-   private makeId(prefix: string): string {
-      const rand = (globalThis as any)?.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      return `${prefix}-${rand}`;
    }
 
    private ensureThread(key: string, title: string, ref: string): CommentThread {
@@ -590,9 +613,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    }
 
    draftCommentCount(): number {
-      const npaId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
-      const key = `draft:${String(npaId || 'unknown')}`;
-      return this.threads.get(key)?.comments?.length || 0;
+      return this.draftCommentsCountValue;
    }
 
    openCommentsForDraft(): void {
@@ -600,6 +621,8 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       const title = 'Draft Comments';
       const ref = npaId ? `Draft: ${npaId}` : 'Draft';
       const key = `draft:${String(npaId || 'unknown')}`;
+      this.activeCommentScope = 'DRAFT';
+      this.activeCommentFieldKey = null;
       this.activeThread = this.ensureThread(key, title, ref);
       this.commentsDrawerTitle = title;
       this.commentsDrawerRef = ref;
@@ -607,6 +630,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       this.replyToCommentId = null;
       this.replyDraft = '';
       this.commentsDrawerOpen = true;
+      this.loadCommentsFromDb('DRAFT', null, key, title, ref);
    }
 
    openCommentsForField(field: FieldState): void {
@@ -614,6 +638,8 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       const title = `${field.label || 'Field'} — Comments`;
       const ref = `Field: ${field.label || ''} · ${refKey}`;
       const key = `field:${String(refKey)}`;
+      this.activeCommentScope = 'FIELD';
+      this.activeCommentFieldKey = field.key || null;
       this.activeThread = this.ensureThread(key, title, ref);
       this.commentsDrawerTitle = title;
       this.commentsDrawerRef = ref;
@@ -621,6 +647,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       this.replyToCommentId = null;
       this.replyDraft = '';
       this.commentsDrawerOpen = true;
+      this.loadCommentsFromDb('FIELD', this.activeCommentFieldKey, key, title, ref);
    }
 
    closeCommentsDrawer(): void {
@@ -629,24 +656,49 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       this.replyToCommentId = null;
       this.replyDraft = '';
       this.activeThread = null;
+      this.commentsLoading = false;
+      this.commentsError = '';
    }
 
    postComment(): void {
       if (!this.activeThread) return;
       const text = String(this.commentDraft || '').trim();
       if (!text) return;
-      const author = this.authService.currentUser?.display_name || this.authService.currentUser?.full_name || 'User';
-      this.activeThread.comments.push({
-         id: this.makeId('c'),
-         author,
-         when: this.nowLabel(),
-         text,
-         replies: []
+      const projectId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      if (!projectId) {
+         // Fallback: no DB context
+         const author = this.authService.currentUser?.display_name || this.authService.currentUser?.full_name || 'User';
+         this.activeThread.comments.push({
+            id: Date.now(),
+            author,
+            when: this.nowLabel(),
+            text,
+            replies: []
+         });
+         this.commentDraft = '';
+         return;
+      }
+
+      this.commentsError = '';
+      this.commentsLoading = true;
+      this.http.post(`/api/npas/${encodeURIComponent(projectId)}/comments`, {
+         scope: this.activeCommentScope,
+         field_key: this.activeCommentScope === 'FIELD' ? this.activeCommentFieldKey : null,
+         text
+      }).subscribe({
+         next: () => {
+            this.commentDraft = '';
+            const threadKey = this.activeThread?.key || `draft:${projectId}`;
+            this.loadCommentsFromDb(this.activeCommentScope, this.activeCommentFieldKey, threadKey, this.commentsDrawerTitle, this.commentsDrawerRef);
+         },
+         error: (err) => {
+            this.commentsLoading = false;
+            this.commentsError = err?.error?.error || err?.message || 'Failed to post comment';
+         }
       });
-      this.commentDraft = '';
    }
 
-   startReply(commentId: string): void {
+   startReply(commentId: number): void {
       this.replyToCommentId = commentId;
       this.replyDraft = '';
    }
@@ -660,25 +712,119 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       if (!this.activeThread || !this.replyToCommentId) return;
       const text = String(this.replyDraft || '').trim();
       if (!text) return;
-      const target = this.activeThread.comments.find(c => c.id === this.replyToCommentId);
-      if (!target) return;
-      const author = this.authService.currentUser?.display_name || this.authService.currentUser?.full_name || 'User';
-      target.replies.push({
-         id: this.makeId('r'),
-         author,
-         when: this.nowLabel(),
-         text
+      const projectId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      if (!projectId) {
+         // Fallback: no DB context
+         const target = this.activeThread.comments.find(c => c.id === this.replyToCommentId);
+         if (!target) return;
+         const author = this.authService.currentUser?.display_name || this.authService.currentUser?.full_name || 'User';
+         target.replies.push({
+            id: Date.now(),
+            author,
+            when: this.nowLabel(),
+            text
+         });
+         this.replyToCommentId = null;
+         this.replyDraft = '';
+         return;
+      }
+
+      this.commentsError = '';
+      this.commentsLoading = true;
+      this.http.post(`/api/npas/${encodeURIComponent(projectId)}/comments`, {
+         scope: this.activeCommentScope,
+         field_key: this.activeCommentScope === 'FIELD' ? this.activeCommentFieldKey : null,
+         text,
+         parent_id: this.replyToCommentId
+      }).subscribe({
+         next: () => {
+            this.replyToCommentId = null;
+            this.replyDraft = '';
+            const threadKey = this.activeThread?.key || `draft:${projectId}`;
+            this.loadCommentsFromDb(this.activeCommentScope, this.activeCommentFieldKey, threadKey, this.commentsDrawerTitle, this.commentsDrawerRef);
+         },
+         error: (err) => {
+            this.commentsLoading = false;
+            this.commentsError = err?.error?.error || err?.message || 'Failed to post reply';
+         }
       });
-      this.replyToCommentId = null;
-      this.replyDraft = '';
    }
 
    trackByCommentId(_i: number, c: CommentItem): string {
-      return c.id;
+      return String(c.id);
    }
 
    trackByReplyId(_i: number, r: CommentReply): string {
-      return r.id;
+      return String(r.id);
+   }
+
+   private loadCommentsFromDb(
+      scope: CommentScope,
+      fieldKey: string | null,
+      threadKey: string,
+      title: string,
+      ref: string
+   ): void {
+      const projectId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      if (!projectId) return;
+
+      this.commentsLoading = true;
+      this.commentsError = '';
+
+      const params: any = { scope };
+      if (fieldKey) params.field_key = fieldKey;
+
+      this.http.get<DbCommentRow[]>(`/api/npas/${encodeURIComponent(projectId)}/comments`, { params }).subscribe({
+         next: (rows) => {
+            const thread = this.buildThreadFromRows(rows || [], threadKey, title, ref);
+            this.threads.set(threadKey, thread);
+            this.activeThread = thread;
+            if (scope === 'DRAFT') {
+               this.draftCommentsCountValue = thread.comments.length;
+            }
+            this.commentsLoading = false;
+            this.cdr.detectChanges();
+         },
+         error: (err) => {
+            this.commentsLoading = false;
+            this.commentsError = err?.error?.error || err?.message || 'Failed to load comments';
+         }
+      });
+   }
+
+   private buildThreadFromRows(rows: DbCommentRow[], key: string, title: string, ref: string): CommentThread {
+      const thread: CommentThread = { key, title, ref, comments: [] };
+      const topLevel = new Map<number, CommentItem>();
+
+      for (const r of rows) {
+         const parentId = (r.parent_comment_id === undefined ? null : r.parent_comment_id) as number | null;
+         if (parentId === null) {
+            const item: CommentItem = {
+               id: Number(r.id),
+               author: r.author_name || 'User',
+               when: r.created_at ? new Date(r.created_at).toLocaleString() : this.nowLabel(),
+               text: r.comment_text || '',
+               replies: []
+            };
+            topLevel.set(item.id, item);
+            thread.comments.push(item);
+         }
+      }
+
+      for (const r of rows) {
+         const parentId = (r.parent_comment_id === undefined ? null : r.parent_comment_id) as number | null;
+         if (parentId === null) continue;
+         const parent = topLevel.get(Number(parentId));
+         if (!parent) continue;
+         parent.replies.push({
+            id: Number(r.id),
+            author: r.author_name || 'User',
+            when: r.created_at ? new Date(r.created_at).toLocaleString() : this.nowLabel(),
+            text: r.comment_text || ''
+         });
+      }
+
+      return thread;
    }
 
    // ═══════════════════════════════════════════════════════════
@@ -806,27 +952,67 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    saveDraft(skipValidation = false): void {
       if (!skipValidation) this.validateDraft();
 
-      const fields: any[] = [];
-      this.fieldMap.forEach((field, key) => {
-         if (field.value && field.value.trim() !== '') {
+      if (this.isReadOnly) return;
+
+      this.persistFormDataToDb('manual', () => {
+         const fields: any[] = [];
+         this.fieldMap.forEach((field, key) => {
+            if (!this.isSectionApplicable(field.nodeId?.split('.').slice(0, 2).join('.') || '')) return;
             fields.push({
                field_key: key,
-               field_value: field.value,
+               field_value: field.value || '',
                lineage: field.lineage,
-               confidence_score: field.confidence ? Math.round(field.confidence * 100) : null,
+               confidence_score: field.confidence ?? null,
                metadata: {
                   sourceSnippet: field.source,
                   strategy: field.strategy,
                   fieldType: field.type
                }
             });
-         }
+         });
+         this.onSave.emit({
+            fields,
+            classification: this.npaClassification,
+            validationErrors: this.validationErrors.length,
+            progress: this.overallProgress
+         });
       });
-      this.onSave.emit({
-         fields,
-         classification: this.npaClassification,
-         validationErrors: this.validationErrors.length,
-         progress: this.overallProgress
+   }
+
+   private persistFormDataToDb(mode: 'manual' | 'autosave', afterPersist?: () => void): void {
+      const projectId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      if (!projectId) return;
+
+      const filled_fields: any[] = [];
+      this.fieldMap.forEach((field, key) => {
+         if (!this.isSectionApplicable(field.nodeId?.split('.').slice(0, 2).join('.') || '')) return;
+         filled_fields.push({
+            field_key: key,
+            value: field.value || '',
+            lineage: field.lineage || 'MANUAL',
+            confidence: field.confidence ?? null,
+            source: field.source || null,
+            strategy: field.strategy || 'MANUAL'
+         });
+      });
+
+      if (filled_fields.length === 0) return;
+      if (this.isSavingDraft) return;
+
+      this.isSavingDraft = true;
+      this.http.post(`/api/npas/${encodeURIComponent(projectId)}/form-data`, { filled_fields }).subscribe({
+         next: () => {
+            this.lastSavedAt = new Date();
+            this.isDirty = false;
+            this.isSavingDraft = false;
+            if (mode === 'manual') console.log('[DraftBuilder] Saved to DB:', projectId);
+            afterPersist?.();
+            this.cdr.detectChanges();
+         },
+         error: (err) => {
+            this.isSavingDraft = false;
+            console.warn('[DraftBuilder] Failed to persist form data:', err?.message || err);
+         }
       });
    }
 
