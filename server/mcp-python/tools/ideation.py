@@ -27,6 +27,8 @@ CREATE_NPA_SCHEMA = {
         "submitted_by": {"type": "string", "description": "Name of the submitter. Defaults to AI-Agent"},
         "product_manager": {"type": "string", "description": "Assigned product manager"},
         "pm_team": {"type": "string", "description": "Product manager team"},
+        "initial_stage": {"type": "string", "description": "Initial workflow stage for early creation. Defaults to IDEATION (Prospect NPA)."},
+        "initial_status": {"type": "string", "description": "Initial project status label. Defaults to On Track."},
     },
     "required": ["title", "npa_type", "risk_level"],
 }
@@ -34,11 +36,15 @@ CREATE_NPA_SCHEMA = {
 
 async def ideation_create_npa_handler(inp: dict) -> ToolResult:
     npa_id = f"NPA-{uuid.uuid4().hex}"
+    # Prospect-first: create the record early during ideation so the agent can
+    # progressively persist concept fields before the formal NPA stages.
+    initial_stage = inp.get("initial_stage") or "IDEATION"
+    initial_status = inp.get("initial_status") or "On Track"
     await execute(
         """INSERT INTO npa_projects (id, title, description, npa_type, product_category, risk_level,
                                      is_cross_border, notional_amount, currency, submitted_by,
                                      product_manager, pm_team, current_stage, status, created_at, updated_at)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'INITIATION', 'ACTIVE', NOW(), NOW())""",
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())""",
         [
             npa_id, inp["title"], inp.get("description"), inp["npa_type"],
             inp.get("product_category"), inp["risk_level"],
@@ -46,6 +52,7 @@ async def ideation_create_npa_handler(inp: dict) -> ToolResult:
             inp.get("notional_amount"),
             inp.get("currency") or "USD", inp.get("submitted_by") or "AI-Agent",
             inp.get("product_manager"), inp.get("pm_team"),
+            initial_stage, initial_status,
         ],
     )
     return ToolResult(success=True, data={
@@ -53,7 +60,8 @@ async def ideation_create_npa_handler(inp: dict) -> ToolResult:
         "title": inp["title"],
         "npa_type": inp["npa_type"],
         "risk_level": inp["risk_level"],
-        "current_stage": "INITIATION",
+        "current_stage": initial_stage,
+        "status": initial_status,
         "message": f'NPA "{inp["title"]}" created successfully with ID {npa_id}',
     })
 
