@@ -529,7 +529,9 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          if (field && value) {
             field.value = value;
             field.lineage = (fd.lineage || 'AUTO') as FieldLineage;
-            field.confidence = fd.confidence_score ?? fd.confidence ?? null;
+            const rawConf = fd.confidence_score ?? fd.confidence ?? null;
+            const confNum = rawConf === null || rawConf === undefined || rawConf === '' ? null : Number(rawConf);
+            field.confidence = Number.isFinite(confNum as any) ? (confNum as any) : null;
             field.source = fd.metadata?.sourceSnippet || fd.source || null;
             applied++;
          }
@@ -1175,11 +1177,13 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       const filled_fields: any[] = [];
       this.fieldMap.forEach((field, key) => {
          if (!this.isSectionApplicable(field.nodeId?.split('.').slice(0, 2).join('.') || '')) return;
+         const rawConf: any = (field as any).confidence;
+         const confNum = rawConf === null || rawConf === undefined || rawConf === '' ? null : Number(rawConf);
          filled_fields.push({
             field_key: key,
             value: field.value || '',
             lineage: field.lineage || 'MANUAL',
-            confidence: field.confidence ?? null,
+            confidence: Number.isFinite(confNum as any) ? (confNum as any) : null,
             source: field.source || null,
             strategy: field.strategy || 'MANUAL'
          });
