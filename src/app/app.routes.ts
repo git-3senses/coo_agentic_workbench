@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './components/layout/main-layout/main-layout';
 import { CommandCenterComponent } from './pages/command-center/command-center.component';
 import { PlaceholderComponent } from './components/placeholder/placeholder.component';
+import { authGuard } from './lib/auth.guard';
 
 export const routes: Routes = [
     {
@@ -11,8 +12,10 @@ export const routes: Routes = [
     {
         path: '',
         component: MainLayoutComponent,
+        canActivate: [authGuard],
         children: [
             { path: '', component: CommandCenterComponent },
+
 
             {
                 path: 'agents/npa',

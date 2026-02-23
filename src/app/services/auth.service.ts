@@ -36,8 +36,8 @@ export class AuthService {
         return !!this.token && !!this.currentUser;
     }
 
-    login(userId: string): Observable<LoginResponse> {
-        return this.http.post<LoginResponse>('/api/auth/login', { user_id: userId }).pipe(
+    login(userId: string, password?: string): Observable<LoginResponse> {
+        return this.http.post<LoginResponse>('/api/auth/login', { user_id: userId, password }).pipe(
             tap(res => {
                 localStorage.setItem('auth_token', res.token);
                 localStorage.setItem('auth_user', JSON.stringify(res.user));
@@ -46,8 +46,8 @@ export class AuthService {
         );
     }
 
-    loginByEmail(email: string): Observable<LoginResponse> {
-        return this.http.post<LoginResponse>('/api/auth/login', { email }).pipe(
+    loginByEmail(email: string, password?: string): Observable<LoginResponse> {
+        return this.http.post<LoginResponse>('/api/auth/login', { email, password }).pipe(
             tap(res => {
                 localStorage.setItem('auth_token', res.token);
                 localStorage.setItem('auth_user', JSON.stringify(res.user));
