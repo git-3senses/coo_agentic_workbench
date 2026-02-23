@@ -176,7 +176,6 @@ export class DifyService {
             'WF_NPA_Classifier': 'CLASSIFIER',
             'WF_NPA_Risk': 'RISK',
             'WF_NPA_Governance': 'GOVERNANCE',
-            'WF_NPA_Template_Autofill': 'AUTOFILL',
             'WF_NPA_Doc_Lifecycle': 'DOC_LIFECYCLE',
             'WF_NPA_Post_Launch': 'MONITORING',
             'WF_NPA_SLA_Monitor': 'SLA_MONITOR',
@@ -398,69 +397,69 @@ export class DifyService {
                         subscriber.error(new Error(`HTTP ${response.status}`));
                         return;
                     }
-                const reader = response.body?.getReader();
-                if (!reader) { subscriber.error(new Error('No stream')); return; }
-                const decoder = new TextDecoder();
-                let buffer = '';
+                    const reader = response.body?.getReader();
+                    if (!reader) { subscriber.error(new Error('No stream')); return; }
+                    const decoder = new TextDecoder();
+                    let buffer = '';
 
-                const read = (): void => {
-                    reader.read().then(({ done, value }) => {
-                        if (done) {
-                            // Stream ended — emit final parsed response
-                            this.ngZone.run(() => this._finishStream(subscriber, fullAnswer, convId, msgId, targetAgent));
-                            return;
-                        }
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || ''; // keep partial last line
+                    const read = (): void => {
+                        reader.read().then(({ done, value }) => {
+                            if (done) {
+                                // Stream ended — emit final parsed response
+                                this.ngZone.run(() => this._finishStream(subscriber, fullAnswer, convId, msgId, targetAgent));
+                                return;
+                            }
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() || ''; // keep partial last line
 
-                        // Run inside NgZone so Angular change detection picks up
-                        // the incremental content mutations on the streaming message
-                        this.ngZone.run(() => {
-                            for (const line of lines) {
-                                if (!line.startsWith('data:')) continue;
-                                const jsonStr = line.slice(5).trim();
-                                if (!jsonStr) continue;
-                                try {
-                                    const evt = JSON.parse(jsonStr);
-                                    if (evt.event === 'agent_message' || evt.event === 'message') {
-                                        const chunk = evt.answer || '';
-                                        fullAnswer += chunk;
-                                        subscriber.next({ type: 'chunk', text: chunk });
-                                    } else if (evt.event === 'agent_thought') {
-                                        const thought = evt.thought || '';
-                                        if (thought) subscriber.next({ type: 'thought', thought });
-                                    } else if (evt.event === 'message_end') {
-                                        convId = evt.conversation_id || convId;
-                                        msgId = evt.message_id || msgId;
-                                    }
-                                    // Capture IDs from any event
-                                    if (evt.conversation_id) convId = evt.conversation_id;
-                                    if (evt.message_id) msgId = evt.message_id;
-                                } catch { /* skip malformed SSE lines */ }
+                            // Run inside NgZone so Angular change detection picks up
+                            // the incremental content mutations on the streaming message
+                            this.ngZone.run(() => {
+                                for (const line of lines) {
+                                    if (!line.startsWith('data:')) continue;
+                                    const jsonStr = line.slice(5).trim();
+                                    if (!jsonStr) continue;
+                                    try {
+                                        const evt = JSON.parse(jsonStr);
+                                        if (evt.event === 'agent_message' || evt.event === 'message') {
+                                            const chunk = evt.answer || '';
+                                            fullAnswer += chunk;
+                                            subscriber.next({ type: 'chunk', text: chunk });
+                                        } else if (evt.event === 'agent_thought') {
+                                            const thought = evt.thought || '';
+                                            if (thought) subscriber.next({ type: 'thought', thought });
+                                        } else if (evt.event === 'message_end') {
+                                            convId = evt.conversation_id || convId;
+                                            msgId = evt.message_id || msgId;
+                                        }
+                                        // Capture IDs from any event
+                                        if (evt.conversation_id) convId = evt.conversation_id;
+                                        if (evt.message_id) msgId = evt.message_id;
+                                    } catch { /* skip malformed SSE lines */ }
+                                }
+                            });
+                            read();
+                        }).catch(err => {
+                            if (err.name !== 'AbortError') {
+                                // Stream interrupted — still emit what we have
+                                this.ngZone.run(() => this._finishStream(subscriber, fullAnswer, convId, msgId, targetAgent));
                             }
                         });
-                        read();
-                    }).catch(err => {
-                        if (err.name !== 'AbortError') {
-                            // Stream interrupted — still emit what we have
-                            this.ngZone.run(() => this._finishStream(subscriber, fullAnswer, convId, msgId, targetAgent));
-                        }
-                    });
-                };
-                read();
-            }).catch(err => {
-                if (err.name === 'AbortError') return;
-                // Retry on network errors (fetch rejection, e.g. ECONNRESET)
-                if (attempt < maxRetries) {
-                    const delayMs = (attempt + 1) * 3000;
-                    console.warn(`[DifyService] Chat stream retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (network error: ${err.message})`);
-                    subscriber.next({ type: 'thought', thought: `Connection error, retrying (${attempt + 1}/${maxRetries})...` });
-                    setTimeout(() => doFetch(attempt + 1), delayMs);
-                    return;
-                }
-                subscriber.error(err);
-            });
+                    };
+                    read();
+                }).catch(err => {
+                    if (err.name === 'AbortError') return;
+                    // Retry on network errors (fetch rejection, e.g. ECONNRESET)
+                    if (attempt < maxRetries) {
+                        const delayMs = (attempt + 1) * 3000;
+                        console.warn(`[DifyService] Chat stream retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (network error: ${err.message})`);
+                        subscriber.next({ type: 'thought', thought: `Connection error, retrying (${attempt + 1}/${maxRetries})...` });
+                        setTimeout(() => doFetch(attempt + 1), delayMs);
+                        return;
+                    }
+                    subscriber.error(err);
+                });
             };
 
             doFetch(0);
@@ -557,7 +556,6 @@ export class DifyService {
                 { pattern: /(?:rout(?:e|ing)\b.{0,60}(?:cf_npa_ideation|ideation\s+(?:agent|specialist|workflow|module)))|rout(?:e|ing)\b.{0,60}ideation\b.{0,30}(?:interview|session|process)|initiating\s+ideation\s+(?:session|workflow)|starting\s+(?:the\s+)?ideation\s+interview|delegate.*ideation|conduct\s+(?:the\s+)?structured\s+(?:intake|interview).*ideation|structured\s+multi.?turn\s+interview/i, agentId: 'IDEATION', intent: 'create_npa' },
                 { pattern: /(?:rout(?:e|ing)\b.{0,40}(?:the\s+)?classifier)|starting\s+classification|initiating\s+classification/i, agentId: 'CLASSIFIER', intent: 'classify_product' },
                 { pattern: /(?:rout(?:e|ing)\b.{0,40}(?:the\s+)?risk\s+assess(?:ment\s+agent))|starting\s+risk\s+assessment|initiating\s+risk\s+assess/i, agentId: 'RISK', intent: 'assess_risk' },
-                { pattern: /(?:rout(?:e|ing)\b.{0,40}(?:the\s+)?autofill)|starting\s+(?:template\s+)?autofill|initiating\s+autofill/i, agentId: 'AUTOFILL', intent: 'autofill_template' },
                 { pattern: /(?:rout(?:e|ing)\b.{0,40}(?:the\s+)?governance)|starting\s+governance\s+check/i, agentId: 'GOVERNANCE', intent: 'governance_check' },
                 { pattern: /(?:rout(?:e|ing)\b.{0,40}(?:the\s+)?sign.?off)|starting\s+sign.?off\s+orchestration/i, agentId: 'SIGNOFF', intent: 'signoff_routing' },
                 { pattern: /(?:rout(?:e|ing)\b.{0,40}cf_npa_query_assistant)|(?:rout(?:e|ing)\b.{0,40}(?:the\s+)?diligence)/i, agentId: 'DILIGENCE', intent: 'query_kb' },
@@ -683,146 +681,6 @@ export class DifyService {
         );
     }
 
-    // ─── Workflow Streaming (Live View) ──────────────────────────
-
-    /**
-     * Execute a Dify Workflow with TRUE SSE streaming for the Live view.
-     * Returns Observable<WorkflowStreamEvent> that emits incremental events:
-     *  - workflow_started, node_started, node_finished (progress indicators)
-     *  - text_chunk (incremental LLM output rendered in Live view)
-     *  - workflow_finished (final outputs JSON for persistence + wave chain)
-     *
-     * Used exclusively for AUTOFILL Live view. Other agents continue
-     * using the blocking runWorkflow().
-     */
-    runWorkflowStreamed(agentId: string, inputs: Record<string, any> = {}): Observable<WorkflowStreamEvent> {
-        this.agentActivity$.next({ agentId, status: 'running' });
-
-        return new Observable<WorkflowStreamEvent>(subscriber => {
-            const abortController = new AbortController();
-
-            const maxRetries = 3;
-            const doFetch = (attempt: number): void => {
-            fetch('/api/dify/workflow', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    agent_id: agentId,
-                    inputs,
-                    user: 'user-123',
-                    response_mode: 'streaming'
-                }),
-                signal: abortController.signal
-            }).then(response => {
-                if (!response.ok) {
-                    const retryable = response.status === 502 || response.status === 503 || response.status === 504;
-                    if (retryable && attempt < maxRetries) {
-                        const delayMs = (attempt + 1) * 3000;
-                        console.warn(`[DifyService] Workflow stream retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (HTTP ${response.status})`);
-                        setTimeout(() => doFetch(attempt + 1), delayMs);
-                        return;
-                    }
-                    subscriber.error(new Error(`HTTP ${response.status}`));
-                    return;
-                }
-                const reader = response.body?.getReader();
-                if (!reader) { subscriber.error(new Error('No stream')); return; }
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                const read = (): void => {
-                    reader.read().then(({ done, value }) => {
-                        if (done) {
-                            this.ngZone.run(() => {
-                                this.agentActivity$.next({ agentId, status: 'done' });
-                                subscriber.complete();
-                            });
-                            return;
-                        }
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-
-                        this.ngZone.run(() => {
-                            for (const line of lines) {
-                                if (!line.startsWith('data:')) continue;
-                                const jsonStr = line.slice(5).trim();
-                                if (!jsonStr) continue;
-                                try {
-                                    const evt = JSON.parse(jsonStr);
-                                    if (evt.event === 'workflow_started') {
-                                        subscriber.next({
-                                            type: 'workflow_started',
-                                            workflowRunId: evt.workflow_run_id || '',
-                                            taskId: evt.task_id || ''
-                                        });
-                                    } else if (evt.event === 'node_started') {
-                                        subscriber.next({
-                                            type: 'node_started',
-                                            nodeId: evt.data?.node_id || '',
-                                            nodeType: evt.data?.node_type || '',
-                                            title: evt.data?.title || ''
-                                        });
-                                    } else if (evt.event === 'node_finished') {
-                                        subscriber.next({
-                                            type: 'node_finished',
-                                            nodeId: evt.data?.node_id || '',
-                                            nodeType: evt.data?.node_type || '',
-                                            title: evt.data?.title || '',
-                                            status: evt.data?.status || 'succeeded',
-                                            elapsedMs: evt.data?.elapsed_time
-                                                ? Math.round(evt.data.elapsed_time * 1000) : 0
-                                        });
-                                    } else if (evt.event === 'text_chunk') {
-                                        subscriber.next({
-                                            type: 'text_chunk',
-                                            text: evt.data?.text || ''
-                                        });
-                                    } else if (evt.event === 'workflow_finished') {
-                                        subscriber.next({
-                                            type: 'workflow_finished',
-                                            outputs: evt.data?.outputs || {},
-                                            status: evt.data?.status || 'succeeded'
-                                        });
-                                    } else if (evt.event === 'error') {
-                                        subscriber.next({
-                                            type: 'error',
-                                            code: evt.code || 'DIFY_ERROR',
-                                            message: evt.message || 'Unknown error'
-                                        });
-                                    }
-                                } catch { /* skip malformed SSE lines */ }
-                            }
-                        });
-                        read();
-                    }).catch(err => {
-                        if (err.name !== 'AbortError') {
-                            this.ngZone.run(() => {
-                                this.agentActivity$.next({ agentId, status: 'error' });
-                                subscriber.error(err);
-                            });
-                        }
-                    });
-                };
-                read();
-            }).catch(err => {
-                if (err.name === 'AbortError') return;
-                if (attempt < maxRetries) {
-                    const delayMs = (attempt + 1) * 3000;
-                    console.warn(`[DifyService] Workflow stream retry ${attempt + 1}/${maxRetries} in ${delayMs}ms (network error: ${err.message})`);
-                    setTimeout(() => doFetch(attempt + 1), delayMs);
-                    return;
-                }
-                this.agentActivity$.next({ agentId, status: 'error' });
-                subscriber.error(err);
-            });
-            };
-
-            doFetch(0);
-
-            return () => abortController.abort();
-        });
-    }
 
     // ─── State Management ────────────────────────────────────────
 
@@ -1007,12 +865,11 @@ export class DifyService {
             this.conversationStep++;
             const isCrossBorder = lower.includes('yes') || lower.includes('hk') || lower.includes('london') || lower.includes('hong kong');
 
-            this.emitMockActivity(['GOVERNANCE', 'AUTOFILL', 'DOC_LIFECYCLE']);
+            this.emitMockActivity(['GOVERNANCE', 'DOC_LIFECYCLE']);
 
             let answer = "All specialist agents have completed their analysis:\n\n### Summary\n";
             answer += `* **Track**: NPA Lite (Variation)\n`;
             answer += `* **Cross-Border**: ${isCrossBorder ? 'YES' : 'NO'}\n`;
-            answer += `* **AutoFill**: Template 85% pre-populated from TSG1917\n`;
 
             if (isCrossBorder) {
                 answer += "* **Mandatory Sign-Offs**: Finance, Credit, MLR, Tech, Ops\n";
@@ -1033,7 +890,7 @@ export class DifyService {
                         mandatorySignOffs: isCrossBorder
                             ? ['FINANCE', 'CREDIT', 'MLR', 'TECH', 'OPS']
                             : ['FINANCE', 'CREDIT', 'OPS'],
-                        autoFillCoverage: 85,
+                        autoFillCoverage: 0,
                         mlPrediction: { approvalLikelihood: 82, timelineDays: 35, bottleneckDept: 'Legal' }
                     },
                     trace: {}
@@ -1099,10 +956,6 @@ export class DifyService {
                     { docId: 'TSG1917', title: 'FX Structured Note', snippet: 'Similar FX derivative...', similarity: 0.94, source: 'Historical NPAs' },
                     { docId: 'TSG1845', title: 'Interest Rate Swap', snippet: 'IR product with...', similarity: 0.87, source: 'Historical NPAs' }
                 ]
-            },
-            AUTOFILL: {
-                fieldsFilled: 36, fieldsAdapted: 5, fieldsManual: 6,
-                totalFields: 47, coveragePct: 85, timeSavedMinutes: 42
             },
             GOVERNANCE: {
                 signoffs: [

@@ -1,6 +1,4 @@
-<app-npa-template-editor *ngIf="showTemplateEditor" (close)="onEditorClosed()" (onSave)="onSave.emit($event)" [inputData]="npaContext" [autofillStream]="autofillStream$" [initialViewMode]="editorInitialViewMode" [autofillParsedFields]="autofillParsedFields"></app-npa-template-editor>
-
-<app-npa-draft-builder *ngIf="showDraftBuilder" (close)="onDraftBuilderClosed()" (onSave)="onSave.emit($event)" [inputData]="npaContext" [autofillStream]="autofillStream$" [autofillParsedFields]="autofillParsedFields"></app-npa-draft-builder>
+<app-npa-draft-builder *ngIf="showDraftBuilder" (close)="onDraftBuilderClosed()" (onSave)="onSaveDraft()" [inputData]="npaContext"></app-npa-draft-builder>
 
 <!-- FULL SCREEN OVERLAY -->
 <div class="fixed inset-0 z-[100] flex flex-col h-screen w-screen bg-slate-50 overscroll-none font-sans">
@@ -229,62 +227,35 @@
                   </div>
                </div>
 
-               <!-- AutoFill Agent Results — Donut + Stats (clickable to open NPA Draft overlay) -->
-               <div *ngIf="autoFillSummary" class="mt-6 pt-6 border-t border-slate-200">
-                  <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                     <lucide-icon name="file-edit" class="w-4 h-4 text-blue-500"></lucide-icon>
-                     Template AutoFill Agent
-                  </h4>
-                  <div (click)="openEditor()" class="cursor-pointer hover:ring-2 hover:ring-blue-200 rounded-xl transition-all">
-                     <app-autofill-summary [result]="autoFillSummary"></app-autofill-summary>
+               <!-- Unified Draft Builder Entrance -->
+               <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                  <div class="flex items-center justify-between mb-4">
+                     <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <lucide-icon name="file-edit" class="w-4 h-4 text-blue-500"></lucide-icon>
+                        NPA Draft Builder
+                     </h3>
+                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                        Ideation-Driven
+                     </span>
                   </div>
-                  <!-- Open NPA Draft CTAs -->
-                  <div class="mt-4 flex gap-3">
-                     <button (click)="openDraftBuilder()"
-                             class="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-sm hover:shadow-md hover:from-blue-700 hover:to-indigo-700 transition-all text-sm font-semibold">
-                        <lucide-icon name="layout-list" class="w-4 h-4"></lucide-icon>
-                        Draft Builder
-                        <lucide-icon name="arrow-right" class="w-4 h-4"></lucide-icon>
-                     </button>
-                     <button (click)="openEditor()"
-                             class="flex-none flex items-center justify-center gap-2 px-4 py-3 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all text-sm font-medium">
-                        <lucide-icon name="file-text" class="w-4 h-4"></lucide-icon>
-                        Doc View
-                     </button>
-                  </div>
-               </div>
-
-               <!-- Loading State: AutoFill agent running -->
-               <div *ngIf="!autoFillSummary" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div (click)="openEditor()" class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
-                     <h3 class="text-sm font-bold text-slate-900 mb-4 group-hover:text-blue-700">NPA Draft</h3>
-                     <div *ngIf="agentLoading['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
-                        <lucide-icon name="loader-2" class="w-8 h-8 text-blue-400 animate-spin"></lucide-icon>
-                        <p class="mt-4 text-center text-sm text-slate-500">AutoFill agent populating NPA draft...</p>
+                  
+                  <div class="flex items-start gap-6">
+                     <div class="flex-1">
+                        <p class="text-xs text-slate-600 leading-relaxed mb-6">
+                           Complete the full NPA template using the collaborative Draft Builder. Guided by 5 specialized agents to ensure compliance across all domains.
+                        </p>
+                        <div class="flex gap-3">
+                           <button (click)="openDraftBuilder()"
+                                   class="px-5 py-2.5 bg-blue-600 text-white rounded-lg shadow-sm hover:shadow-md hover:bg-blue-700 transition-all text-xs font-bold flex items-center gap-2">
+                              <lucide-icon name="layout-list" class="w-4 h-4"></lucide-icon>
+                              Open Draft Builder
+                           </button>
+                        </div>
                      </div>
-                     <div *ngIf="agentErrors['AUTOFILL']" class="text-center py-6">
-                        <lucide-icon name="alert-circle" class="w-6 h-6 mx-auto mb-2 text-red-400"></lucide-icon>
-                        <p class="text-sm text-red-600">{{ agentErrors['AUTOFILL'] }}</p>
-                        <button (click)="retryAgent('AUTOFILL'); $event.stopPropagation()" class="mt-2 text-xs text-red-700 bg-red-100 px-3 py-1 rounded-lg hover:bg-red-200">Retry</button>
-                     </div>
-                     <div *ngIf="!agentLoading['AUTOFILL'] && !agentErrors['AUTOFILL']" class="flex flex-col items-center justify-center py-8">
-                        <lucide-icon name="file-edit" class="w-8 h-8 text-slate-300"></lucide-icon>
-                        <p class="mt-3 text-sm text-slate-400">Click to view NPA Draft</p>
-                        <button (click)="openDraftBuilder(); $event.stopPropagation()"
-                                class="mt-3 px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors flex items-center gap-1.5">
-                           <lucide-icon name="layout-list" class="w-3.5 h-3.5"></lucide-icon>
-                           Open Draft Builder
-                        </button>
-                     </div>
-                  </div>
-                  <div class="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100 p-6 flex items-center justify-center">
-                     <div *ngIf="agentLoading['AUTOFILL']" class="text-center">
-                        <lucide-icon name="loader-2" class="w-6 h-6 mx-auto text-blue-400 animate-spin"></lucide-icon>
-                        <p class="text-xs text-blue-600 mt-2">Searching knowledge base...</p>
-                     </div>
-                     <div *ngIf="!agentLoading['AUTOFILL']" class="text-center text-slate-400">
-                        <lucide-icon name="database" class="w-6 h-6 mx-auto"></lucide-icon>
-                        <p class="text-xs mt-2">KB Source Match</p>
+                     
+                     <div class="w-32 h-32 flex-none bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center relative overflow-hidden group">
+                        <lucide-icon name="sparkles" class="w-12 h-12 text-blue-200 group-hover:scale-110 transition-transform"></lucide-icon>
+                        <div class="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                      </div>
                   </div>
                </div>

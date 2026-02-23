@@ -26,7 +26,6 @@ export const AGENT_REGISTRY: AgentDefinition[] = [
     // Tier 3 — Specialist Workers
     { id: 'IDEATION', name: 'Ideation Agent', tier: 3, icon: 'lightbulb', color: 'bg-indigo-50 text-indigo-600', difyType: 'chat', description: 'Product concept development and NPA creation' },
     { id: 'CLASSIFIER', name: 'Classification Agent', tier: 3, icon: 'git-branch', color: 'bg-purple-50 text-purple-600', difyType: 'workflow', description: 'NTG/Variation/Existing classification and approval track assignment' },
-    { id: 'AUTOFILL', name: 'Template AutoFill Agent', tier: 3, icon: 'file-edit', color: 'bg-blue-50 text-blue-600', difyType: 'workflow', description: '60+ field NPA template auto-fill with RAG (Part C + Appendices)' },
     { id: 'ML_PREDICT', name: 'ML Prediction Agent', tier: 3, icon: 'trending-up', color: 'bg-amber-50 text-amber-600', difyType: 'workflow', description: 'Approval likelihood, timeline, and bottleneck prediction' },
     { id: 'RISK', name: 'Risk Agent', tier: 3, icon: 'shield-alert', color: 'bg-red-50 text-red-600', difyType: 'workflow', description: '5-layer risk cascade + 7-domain assessment: Credit, Market, Operational, Liquidity, Legal, Reputational, Cyber' },
     { id: 'GOVERNANCE', name: 'Governance Agent', tier: 3, icon: 'workflow', color: 'bg-slate-50 text-slate-600', difyType: 'workflow', description: 'Sign-off routing, SLA monitoring, loop-back, circuit breaker' },
@@ -66,7 +65,6 @@ export type AgentAction =
     | 'SHOW_CLASSIFICATION'
     | 'SHOW_RISK'
     | 'SHOW_PREDICTION'
-    | 'SHOW_AUTOFILL'
     | 'SHOW_GOVERNANCE'
     | 'SHOW_DOC_STATUS'
     | 'SHOW_MONITORING'
@@ -173,76 +171,6 @@ export interface GovernanceState {
     escalation?: { level: number; escalatedTo: string; reason: string };
 }
 
-// ─── AutoFill Agent (#5) ────────────────────────────────────────
-
-export interface AutoFillField {
-    fieldName: string;
-    value: string;
-    lineage: 'AUTO' | 'ADAPTED' | 'MANUAL';
-    source?: string;
-    confidence?: number;
-    documentSection?: string;
-}
-
-export interface AutoFillManualField {
-    fieldKey: string;
-    label: string;
-    reason: string;
-    requiredBy?: string;
-    smartHelp?: string;
-    documentSection?: string;
-}
-
-export interface AutoFillValidationWarning {
-    fieldKey: string;
-    warning: string;
-    severity: 'HARD_STOP' | 'IMPORTANT' | 'INFO';
-    documentSection?: string;
-}
-
-export interface AutoFillDocumentStructure {
-    partAComplete: boolean;
-    partBComplete: boolean;
-    partCSectionsFilled: string[];
-    appendicesRequired: string[];
-    appendicesAutoFilled: string[];
-}
-
-export interface AutoFillNotionalFlags {
-    cfoApprovalRequired: boolean;
-    financeVpRequired: boolean;
-    roaeAnalysisNeeded: boolean;
-    mlrReviewRequired: boolean;
-}
-
-export interface AutoFillCrossBorderFlags {
-    isCrossBorder: boolean;
-    mandatorySignoffs: string[];
-    additionalRequirements: string[];
-}
-
-export interface AutoFillSummary {
-    fieldsFilled: number;
-    fieldsAdapted: number;
-    fieldsManual: number;
-    totalFields: number;
-    coveragePct: number;
-    timeSavedMinutes: number;
-    fields: AutoFillField[];
-    // v2 enrichments
-    templateId?: string;
-    sourceNpa?: string;
-    sourceSimilarity?: number;
-    documentStructure?: AutoFillDocumentStructure;
-    manualFields?: AutoFillManualField[];
-    validationWarnings?: AutoFillValidationWarning[];
-    notionalFlags?: AutoFillNotionalFlags;
-    crossBorderFlags?: AutoFillCrossBorderFlags;
-    npaLiteSubtype?: string;
-    dormancyStatus?: string;
-    pirRequired?: boolean;
-    validityMonths?: number;
-}
 
 // ─── Monitoring Agent (#11) ─────────────────────────────────────
 

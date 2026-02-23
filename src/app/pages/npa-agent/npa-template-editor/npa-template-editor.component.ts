@@ -8,7 +8,7 @@ import { NpaSection, NpaField, FieldLineage } from '../../../lib/npa-interfaces'
 import { NpaService, NpaListItem } from '../../../services/npa.service';
 import { AgentGovernanceService, ReadinessResult } from '../../../services/agent-governance.service';
 import { NPA_PART_C_TEMPLATE, NPA_APPENDICES_TEMPLATE, TemplateNode, collectFieldKeys, getNavSections, FIELD_REGISTRY_MAP } from '../../../lib/npa-template-definition';
-import { WorkflowStreamEvent, AutoFillField } from '../../../lib/agent-interfaces';
+import { WorkflowStreamEvent } from '../../../lib/agent-interfaces';
 
 @Component({
    selector: 'app-npa-template-editor',
@@ -21,13 +21,7 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
    @Output() close = new EventEmitter<void>();
    @Input() inputData: any = null;
    @Output() onSave = new EventEmitter<any>();
-   @Input() autofillStream: Subject<WorkflowStreamEvent> | null = null;
    @Input() initialViewMode: 'live' | 'document' | 'form' = 'document';
-   @Input() set autofillParsedFields(fields: AutoFillField[] | null) {
-      if (fields && fields.length > 0) {
-         this.applyAutofillFields(fields);
-      }
-   }
 
    private http = inject(HttpClient);
    private governanceService = inject(AgentGovernanceService);
@@ -44,59 +38,21 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
    isLoadingSimilar = false;
    similarNpas: NpaListItem[] = [];
 
-   // Live streaming state
-   liveStreamText = '';
-   liveNodes: { id: string; title: string; type: string; status: string; elapsedMs?: number }[] = [];
-   liveCurrentNode: string | null = null;
-   liveWorkflowStatus: 'idle' | 'running' | 'succeeded' | 'failed' = 'idle';
-   liveElapsedSeconds = 0;
-   liveError: string | null = null;
-   private liveStreamSub: Subscription | null = null;
-   private liveTimerInterval: any = null;
-   private liveStartTime = 0;
-   Math = Math; // Expose Math to template
-
-   // Live rich-text field cards — incrementally parsed from streaming JSON
-   liveFields: { fieldName: string; label: string; value: string; lineage: string; confidence?: number; source?: string }[] = [];
-   private liveFieldsParsedIndex = 0; // tracks how far we've scanned in liveStreamText
 
    // NPA document sections for grouping live fields into the official template structure
    readonly npaSections: { id: string; numbering: string; label: string; icon: string }[] = [
-      { id: 'PC.I',   numbering: 'I',   label: 'Product Specifications (Basic Information)', icon: 'package' },
-      { id: 'PC.II',  numbering: 'II',  label: 'Operational & Technology Information', icon: 'settings' },
+      { id: 'PC.I', numbering: 'I', label: 'Product Specifications (Basic Information)', icon: 'package' },
+      { id: 'PC.II', numbering: 'II', label: 'Operational & Technology Information', icon: 'settings' },
       { id: 'PC.III', numbering: 'III', label: 'Pricing Model Details', icon: 'calculator' },
-      { id: 'PC.IV',  numbering: 'IV',  label: 'Risk Analysis', icon: 'shield-alert' },
-      { id: 'PC.V',   numbering: 'V',   label: 'Data Management', icon: 'database' },
-      { id: 'PC.VI',  numbering: 'VI',  label: 'Other Risk Identification', icon: 'alert-triangle' },
-      { id: 'APP',    numbering: 'App', label: 'Appendices', icon: 'file-text' },
+      { id: 'PC.IV', numbering: 'IV', label: 'Risk Analysis', icon: 'shield-alert' },
+      { id: 'PC.V', numbering: 'V', label: 'Data Management', icon: 'database' },
+      { id: 'PC.VI', numbering: 'VI', label: 'Other Risk Identification', icon: 'alert-triangle' },
+      { id: 'APP', numbering: 'App', label: 'Appendices', icon: 'file-text' },
    ];
 
    // Reverse lookup: field_key → section prefix (e.g., 'product_name' → 'PC.I')
    private fieldToSectionMap = new Map<string, string>();
 
-   /** Group live fields by NPA template section for document-structured rendering */
-   get liveFieldsBySection(): { section: { id: string; numbering: string; label: string; icon: string }; fields: { fieldName: string; label: string; value: string; lineage: string; confidence?: number; source?: string }[] }[] {
-      const groups = new Map<string, { fieldName: string; label: string; value: string; lineage: string; confidence?: number; source?: string }[]>();
-      for (const lf of this.liveFields) {
-         const sectionId = this.fieldToSectionMap.get(lf.fieldName) || 'OTHER';
-         if (!groups.has(sectionId)) groups.set(sectionId, []);
-         groups.get(sectionId)!.push(lf);
-      }
-      // Return in section order, only sections that have fields
-      const result: { section: { id: string; numbering: string; label: string; icon: string }; fields: { fieldName: string; label: string; value: string; lineage: string; confidence?: number; source?: string }[] }[] = [];
-      for (const sec of this.npaSections) {
-         const fields = groups.get(sec.id);
-         if (fields && fields.length > 0) {
-            result.push({ section: sec, fields });
-         }
-      }
-      // Catch any fields that don't match a section
-      const other = groups.get('OTHER');
-      if (other && other.length > 0) {
-         result.push({ section: { id: 'OTHER', numbering: '—', label: 'Other Fields', icon: 'layers' }, fields: other });
-      }
-      return result;
-   }
 
    sections: NpaSection[] = [];
 
@@ -169,217 +125,11 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
       if (this.initialViewMode) {
          this.viewMode = this.initialViewMode;
       }
-      // Subscribe to autofill stream if provided
-      if (this.autofillStream) {
-         this.subscribeLiveStream();
-      }
-
-      // P14: Restore live fields from sessionStorage (survives editor close/reopen)
-      if (!this.autofillStream) {
-         const npaId = this.inputData?.npaId || this.inputData?.projectId || '';
-         if (npaId) {
-            try {
-               const saved = sessionStorage.getItem(`_autofill_live_fields_${npaId}`);
-               if (saved) {
-                  const fields = JSON.parse(saved);
-                  if (Array.isArray(fields) && fields.length > 0) {
-                     this.liveFields = fields;
-                     console.log(`[TemplateEditor] Restored ${fields.length} live fields from sessionStorage`);
-                  }
-               }
-            } catch (e) { /* ignore parse errors */ }
-         }
-      }
    }
 
    ngOnDestroy(): void {
-      this.liveStreamSub?.unsubscribe();
-      this.clearLiveTimer();
    }
 
-   private subscribeLiveStream(): void {
-      if (!this.autofillStream) return;
-
-      this.liveWorkflowStatus = 'running';
-      this.liveStartTime = Date.now();
-      this.liveStreamText = '';
-      this.liveNodes = [];
-      this.liveError = null;
-      this.liveFields = [];
-      this.liveFieldsParsedIndex = 0;
-
-      // Elapsed-time timer
-      this.liveTimerInterval = setInterval(() => {
-         this.liveElapsedSeconds = Math.floor((Date.now() - this.liveStartTime) / 1000);
-      }, 1000);
-
-      this.liveStreamSub = this.autofillStream.subscribe({
-         next: (event) => {
-            switch (event.type) {
-               case 'workflow_started':
-                  this.liveWorkflowStatus = 'running';
-                  break;
-               case 'node_started':
-                  this.liveCurrentNode = event.title;
-                  this.liveNodes.push({
-                     id: event.nodeId, title: event.title,
-                     type: event.nodeType, status: 'running'
-                  });
-                  break;
-               case 'node_finished': {
-                  const node = this.liveNodes.find(n => n.id === event.nodeId);
-                  if (node) {
-                     node.status = event.status;
-                     node.elapsedMs = event.elapsedMs;
-                  }
-                  if (this.liveCurrentNode === event.title) this.liveCurrentNode = null;
-                  break;
-               }
-               case 'text_chunk':
-                  this.liveStreamText += event.text;
-                  this.tryParseLiveFields();
-                  break;
-               case 'workflow_finished':
-                  this.liveWorkflowStatus = event.status === 'succeeded' ? 'succeeded' : 'failed';
-                  // P14: Persist live fields to sessionStorage for editor close/reopen
-                  if (this.liveFields.length > 0) {
-                     try {
-                        const npaId = this.inputData?.npaId || this.inputData?.projectId || 'unknown';
-                        sessionStorage.setItem(`_autofill_live_fields_${npaId}`, JSON.stringify(this.liveFields));
-                        console.log(`[TemplateEditor] Saved ${this.liveFields.length} live fields to sessionStorage`);
-                     } catch (e) { /* quota exceeded — ignore */ }
-                  }
-                  break;
-               case 'error':
-                  this.liveError = event.message;
-                  this.liveWorkflowStatus = 'failed';
-                  break;
-            }
-         },
-         error: (err) => {
-            this.liveError = err.message || 'Stream error';
-            this.liveWorkflowStatus = 'failed';
-            this.clearLiveTimer();
-         },
-         complete: () => {
-            this.clearLiveTimer();
-            // Auto-switch to Doc view after brief delay
-            if (this.liveWorkflowStatus === 'succeeded') {
-               setTimeout(() => { this.viewMode = 'document'; }, 2000);
-            }
-         }
-      });
-   }
-
-   private clearLiveTimer(): void {
-      if (this.liveTimerInterval) {
-         clearInterval(this.liveTimerInterval);
-         this.liveTimerInterval = null;
-      }
-   }
-
-   /**
-    * Incrementally parse filled_fields from the streaming JSON text.
-    * Scans from liveFieldsParsedIndex to find complete field objects.
-    * Each field object looks like: { "field_key": "...", "value": "...", "lineage": "AUTO", ... }
-    */
-   private tryParseLiveFields(): void {
-      const text = this.liveStreamText;
-      if (text.length < 20) return; // too short to contain a field
-
-      // Scan from where we left off to avoid re-parsing
-      const searchText = text.substring(this.liveFieldsParsedIndex);
-
-      // Match individual field objects that contain "field_key"
-      // Uses a non-greedy pattern to find complete JSON objects
-      const fieldPattern = /\{\s*"field_key"\s*:\s*"[^"]*"[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
-      let match: RegExpExecArray | null;
-      let lastMatchEnd = 0;
-
-      while ((match = fieldPattern.exec(searchText)) !== null) {
-         try {
-            const fieldObj = JSON.parse(match[0]);
-            // Check if this field_key was already parsed
-            const fieldKey = fieldObj.field_key || '';
-            if (fieldKey && !this.liveFields.some(f => f.fieldName === fieldKey)) {
-               // Look up a friendly label from fieldMap if available
-               const existing = this.fieldMap.get(fieldKey);
-               this.liveFields.push({
-                  fieldName: fieldKey,
-                  label: existing?.label || fieldObj.label || this.fieldKeyToLabel(fieldKey),
-                  value: fieldObj.value || '',
-                  lineage: fieldObj.lineage || 'AUTO',
-                  confidence: fieldObj.confidence ? fieldObj.confidence / 100 : undefined,
-                  source: fieldObj.source || fieldObj.document_section
-               });
-            }
-            lastMatchEnd = match.index + match[0].length;
-         } catch (_) {
-            // Partial JSON — skip this match, try next
-         }
-      }
-
-      if (lastMatchEnd > 0) {
-         this.liveFieldsParsedIndex += lastMatchEnd;
-      }
-   }
-
-   /** Convert a field_key like 'product_name' to 'Product Name' */
-   private fieldKeyToLabel(key: string): string {
-      return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-   }
-
-   /**
-    * Apply parsed autofill fields to the in-memory sections/fieldMap.
-    * Mutates existing NpaField objects so Doc/Form views immediately reflect changes.
-    */
-   private applyAutofillFields(fields: AutoFillField[]): void {
-      let applied = 0;
-      for (const f of fields) {
-         const key = f.fieldName || '';
-         const existing = this.fieldMap.get(key);
-         if (existing) {
-            existing.value = f.value || '';
-            existing.lineage = (f.lineage || 'AUTO') as FieldLineage;
-            existing.lineageMetadata = {
-               confidenceScore: f.confidence ? f.confidence * 100 : undefined,
-               sourceSnippet: f.source,
-               sourceDocId: f.documentSection
-            };
-            applied++;
-         }
-      }
-      if (applied > 0) {
-         this.completionCache.clear();
-         console.log(`[TemplateEditor] Applied ${applied}/${fields.length} autofill fields to fieldMap`);
-      }
-   }
-
-   /** Escape HTML for Live view text rendering (fallback) */
-   formatLiveText(text: string): string {
-      if (!text) return '<span class="text-slate-300 italic">Waiting for output...</span>';
-      return text
-         .replace(/&/g, '&amp;')
-         .replace(/</g, '&lt;')
-         .replace(/>/g, '&gt;')
-         .replace(/\n/g, '<br>');
-   }
-
-   /** P11: Click a Live field card to switch to Doc view and scroll to that field */
-   jumpToFieldInDocView(fieldName: string): void {
-      this.viewMode = 'document';
-      // Wait for DOM to update, then scroll to the field element
-      setTimeout(() => {
-         const el = document.getElementById(`field-${fieldName}`);
-         if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('ring-2', 'ring-blue-400', 'ring-offset-2');
-            setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-2'), 2000);
-         } else {
-            console.log(`[jumpToField] Element field-${fieldName} not found in DOM`);
-         }
-      }, 150);
-   }
 
    // --- Document helpers ---
    getDocTitle(): string {
@@ -769,73 +519,6 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
       return sec?.fields.find(f => f.label === fieldLabel)?.value;
    }
 
-   /** Ask Agent to Draft — triggers Dify autofill workflow for the focused field */
-   askAgentToDraft(field: NpaField) {
-      this.isDraftingField = true;
-      const projectId = this.inputData?.projectId || this.inputData?.id || this.inputData?.npaId;
-      const productName = this.findFieldByKey('product_name')?.value || this.inputData?.title || '';
-      const riskLevel = this.findFieldByKey('risk_classification')?.value || this.inputData?.riskLevel || '';
-
-      // Call Dify workflow agent for autofill
-      const payload = {
-         app: 'WF_NPA_Template_Autofill',
-         inputs: {
-            project_id: projectId || 'demo',
-            field_key: field.key,
-            field_label: field.label,
-            product_name: productName,
-            risk_level: riskLevel,
-            current_value: field.value || '',
-            instruction: `Draft content for the "${field.label}" field of an NPA template. Use professional banking/risk language.`
-         },
-         response_mode: 'blocking'
-      };
-
-      this.http.post<any>('/api/dify/workflow', payload).subscribe({
-         next: (res) => {
-            const draftValue = res?.data?.outputs?.text || res?.data?.outputs?.result || res?.answer || '';
-            if (draftValue) {
-               field.value = draftValue;
-               field.lineage = 'AUTO';
-               field.lineageMetadata = {
-                  sourceSnippet: 'Agent Autofill — Dify Workflow',
-                  confidenceScore: 85,
-                  agentTip: 'This content was drafted by the AI agent. Review and adapt as needed.'
-               };
-               this.buildFieldMap(); // Refresh map
-            }
-            this.isDraftingField = false;
-         },
-         error: () => {
-            // Fallback: generate a placeholder draft locally
-            field.value = this.generateLocalDraft(field);
-            field.lineage = 'AUTO';
-            field.lineageMetadata = {
-               sourceSnippet: 'Local AI Draft (agent unavailable)',
-               confidenceScore: 60,
-               agentTip: 'Agent was unavailable. This is a template draft — please review and refine.'
-            };
-            this.buildFieldMap();
-            this.isDraftingField = false;
-         }
-      });
-   }
-
-   /** Generate a local placeholder draft when Dify agent is unavailable */
-   private generateLocalDraft(field: NpaField): string {
-      const productName = this.findFieldByKey('product_name')?.value || 'the proposed product';
-      const fieldLabel = field.label.toLowerCase();
-
-      if (fieldLabel.includes('risk')) {
-         return `Risk assessment for ${productName}:\n- Market Risk: Exposure to interest rate and FX fluctuations\n- Credit Risk: Counterparty default probability assessment required\n- Operational Risk: Settlement and booking system integration reviewed\n\nOverall risk level to be confirmed following detailed quantitative analysis.`;
-      } else if (fieldLabel.includes('description') || fieldLabel.includes('rationale')) {
-         return `${productName} is designed to meet client demand for structured hedging solutions in the current market environment. The product addresses a specific gap in the existing product suite and aligns with the bank's strategic growth objectives in this asset class.`;
-      } else if (fieldLabel.includes('operational') || fieldLabel.includes('process')) {
-         return `Operational workflow for ${productName}:\n- Trade capture: Murex (MX.3)\n- Confirmation: SWIFT/MarkitWire\n- Settlement: T+2 via standard clearing\n- Valuation: Daily MTM with independent price verification\n- Reporting: Integrated with existing risk and regulatory reporting infrastructure`;
-      } else {
-         return `[Draft content for "${field.label}" — to be completed based on product specifications and regulatory requirements for ${productName}.]`;
-      }
-   }
 
    /** Load similar NPAs for reference */
    loadSimilarNpas() {
@@ -1010,11 +693,11 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
       // Also map header fields (hdr_*) to their sections based on naming convention
       for (const [key] of this.fieldMap) {
          if (key.startsWith('hdr_') && !this.fieldToSectionMap.has(key)) {
-            if (key.includes('prod_'))       this.fieldToSectionMap.set(key, 'PC.I');
-            else if (key.includes('ops_'))   this.fieldToSectionMap.set(key, 'PC.II');
+            if (key.includes('prod_')) this.fieldToSectionMap.set(key, 'PC.I');
+            else if (key.includes('ops_')) this.fieldToSectionMap.set(key, 'PC.II');
             else if (key.includes('price_')) this.fieldToSectionMap.set(key, 'PC.III');
-            else if (key.includes('risk_'))  this.fieldToSectionMap.set(key, 'PC.IV');
-            else if (key.includes('data_'))  this.fieldToSectionMap.set(key, 'PC.V');
+            else if (key.includes('risk_')) this.fieldToSectionMap.set(key, 'PC.IV');
+            else if (key.includes('data_')) this.fieldToSectionMap.set(key, 'PC.V');
             else if (key.includes('reg_') || key.includes('legal_')) this.fieldToSectionMap.set(key, 'PC.IV');
          }
       }

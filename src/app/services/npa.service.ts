@@ -105,10 +105,9 @@ export class NpaService {
     }
 
     /**
-     * SEED a fully-equipped demo NPA with data across all 12 tables.
-     * This produces rich, non-zero results from all 7 Dify agents.
+     * UPDATE existing NPA (metadata + form data)
      */
-    seedDemo(): Observable<{ id: string; status: string; message: string }> {
-        return this.http.post<{ id: string; status: string; message: string }>(`${this.apiUrl}/seed-demo`, {});
+    update(id: string, data: { title?: string; description?: string; npa_type?: string; stage?: string; status?: string; formData?: any[] }): Observable<{ id: string; status: string }> {
+        return this.http.put<{ id: string; status: string }>(`${this.apiUrl}/${id}`, data);
     }
 }

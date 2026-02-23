@@ -2,7 +2,6 @@ import { Component, EventEmitter, Input, Output, OnInit, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { NpaTemplateEditorComponent } from '../npa-template-editor/npa-template-editor.component';
 import { NpaDraftBuilderComponent } from '../npa-draft-builder/npa-draft-builder.component';
 import { ActivatedRoute } from '@angular/router';
 import { AgentGovernanceService } from '../../../services/agent-governance.service';
@@ -15,14 +14,14 @@ import { MonitoringAlertsComponent } from '../../../components/npa/agent-results
 import { DocCompletenessComponent } from '../../../components/npa/agent-results/doc-completeness.component';
 import { DifyService } from '../../../services/dify/dify.service';
 import { OrchestratorChatComponent } from '../../../components/npa/ideation-chat/ideation-chat.component';
-import { RiskAssessment, RiskDomainAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, AutoFillSummary, AutoFillField, WorkflowStreamEvent } from '../../../lib/agent-interfaces';
+import { RiskAssessment, RiskDomainAssessment, MLPrediction, GovernanceState, MonitoringResult, DocCompletenessResult, ClassificationResult, WorkflowStreamEvent } from '../../../lib/agent-interfaces';
 import { RiskCheckService } from '../../../services/risk-check.service';
-import { AutofillSummaryComponent } from '../../../components/npa/agent-results/autofill-summary.component';
 import { GovernanceStatusComponent } from '../../../components/npa/agent-results/governance-status.component';
 import { ClassificationResultComponent } from '../../../components/npa/agent-results/classification-result.component';
 import { catchError, of, timer, forkJoin, Observable, EMPTY, Subject } from 'rxjs';
 import { concatMap, tap, finalize } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
+import { FIELD_REGISTRY_MAP } from '../../../lib/npa-template-definition';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
@@ -30,10 +29,10 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
    selector: 'app-npa-detail',
    standalone: true,
    imports: [
-      CommonModule, FormsModule, LucideAngularModule, NpaTemplateEditorComponent, NpaDraftBuilderComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent,
+      CommonModule, FormsModule, LucideAngularModule, NpaDraftBuilderComponent, NpaWorkflowVisualizerComponent, DocumentDependencyMatrixComponent,
       RiskAssessmentResultComponent, MlPredictionResultComponent,
       MonitoringAlertsComponent, DocCompletenessComponent, OrchestratorChatComponent,
-      AutofillSummaryComponent, GovernanceStatusComponent, ClassificationResultComponent
+      GovernanceStatusComponent, ClassificationResultComponent
    ],
    templateUrl: './npa-detail.component.html',
    styleUrls: ['./npa-detail.component.css']
@@ -58,7 +57,6 @@ export class NpaDetailComponent implements OnInit {
    governanceState: GovernanceState | null = null;
    docCompleteness: DocCompletenessResult | null = null;
    classificationResult: ClassificationResult | null = null;
-   autoFillSummary: AutoFillSummary | null = null;
 
    // Agent loading/error states
    agentLoading: Record<string, boolean> = {};
@@ -80,12 +78,8 @@ export class NpaDetailComponent implements OnInit {
    monitoringQueryLoading = false;
 
    // Editor state
-   showTemplateEditor = false;
    showDraftBuilder = false;
    private userDismissedEditor = false;
-   autofillStream$: Subject<WorkflowStreamEvent> | null = null;
-   editorInitialViewMode: 'live' | 'document' | 'form' = 'document';
-   autofillParsedFields: AutoFillField[] | null = null;
 
    // Workflow stages (P2 fix — from DB npa_workflow_states)
    workflowStages: import('../../../components/npa/npa-workflow-visualizer/npa-workflow-visualizer.component').WorkflowStage[] = [];
@@ -135,7 +129,7 @@ export class NpaDetailComponent implements OnInit {
 
    ngOnInit() {
       if (this.autoOpenEditor) {
-         this.showTemplateEditor = true;
+         this.showDraftBuilder = true;
       }
 
       const loadOnce = (id: string) => {
@@ -156,7 +150,6 @@ export class NpaDetailComponent implements OnInit {
             this._loadStartedForId = null;
             this.classificationResult = null;
             this.mlPrediction = null;
-            this.autoFillSummary = null;
             this.riskAssessmentResult = null;
             this.governanceState = null;
             this.docCompleteness = null;
@@ -189,16 +182,22 @@ export class NpaDetailComponent implements OnInit {
 
    onSaveDraft(): void {
       if (!this.projectId) return;
+
       const payload = {
          title: this.projectData?.title,
          description: this.projectData?.description,
          stage: this.projectData?.current_stage || 'DRAFT',
-         formData: this.sections
+         formData: this.sections.flatMap(s => s.fields.map((f: any) => ({
+            field_key: f.key,
+            field_value: f.value,
+            lineage: f.lineage,
+            confidence_score: f.confidence_score
+         })))
       };
-      this.http.put(`/api/npas/${this.projectId}`, payload).subscribe({
+
+      this.npaService.update(this.projectId, payload).subscribe({
          next: () => {
-            console.log('[Save Draft] Successfully saved NPA draft');
-            // Brief visual feedback
+            console.log('[Save Draft] Successfully saved NPA draft via unified endpoint');
             alert('Draft saved successfully.');
          },
          error: (err) => {
@@ -394,14 +393,8 @@ export class NpaDetailComponent implements OnInit {
 
    // ─── Editor Management ────────────────────────────────────────────
 
-   onEditorClosed(): void {
-      this.showTemplateEditor = false;
-      this.userDismissedEditor = true;
-      console.log('[NpaDetail] User dismissed editor — autofill stream will not reopen it');
-   }
-
    openEditor(): void {
-      this.showTemplateEditor = true;
+      this.showDraftBuilder = true;
    }
 
    openDraftBuilder(): void {
@@ -535,11 +528,14 @@ export class NpaDetailComponent implements OnInit {
       if (data.formData && data.formData.length > 0) {
          this.productAttributes = data.formData
             .filter((f: any) => partAKeys.includes(f.field_key))
-            .map((f: any) => ({
-               label: this.formatLabel(f.field_key),
-               value: f.field_value?.length > 200 ? f.field_value.substring(0, 200) + '...' : f.field_value,
-               confidence: f.confidence_score
-            }));
+            .map((f: any) => {
+               const registryEntry = FIELD_REGISTRY_MAP.get(f.field_key);
+               return {
+                  label: registryEntry ? registryEntry.label : this.formatLabel(f.field_key),
+                  value: f.field_value?.length > 200 ? f.field_value.substring(0, 200) + '...' : f.field_value,
+                  confidence: f.confidence_score
+               };
+            });
       }
 
       // Pre-populate governanceState from DB signoffs
@@ -592,12 +588,12 @@ export class NpaDetailComponent implements OnInit {
          const breachesArr = Array.isArray(data.breaches) ? data.breaches : [];
          const metricsArr = [
             { name: 'Days Since Launch', value: m.days_since_launch || 0, unit: 'days', trend: 'stable' },
-            { name: 'Total Volume', value: m.total_volume ? `$${(parseFloat(m.total_volume)/1e9).toFixed(1)}B` : '$0', unit: '', trend: 'up' },
-            { name: 'Realized P&L', value: m.realized_pnl ? `+$${(parseFloat(m.realized_pnl)/1e6).toFixed(1)}M` : '$0', unit: '', trend: 'up' },
+            { name: 'Total Volume', value: m.total_volume ? `$${(parseFloat(m.total_volume) / 1e9).toFixed(1)}B` : '$0', unit: '', trend: 'up' },
+            { name: 'Realized P&L', value: m.realized_pnl ? `+$${(parseFloat(m.realized_pnl) / 1e6).toFixed(1)}M` : '$0', unit: '', trend: 'up' },
             { name: 'Active Breaches', value: m.active_breaches || breachesArr.length, unit: '', trend: breachesArr.length > 0 ? 'up' : 'stable' },
-            { name: 'Counterparty Exposure', value: m.counterparty_exposure ? `$${(parseFloat(m.counterparty_exposure)/1e6).toFixed(0)}M` : '$0', unit: '', trend: 'stable' },
+            { name: 'Counterparty Exposure', value: m.counterparty_exposure ? `$${(parseFloat(m.counterparty_exposure) / 1e6).toFixed(0)}M` : '$0', unit: '', trend: 'stable' },
             { name: 'VaR Utilization', value: m.var_utilization ? `${parseFloat(m.var_utilization)}%` : '0%', unit: '', trend: 'stable' },
-            { name: 'Collateral Posted', value: m.collateral_posted ? `$${(parseFloat(m.collateral_posted)/1e6).toFixed(1)}M` : '$0', unit: '', trend: 'stable' },
+            { name: 'Collateral Posted', value: m.collateral_posted ? `$${(parseFloat(m.collateral_posted) / 1e6).toFixed(1)}M` : '$0', unit: '', trend: 'stable' },
             { name: 'Next Review', value: m.next_review_date ? new Date(m.next_review_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD', unit: '', trend: 'stable' }
          ];
          const conditionsArr = Array.isArray(data.postLaunchConditions) ? data.postLaunchConditions : [];
@@ -633,10 +629,10 @@ export class NpaDetailComponent implements OnInit {
          const approvalTrack = this.projectData?.approval_track || '';
          const trackLabel = approvalTrack === 'FULL_NPA' ? 'Full NPA'
             : approvalTrack === 'NPA_LITE' ? 'NPA Lite'
-            : approvalTrack === 'BUNDLING' ? 'Bundling'
-            : approvalTrack === 'EVERGREEN' ? 'Evergreen'
-            : approvalTrack === 'PROHIBITED' ? 'Prohibited'
-            : (sc.calculated_tier === 'New-to-Group') ? 'Full NPA' : 'NPA Lite';
+               : approvalTrack === 'BUNDLING' ? 'Bundling'
+                  : approvalTrack === 'EVERGREEN' ? 'Evergreen'
+                     : approvalTrack === 'PROHIBITED' ? 'Prohibited'
+                        : (sc.calculated_tier === 'New-to-Group') ? 'Full NPA' : 'NPA Lite';
          this.classificationResult = {
             type: sc.calculated_tier || this.projectData?.npa_type || 'Variation',
             track: trackLabel,
@@ -668,48 +664,6 @@ export class NpaDetailComponent implements OnInit {
          console.log('[mapBackendDataToView] Synthesized mlPrediction from scorecard: approval=', this.mlPrediction.approvalLikelihood);
       }
 
-      // Pre-populate autoFillSummary from form data field coverage
-      if (data.formData && data.formData.length > 0 && !this.autoFillSummary) {
-         const total = data.formData.length;
-         const filledRows = data.formData.filter((f: any) => f.field_value && f.field_value.trim() !== '');
-         const filled = filledRows.length;
-         const auto = data.formData.filter((f: any) => f.lineage === 'AUTO' || f.lineage === 'auto').length;
-         const adapted = data.formData.filter((f: any) => f.lineage === 'ADAPTED' || f.lineage === 'adapted').length;
-         const manual = filled - auto - adapted;
-
-         const restoredFields: AutoFillField[] = filledRows.map((f: any) => ({
-            fieldName: f.field_key || '',
-            value: f.field_value || '',
-            lineage: (f.lineage || 'AUTO') as 'AUTO' | 'ADAPTED' | 'MANUAL',
-            source: f.metadata?.sourceSnippet,
-            confidence: f.confidence_score ? f.confidence_score / 100 : undefined,
-            documentSection: f.metadata?.sourceDocId
-         }));
-
-         this.autoFillSummary = {
-            fieldsFilled: auto,
-            fieldsAdapted: adapted,
-            fieldsManual: Math.max(0, manual),
-            totalFields: total,
-            coveragePct: Math.round((filled / Math.max(total, 1)) * 100),
-            timeSavedMinutes: Math.round(auto * 1.2),
-            fields: restoredFields,
-            templateId: '',
-            sourceNpa: '',
-            sourceSimilarity: 0,
-            validationWarnings: [],
-            npaLiteSubtype: '',
-            dormancyStatus: '',
-            pirRequired: false,
-            validityMonths: 12
-         } as AutoFillSummary;
-
-         if (restoredFields.length > 0) {
-            this.autofillParsedFields = restoredFields;
-            console.log('[mapBackendDataToView] Restored', restoredFields.length, 'autofill fields from DB');
-         }
-         console.log('[mapBackendDataToView] Pre-populated autoFillSummary from formData: coverage=', this.autoFillSummary.coveragePct, '%');
-      }
 
       // Map workflow states from DB to WorkflowStage[] (P2 fix)
       if (data.workflowStates && Array.isArray(data.workflowStates) && data.workflowStates.length > 0) {
@@ -754,7 +708,7 @@ export class NpaDetailComponent implements OnInit {
             label: stageLabels[id],
             status: i < currentIdx ? 'COMPLETED' as const
                : i === currentIdx ? 'IN_PROGRESS' as const
-               : 'PENDING' as const,
+                  : 'PENDING' as const,
             date: i <= currentIdx && data.created_at ? new Date(data.created_at) : undefined
          }));
          console.log('[mapBackendDataToView] Synthesized', this.workflowStages.length, 'workflow stages from current_stage:', data.current_stage);
@@ -849,7 +803,7 @@ export class NpaDetailComponent implements OnInit {
       try {
          const d = new Date(dateStr);
          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' +
-                d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       } catch { return dateStr; }
    }
 
@@ -916,7 +870,6 @@ export class NpaDetailComponent implements OnInit {
       }
       this.classificationResult = null;
       this.mlPrediction = null;
-      this.autoFillSummary = null;
       this.riskAssessmentResult = null;
       this.agentErrors = {};
       this.runAgentAnalysis();
@@ -944,7 +897,7 @@ export class NpaDetailComponent implements OnInit {
          console.log('[runAgentAnalysis] DB data sufficient — skipping live agent calls. Use "Refresh Analysis" to re-run.');
          this.dbDataSufficient = true;
          this._agentsLaunched = true;
-         const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'AUTOFILL', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
+         const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
          agents.forEach(a => this.agentLoading[a] = false);
          return;
       }
@@ -952,7 +905,7 @@ export class NpaDetailComponent implements OnInit {
       this._agentsLaunched = true;
       this.waveContext = {};
 
-      const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'AUTOFILL', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
+      const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
       agents.forEach(a => this.agentLoading[a] = true);
 
       const fireAgent = (agentId: string, extraInputs: Record<string, any> = {}): Observable<any> => {
@@ -978,156 +931,14 @@ export class NpaDetailComponent implements OnInit {
          );
       };
 
-      const fireAutofillStreamed = (): Observable<any> => {
-         const agentInputs = { ...inputs, ...this.waveContext };
-         console.log('[fireAgent] AUTOFILL (2-phase) — starting deterministic prefill + LLM stream');
-         this.agentLoading['AUTOFILL'] = true;
-         this.autofillStream$ = new Subject<WorkflowStreamEvent>();
-
-         if (!this.userDismissedEditor) {
-            this.editorInitialViewMode = 'live';
-            this.showTemplateEditor = true;
-         } else {
-            console.log('[fireAgent] AUTOFILL — user dismissed editor, running in background');
-         }
-
-         const projectId = this.projectId;
-
-         // Phase 1: Deterministic pre-fill (RULE + COPY fields — no LLM)
-         // Phase 2: Dify LLM streaming for remaining analytical fields
-         return new Observable<any>(subscriber => {
-            // Emit workflow_started for Live view
-            this.autofillStream$?.next({
-               type: 'workflow_started', workflowRunId: `prefill-${Date.now()}`, taskId: `prefill-task-${Date.now()}`
-            });
-
-            // Phase 1: Call Express prefill endpoint
-            this.autofillStream$?.next({
-               type: 'node_started', nodeId: 'prefill-rule', nodeType: 'http', title: 'Deterministic Pre-fill (RULE + COPY)'
-            });
-            const prefillStart = Date.now();
-            const similarNpaId = agentInputs['similar_npa_id'] || agentInputs['reference_npa_id'] || '';
-            const prefillUrl = projectId
-               ? `/api/npas/${projectId}/prefill${similarNpaId ? '?similar_npa_id=' + similarNpaId : ''}`
-               : null;
-
-            const runPhase1 = (): Promise<any[]> => {
-               if (!prefillUrl) {
-                  console.log('[AUTOFILL Phase 1] No projectId — skipping prefill');
-                  return Promise.resolve([]);
-               }
-               return fetch(prefillUrl).then(res => {
-                  if (!res.ok) throw new Error(`Prefill HTTP ${res.status}`);
-                  return res.json();
-               }).then(prefillData => {
-                  const fields = prefillData.filled_fields || [];
-                  const summary = prefillData.summary || {};
-                  console.log(`[AUTOFILL Phase 1] Prefill returned ${fields.length} fields (${summary.rule_count || 0} RULE, ${summary.copy_count || 0} COPY)`);
-
-                  // Emit prefill node finished
-                  this.autofillStream$?.next({
-                     type: 'node_finished', nodeId: 'prefill-rule', nodeType: 'http',
-                     title: 'Deterministic Pre-fill (RULE + COPY)',
-                     status: 'succeeded', elapsedMs: Date.now() - prefillStart
-                  });
-
-                  if (fields.length > 0) {
-                     // Emit fields as text_chunk so Live view can parse them
-                     const jsonChunk = JSON.stringify({ filled_fields: fields }, null, 2);
-                     this.autofillStream$?.next({ type: 'text_chunk', text: jsonChunk });
-
-                     // Apply prefilled fields immediately to template editor
-                     const parsedFields: AutoFillField[] = fields.map((f: any) => ({
-                        fieldName: f.field_key,
-                        value: f.value,
-                        lineage: (f.lineage || 'AUTO') as 'AUTO' | 'ADAPTED' | 'MANUAL',
-                        source: f.source,
-                        confidence: f.confidence ? f.confidence / 100 : undefined,
-                        documentSection: f.strategy
-                     }));
-                     this.autofillParsedFields = parsedFields;
-
-                     // Persist prefilled fields to DB (fire-and-forget)
-                     fetch(`/api/npas/${projectId}/prefill/persist`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ filled_fields: fields })
-                     }).then(r => {
-                        if (!r.ok) console.warn('[AUTOFILL Phase 1] Persist failed:', r.status);
-                        else console.log('[AUTOFILL Phase 1] Prefill fields persisted to DB');
-                     }).catch(err => console.warn('[AUTOFILL Phase 1] Persist error:', err.message));
-                  }
-
-                  return fields;
-               }).catch(err => {
-                  console.warn('[AUTOFILL Phase 1] Prefill failed, continuing to LLM phase:', err.message);
-                  this.autofillStream$?.next({
-                     type: 'node_finished', nodeId: 'prefill-rule', nodeType: 'http',
-                     title: 'Deterministic Pre-fill (RULE + COPY)',
-                     status: 'failed', elapsedMs: Date.now() - prefillStart
-                  });
-                  return [];
-               });
-            };
-
-            runPhase1().then(prefillFields => {
-               // Phase 2: Stream Dify AUTOFILL for LLM fields
-               // Pass prefill context so Dify knows which fields are already filled
-               const prefillKeys = prefillFields.map((f: any) => f.field_key).join(',');
-               const llmInputs = {
-                  ...agentInputs,
-                  prefilled_field_keys: prefillKeys,
-                  prefill_count: String(prefillFields.length)
-               };
-
-               this.difyService.runWorkflowStreamed('AUTOFILL', llmInputs).pipe(
-                  tap(event => {
-                     this.autofillStream$?.next(event);
-                     if (event.type === 'workflow_finished') {
-                        this.agentLoading['AUTOFILL'] = false;
-                        console.log('[fireAgent] AUTOFILL Phase 2 (LLM) — workflow_finished, status:', event.status);
-                        if (event.status === 'succeeded') {
-                           this.handleAgentResult('AUTOFILL', event.outputs);
-                           this.waveContext['autofill_result'] = event.outputs;
-                        }
-                     }
-                  }),
-                  catchError(err => {
-                     console.error('[fireAgent] AUTOFILL Phase 2 (LLM) — ERROR:', err.message);
-                     // If LLM fails but prefill succeeded, still mark partial success
-                     if (prefillFields.length > 0) {
-                        this.agentLoading['AUTOFILL'] = false;
-                        this.autofillStream$?.next({
-                           type: 'workflow_finished',
-                           outputs: { filled_fields: prefillFields, _prefill_only: true },
-                           status: 'succeeded'
-                        });
-                        console.log('[AUTOFILL] LLM failed but prefill succeeded with', prefillFields.length, 'fields');
-                     } else {
-                        this.agentErrors['AUTOFILL'] = err.message || 'AUTOFILL failed';
-                        this.agentLoading['AUTOFILL'] = false;
-                        this.autofillStream$?.error(err);
-                     }
-                     return of(null);
-                  }),
-                  finalize(() => {
-                     this.autofillStream$?.complete();
-                     subscriber.next(null);
-                     subscriber.complete();
-                  })
-               ).subscribe();
-            });
-         });
-      };
-
-      // W0: RISK (hard-stop gate) → W1: CLASSIFIER + ML_PREDICT → W2: AUTOFILL + GOVERNANCE → W3: DOC_LIFECYCLE + MONITORING
+      // W0: RISK (hard-stop gate) → W1: CLASSIFIER + ML_PREDICT → W2: GOVERNANCE → W3: DOC_LIFECYCLE + MONITORING
       fireAgent('RISK').pipe(
          concatMap(riskRes => {
             const riskOutputs = riskRes?.data?.outputs;
             const hardStop = riskOutputs?.hard_stop === true || riskOutputs?.hardStop === true;
             if (hardStop) {
                console.warn('[WAVE] RISK hard-stop detected — aborting subsequent waves');
-               ['CLASSIFIER', 'ML_PREDICT', 'AUTOFILL', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING']
+               ['CLASSIFIER', 'ML_PREDICT', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING']
                   .forEach(a => {
                      this.agentLoading[a] = false;
                      this.agentErrors[a] = 'Aborted: prohibited product detected by RISK agent';
@@ -1137,20 +948,14 @@ export class NpaDetailComponent implements OnInit {
             return forkJoin([fireAgent('CLASSIFIER'), fireAgent('ML_PREDICT')]);
          }),
          concatMap(() => {
-            return forkJoin([
-               fireAutofillStreamed(),
-               fireAgent('GOVERNANCE', { agent_mode: 'GOVERNANCE' })
-            ]);
+            return fireAgent('GOVERNANCE', { agent_mode: 'GOVERNANCE' });
          }),
          concatMap(() => {
             return fireAgent('DOC_LIFECYCLE', { agent_mode: 'DOC_LIFECYCLE' }).pipe(
                concatMap(() => fireAgent('MONITORING', { agent_mode: 'MONITORING' }))
             );
          })
-      ).subscribe({
-         complete: () => console.log('[WAVE] All agent waves completed'),
-         error: (err) => console.error('[WAVE] Wave pipeline error:', err)
-      });
+      ).subscribe();
    }
 
    // ─── Agent Result Handlers ────────────────────────────────────────
@@ -1240,29 +1045,6 @@ export class NpaDetailComponent implements OnInit {
                   recommendations: this.riskAssessmentResult.recommendations,
                   circuit_breaker: this.riskAssessmentResult.circuitBreaker,
                   evergreen_limits: this.riskAssessmentResult.evergreenLimits
-               });
-            }
-            break;
-         case 'AUTOFILL':
-            this.autoFillSummary = this.mapAutoFillSummary(outputs);
-            this.autofillParsedFields = this.autoFillSummary?.fields || null;
-            this.updateTabBadge('PRODUCT_SPECS', null);
-            if (projectId && this.autoFillSummary?.fields?.length) {
-               this.persistAgentResult(projectId, 'autofill', {
-                  fields: this.autoFillSummary.fields.map(f => ({
-                     field_key: f.fieldName,
-                     value: f.value,
-                     lineage: f.lineage || 'AUTO',
-                     confidence: f.confidence ? Math.round(f.confidence * 100) : undefined, // DB expects 0-100
-                     source: f.source,
-                     document_section: f.documentSection
-                  })),
-                  template_id: this.autoFillSummary.templateId,
-                  source_npa: this.autoFillSummary.sourceNpa,
-                  coverage_pct: this.autoFillSummary.coveragePct,
-                  notional_flags: this.autoFillSummary.notionalFlags,
-                  cross_border_flags: this.autoFillSummary.crossBorderFlags,
-                  validation_warnings: this.autoFillSummary.validationWarnings
                });
             }
             break;
@@ -1460,66 +1242,6 @@ export class NpaDetailComponent implements OnInit {
       } as RiskAssessment;
    }
 
-   private mapAutoFillSummary(rawOutputs: any): AutoFillSummary | null {
-      const o = this.parseJsonOutput(rawOutputs);
-      console.log('[mapAutoFillSummary] parsed keys:', o ? Object.keys(o) : 'NULL', 'raw (500):', JSON.stringify(o).substring(0, 500));
-      if (!o) return null;
-      const ar = o.autofill_result || o;
-      const cov = ar.coverage || ar;
-      const filledFields = o.filled_fields || o.fields || [];
-      const manualFields = o.manual_fields || [];
-      const warnings = o.validation_warnings || [];
-      const nf = o.notional_flags || {};
-      const cbf = o.cross_border_flags || {};
-      const ds = ar.document_structure || {};
-      const ts = o.time_savings || {};
-      const pir = o.pir_requirements || {};
-      const validity = ar.validity_period || {};
-
-      return {
-         fieldsFilled: cov.auto_filled || ar.auto_filled || ar.fieldsFilled || filledFields.filter((f: any) => f.lineage === 'AUTO').length,
-         fieldsAdapted: cov.adapted || ar.adapted || ar.fieldsAdapted || filledFields.filter((f: any) => f.lineage === 'ADAPTED').length,
-         fieldsManual: cov.manual_required || ar.manual_required || ar.fieldsManual || manualFields.length || 0,
-         totalFields: cov.total_fields || ar.total_fields || ar.totalFields || 72,
-         coveragePct: cov.coverage_pct || ar.coverage_pct || ar.coveragePct || 0,
-         timeSavedMinutes: ts.estimated_manual_minutes ? (ts.estimated_manual_minutes - (ts.estimated_with_autofill_minutes || 0)) : (ar.timeSavedMinutes || 0),
-         fields: filledFields.map((f: any) => ({
-            fieldName: f.field_key || f.fieldName || '', value: f.value || '',
-            lineage: f.lineage || 'AUTO', source: f.source,
-            confidence: f.confidence ? f.confidence / 100 : undefined,
-            documentSection: f.document_section || f.documentSection
-         })),
-         templateId: ar.template_id || ar.templateId,
-         sourceNpa: ar.source_npa || ar.sourceNpa,
-         sourceSimilarity: ar.source_similarity || ar.sourceSimilarity,
-         documentStructure: ds.part_a_complete != null ? {
-            partAComplete: ds.part_a_complete, partBComplete: ds.part_b_complete,
-            partCSectionsFilled: ds.part_c_sections_filled || [],
-            appendicesRequired: ds.appendices_required || [], appendicesAutoFilled: ds.appendices_auto_filled || []
-         } : undefined,
-         manualFields: manualFields.map((f: any) => ({
-            fieldKey: f.field_key || f.fieldKey || '', label: f.label || '', reason: f.reason || '',
-            requiredBy: f.required_by || f.requiredBy, smartHelp: f.smart_help || f.smartHelp,
-            documentSection: f.document_section || f.documentSection
-         })),
-         validationWarnings: warnings.map((w: any) => ({
-            fieldKey: w.field_key || w.fieldKey || '', warning: w.warning || '',
-            severity: w.severity || 'INFO', documentSection: w.document_section || w.documentSection
-         })),
-         notionalFlags: nf.roae_analysis_needed != null ? {
-            cfoApprovalRequired: nf.cfo_approval_required || false, financeVpRequired: nf.finance_vp_required || false,
-            roaeAnalysisNeeded: nf.roae_analysis_needed || false, mlrReviewRequired: nf.mlr_review_required || false
-         } : undefined,
-         crossBorderFlags: cbf.is_cross_border != null ? {
-            isCrossBorder: cbf.is_cross_border || false, mandatorySignoffs: cbf.mandatory_signoffs || [],
-            additionalRequirements: cbf.additional_requirements || []
-         } : undefined,
-         npaLiteSubtype: ar.npa_lite_subtype || ar.npaLiteSubtype,
-         dormancyStatus: ar.dormancy_status || ar.dormancyStatus,
-         pirRequired: pir.required,
-         validityMonths: validity.duration_months
-      } as AutoFillSummary;
-   }
 
    private mapGovernanceState(rawOutputs: any): GovernanceState | null {
       const o = this.parseJsonOutput(rawOutputs);
@@ -1610,7 +1332,6 @@ export class NpaDetailComponent implements OnInit {
                case 'CLASSIFIER': this.classificationResult = this.mapClassificationResult(res.data.outputs); break;
                case 'ML_PREDICT': this.mlPrediction = this.mapMlPrediction(res.data.outputs); break;
                case 'RISK': this.riskAssessmentResult = this.mapRiskAssessment(res.data.outputs); break;
-               case 'AUTOFILL': this.autoFillSummary = this.mapAutoFillSummary(res.data.outputs); break;
                case 'GOVERNANCE': this.governanceState = this.mapGovernanceState(res.data.outputs); break;
                case 'DOC_LIFECYCLE': this.docCompleteness = this.mapDocCompleteness(res.data.outputs); break;
                case 'MONITORING': this.monitoringResult = this.mapMonitoringResult(res.data.outputs); break;
@@ -1624,7 +1345,7 @@ export class NpaDetailComponent implements OnInit {
       if (!tab) return;
       switch (tabId) {
          case 'PRODUCT_SPECS':
-            if (this.autoFillSummary) tab.badge = `${this.autoFillSummary.coveragePct}%`;
+            // No badge
             break;
          case 'DOCUMENTS':
             if (this.docCompleteness) {

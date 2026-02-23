@@ -15,7 +15,7 @@ import {
    FieldRegistryEntry
 } from '../../../lib/npa-template-definition';
 import { FieldLineage, NpaFieldType } from '../../../lib/npa-interfaces';
-import { WorkflowStreamEvent, AutoFillField } from '../../../lib/agent-interfaces';
+import { WorkflowStreamEvent } from '../../../lib/agent-interfaces';
 
 // Sub-components
 import { NpaFieldRendererComponent } from './components/npa-field-renderer/npa-field-renderer.component';
@@ -88,6 +88,7 @@ export interface AgentChat {
    isConnected: boolean;
    isStreaming: boolean;
    streamText: string;
+   sessionId?: string;
 }
 
 export interface ChatMessage {
@@ -177,13 +178,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    @Output() close = new EventEmitter<void>();
    @Output() onSave = new EventEmitter<any>();
    @Input() inputData: any = null;
-   @Input() autofillStream: Subject<WorkflowStreamEvent> | null = null;
-
-   @Input() set autofillParsedFields(fields: AutoFillField[] | null) {
-      if (fields && fields.length > 0) {
-         this.applyAutofillFields(fields);
-      }
-   }
 
    private http = inject(HttpClient);
    private cdr = inject(ChangeDetectorRef);
@@ -205,8 +199,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    // ─── Live Streaming ─────────────────────────────────────────
    isStreaming = false;
    streamingAgent: SignOffGroupId | null = null;
-   liveStreamText = '';
-   private liveStreamSub: Subscription | null = null;
 
    // ─── Auto-save ────────────────────────────────────────────
    private autoSaveTimer: ReturnType<typeof setInterval> | null = null;
@@ -241,12 +233,10 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       this.initializeFieldMap();
       this.initializeAgentChats();
       this.loadExistingFormData();
-      this.subscribeLiveStream();
       this.startAutoSave();
    }
 
    ngOnDestroy(): void {
-      this.liveStreamSub?.unsubscribe();
       if (this.autoSaveTimer) clearInterval(this.autoSaveTimer);
    }
 
@@ -437,86 +427,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    }
 
    // ═══════════════════════════════════════════════════════════
-   // Live Stream (Autofill Pipeline)
-   // ═══════════════════════════════════════════════════════════
-
-   private subscribeLiveStream(): void {
-      if (!this.autofillStream) return;
-
-      this.liveStreamSub = this.autofillStream.subscribe({
-         next: (event) => {
-            switch (event.type) {
-               case 'workflow_started':
-                  this.isStreaming = true;
-                  break;
-               case 'text_chunk':
-                  this.liveStreamText += event.text || '';
-                  this.tryParseLiveFields();
-                  break;
-               case 'workflow_finished':
-                  this.isStreaming = false;
-                  if (event.outputs) this.applyWorkflowOutputs(event.outputs);
-                  this.updateProgress();
-                  break;
-            }
-         },
-         error: () => { this.isStreaming = false; },
-         complete: () => { this.isStreaming = false; }
-      });
-   }
-
-   private tryParseLiveFields(): void {
-      const text = this.liveStreamText;
-      const fieldPattern = /\{\s*"field_key"\s*:\s*"([^"]+)"\s*,\s*"value"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*(?:,\s*"lineage"\s*:\s*"([^"]*)"\s*)?(?:,\s*"confidence"\s*:\s*([\d.]+)\s*)?[^}]*\}/g;
-
-      let match;
-      while ((match = fieldPattern.exec(text)) !== null) {
-         const fieldKey = match[1];
-         const value = match[2].replace(/\\"/g, '"').replace(/\\n/g, '\n');
-         const lineage = (match[3] || 'AUTO') as FieldLineage;
-         const confidence = match[4] ? parseFloat(match[4]) : undefined;
-
-         const field = this.fieldMap.get(fieldKey);
-         if (field && !field.value) {
-            field.value = value;
-            field.lineage = lineage;
-            field.confidence = confidence;
-            field.isStreaming = false;
-            this.updateSectionProgress(fieldKey);
-         }
-      }
-   }
-
-   private applyWorkflowOutputs(outputs: any): void {
-      const filledFields = outputs.filled_fields || outputs.fields || [];
-      for (const f of filledFields) {
-         const key = f.field_key || f.fieldName || '';
-         const field = this.fieldMap.get(key);
-         if (field) {
-            field.value = f.value || '';
-            field.lineage = (f.lineage || 'AUTO') as FieldLineage;
-            field.confidence = f.confidence ? f.confidence / 100 : undefined;
-            field.source = f.source;
-            field.isStreaming = false;
-         }
-      }
-      this.updateProgress();
-   }
-
-   applyAutofillFields(fields: AutoFillField[]): void {
-      for (const f of fields) {
-         const key = f.fieldName || '';
-         const field = this.fieldMap.get(key);
-         if (field) {
-            field.value = f.value || '';
-            field.lineage = (f.lineage || 'AUTO') as FieldLineage;
-            field.confidence = f.confidence;
-            field.source = f.source;
-            field.isStreaming = false;
-         }
-      }
-      this.updateProgress();
-   }
 
    // ═══════════════════════════════════════════════════════════
    // Child Component Event Handlers
@@ -553,11 +463,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       }
    }
 
-   /** Fired by NpaAgentChatComponent auto-fill button */
-   onAutoFillSection(): void {
-      // Placeholder — integrates with autofill pipeline in npa-detail
-      console.log('[DraftBuilder] Auto-fill section requested for', this.activeSectionId);
-   }
 
    /** Apply a field suggestion from agent chat (@@NPA_META@@ parsed) */
    onApplyFieldSuggestion(suggestion: FieldSuggestion): void {
@@ -633,8 +538,8 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          section.filledCount = allFields.filter(f => f.value && f.value.trim() !== '').length;
          section.status = !this.isSectionApplicable(section.id) ? 'complete'
             : section.filledCount === 0 ? 'empty'
-            : section.filledCount >= section.fieldCount ? 'complete'
-            : 'partial';
+               : section.filledCount >= section.fieldCount ? 'complete'
+                  : 'partial';
       }
    }
 
@@ -649,7 +554,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          section.filledCount = allFields.filter(f => f.value && f.value.trim() !== '').length;
          section.status = section.filledCount === 0 ? 'empty'
             : section.filledCount >= section.fieldCount ? 'complete'
-            : 'partial';
+               : 'partial';
       }
       this.updateProgress();
    }

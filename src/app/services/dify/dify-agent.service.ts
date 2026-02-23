@@ -51,7 +51,6 @@ const COLOR_MAP: Record<string, string> = {
     'NPA_ORCHESTRATOR': 'orange',
     'IDEATION': 'indigo',
     'CLASSIFIER': 'purple',
-    'AUTOFILL': 'blue',
     'ML_PREDICT': 'amber',
     'RISK': 'red',
     'GOVERNANCE': 'slate',
@@ -68,7 +67,6 @@ const AGENT_STATS: Record<string, { label: string; value: string; actionLabel: s
     'NPA_ORCHESTRATOR': { label: 'Orchestrations', value: '1,892', actionLabel: 'Status' },
     'IDEATION': { label: 'Creates', value: '1,248', actionLabel: 'Start' },
     'CLASSIFIER': { label: 'Confidence', value: '88%', actionLabel: 'Classify' },
-    'AUTOFILL': { label: 'Coverage', value: '78%', actionLabel: 'Fill' },
     'ML_PREDICT': { label: 'Accuracy', value: '92%', actionLabel: 'Predict' },
     'RISK': { label: 'Catch Rate', value: '96%', actionLabel: 'Scan' },
     'GOVERNANCE': { label: 'SLA Met', value: '94%', actionLabel: 'Route' },
@@ -135,7 +133,6 @@ export class DifyAgentService {
      */
     getActiveWorkItems(): Observable<AgentWorkItem[]> {
         return of([
-            { id: 'JOB-992', agentName: 'Template AutoFill', operation: 'Parsing "Term_Sheet_FX.pdf"', status: 'running' as const, duration: '1.2s', color: 'blue' as const },
             { id: 'JOB-991', agentName: 'Classification', operation: 'Classifying TSG2025-041', status: 'completed' as const, duration: '450ms', color: 'purple' as const },
             { id: 'JOB-990', agentName: 'Governance', operation: 'Creating sign-off requests', status: 'waiting' as const, duration: '12m', color: 'slate' as const },
             { id: 'JOB-989', agentName: 'KB Search', operation: 'Searching "MAS_Guidelines.pdf"', status: 'completed' as const, duration: '890ms', color: 'fuchsia' as const },

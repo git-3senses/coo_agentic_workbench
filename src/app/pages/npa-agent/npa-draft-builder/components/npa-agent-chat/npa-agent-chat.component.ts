@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SharedIconsModule } from '../../../../../shared/icons/shared-icons.module';
 import { DifyService } from '../../../../../services/dify/dify.service';
+import { ChatSessionService } from '../../../../../services/chat-session.service';
 import {
    SignOffGroup,
    SignOffGroupId,
@@ -35,7 +36,6 @@ export class NpaAgentChatComponent implements AfterViewChecked {
 
    @Output() agentSelected = new EventEmitter<SignOffGroupId>();
    @Output() messageSent = new EventEmitter<{ agentId: SignOffGroupId; message: string; context: string }>();
-   @Output() autoFillRequested = new EventEmitter<void>();
    @Output() validateRequested = new EventEmitter<void>();
    @Output() applySuggestion = new EventEmitter<FieldSuggestion>();
 
@@ -43,6 +43,7 @@ export class NpaAgentChatComponent implements AfterViewChecked {
 
    private cdr = inject(ChangeDetectorRef);
    private difyService = inject(DifyService);
+   private chatSessionService = inject(ChatSessionService);
    private shouldScrollToBottom = false;
 
    chatInput = '';
@@ -50,12 +51,6 @@ export class NpaAgentChatComponent implements AfterViewChecked {
    /** Pending field suggestions parsed from last agent response */
    pendingSuggestions: FieldSuggestion[] = [];
 
-   /** Auto-fill state */
-   isAutoFilling = false;
-   autoFillChunkIndex = 0;
-   autoFillTotalChunks = 0;
-   private readonly AUTO_FILL_CHUNK_SIZE = 40;
-   private _pendingAutoFillChunks: { key: string; label: string; type: string; section: string }[][] = [];
 
    /** Maps Draft Builder sign-off groups to Dify agent registry keys */
    private readonly agentIdMap: Record<SignOffGroupId, string> = {
@@ -74,7 +69,6 @@ export class NpaAgentChatComponent implements AfterViewChecked {
    }
 
    selectAgent(agentId: SignOffGroupId): void {
-      if (this.isAutoFilling) return; // Block tab switch during auto-fill
       this.activeAgentId = agentId;
       this.pendingSuggestions = [];
       this.agentSelected.emit(agentId);
@@ -99,6 +93,7 @@ export class NpaAgentChatComponent implements AfterViewChecked {
          content: userMessage,
          timestamp: new Date()
       });
+      this.autoSaveSession(chat);
       this.chatInput = '';
       this.pendingSuggestions = [];
       this.shouldScrollToBottom = true;
@@ -134,6 +129,7 @@ export class NpaAgentChatComponent implements AfterViewChecked {
             chat.isStreaming = false;
             chat.streamText = '';
             this.shouldScrollToBottom = true;
+            this.autoSaveSession(chat);
             this.cdr.detectChanges();
          },
          complete: () => {
@@ -153,6 +149,7 @@ export class NpaAgentChatComponent implements AfterViewChecked {
             chat.streamText = '';
             chat.isConnected = true;
             this.shouldScrollToBottom = true;
+            this.autoSaveSession(chat);
             this.cdr.detectChanges();
          }
       });
@@ -178,6 +175,7 @@ export class NpaAgentChatComponent implements AfterViewChecked {
             timestamp: new Date()
          });
          this.shouldScrollToBottom = true;
+         this.autoSaveSession(chat);
          this.cdr.detectChanges();
       }
    }
@@ -197,192 +195,29 @@ export class NpaAgentChatComponent implements AfterViewChecked {
             timestamp: new Date()
          });
          this.shouldScrollToBottom = true;
+         this.autoSaveSession(chat);
          this.cdr.detectChanges();
       }
    }
 
-   // ─── Auto-fill Section ──────────────────────────────────
+   private autoSaveSession(chat: AgentChat): void {
+      if (!chat.messages.length) return;
 
-   /** Initiate auto-fill for the active agent's sections */
-   startAutoFill(): void {
-      const chat = this.agentChats.get(this.activeAgentId);
-      if (!chat || chat.isStreaming || this.isAutoFilling) return;
+      const prevSessionId = this.chatSessionService.activeSessionId();
+      this.chatSessionService.setActiveSession(chat.sessionId || null);
 
-      const emptyFields = this.getEmptyFieldsForActiveAgent();
-      if (emptyFields.length === 0) {
-         chat.messages.push({
-            role: 'system',
-            content: 'All fields in your sections are already filled. Nothing to auto-fill.',
-            timestamp: new Date()
-         });
-         this.shouldScrollToBottom = true;
-         this.cdr.detectChanges();
-         return;
-      }
+      chat.sessionId = this.chatSessionService.saveSession(
+         chat.messages.map(m => ({
+            role: m.role === 'system' ? 'agent' : m.role,
+            content: m.content,
+            timestamp: m.timestamp
+         })),
+         this.agentIdMap[this.activeAgentId] || this.activeAgentId
+      );
 
-      this.isAutoFilling = true;
-      this.pendingSuggestions = [];
-
-      if (emptyFields.length <= this.AUTO_FILL_CHUNK_SIZE) {
-         this.autoFillTotalChunks = 1;
-         this.autoFillChunkIndex = 1;
-         this.sendAutoFillChunk(emptyFields, 1, 1);
-      } else {
-         const chunks = this.chunkFieldsBySection(emptyFields);
-         this.autoFillTotalChunks = chunks.length;
-         this.autoFillChunkIndex = 1;
-         this._pendingAutoFillChunks = chunks.slice(1);
-         this.sendAutoFillChunk(chunks[0], 1, chunks.length);
-      }
+      this.chatSessionService.setActiveSession(prevSessionId);
    }
 
-   /** Collect all empty fields across the active agent's owned sections */
-   private getEmptyFieldsForActiveAgent(): { key: string; label: string; type: string; section: string }[] {
-      const group = this.getActiveGroup();
-      const emptyFields: { key: string; label: string; type: string; section: string }[] = [];
-      for (const sectionId of group.sections) {
-         const groups = this.sectionFieldGroups.get(sectionId) || [];
-         for (const g of groups) {
-            for (const f of g.fields) {
-               if (!f.value || !f.value.trim()) {
-                  emptyFields.push({ key: f.key, label: f.label, type: f.type, section: sectionId });
-               }
-            }
-         }
-      }
-      return emptyFields;
-   }
-
-   /** Build the structured auto-fill prompt for the agent */
-   private buildAutoFillPrompt(emptyFields: { key: string; label: string; type: string; section: string }[]): string {
-      const group = this.getActiveGroup();
-      const filledContext = this.buildAgentContext(group);
-
-      let prompt = `[AUTO-FILL REQUEST]\n`;
-      prompt += `Please bulk-fill the following ${emptyFields.length} empty fields in your sections (${group.sections.join(', ')}).\n`;
-      prompt += `For each field, provide your best value based on the product context and your domain expertise.\n\n`;
-
-      if (filledContext) {
-         prompt += `${filledContext}\n\n`;
-      }
-
-      prompt += `Empty fields to fill:\n`;
-      for (const f of emptyFields) {
-         prompt += `- ${f.key} | "${f.label}" | type: ${f.type}\n`;
-      }
-
-      prompt += `\nReturn ALL field values in a single @@NPA_META@@ block:\n`;
-      prompt += `@@NPA_META@@{"fields":[{"field_key":"...","label":"...","value":"...","confidence":0.8}, ...]}@@END_META@@\n`;
-      prompt += `Include a brief summary before the meta block.`;
-
-      return prompt;
-   }
-
-   /** Send one auto-fill chunk through the existing streaming pipeline */
-   private sendAutoFillChunk(
-      fields: { key: string; label: string; type: string; section: string }[],
-      chunkNum: number,
-      totalChunks: number
-   ): void {
-      const chat = this.agentChats.get(this.activeAgentId);
-      if (!chat) return;
-
-      const prompt = this.buildAutoFillPrompt(fields);
-      const chunkLabel = totalChunks > 1 ? ` (batch ${chunkNum}/${totalChunks})` : '';
-
-      chat.messages.push({
-         role: 'user',
-         content: `Auto-fill ${fields.length} empty fields${chunkLabel}`,
-         timestamp: new Date()
-      });
-      this.shouldScrollToBottom = true;
-
-      const agentKey = this.agentIdMap[this.activeAgentId];
-      chat.isStreaming = true;
-      chat.streamText = '';
-
-      this.difyService.sendMessageStreamed(prompt, {}, agentKey).subscribe({
-         next: (event) => {
-            if (event.type === 'chunk') {
-               chat.streamText += event.text || '';
-               this.shouldScrollToBottom = true;
-               this.cdr.detectChanges();
-            }
-         },
-         error: (err) => {
-            console.warn(`[AgentChat] Auto-fill error for ${agentKey}:`, err.message);
-            chat.messages.push({
-               role: 'system',
-               content: `Auto-fill failed: ${err.message}. Try again or fill fields individually.`,
-               timestamp: new Date()
-            });
-            chat.isStreaming = false;
-            chat.streamText = '';
-            this.isAutoFilling = false;
-            this._pendingAutoFillChunks = [];
-            this.shouldScrollToBottom = true;
-            this.cdr.detectChanges();
-         },
-         complete: () => {
-            if (chat.streamText.trim()) {
-               const { cleanText, suggestions } = this.parseNpaMeta(chat.streamText);
-               chat.messages.push({
-                  role: 'agent',
-                  content: cleanText,
-                  timestamp: new Date()
-               });
-               if (suggestions.length > 0) {
-                  this.pendingSuggestions = [...this.pendingSuggestions, ...suggestions];
-               }
-            }
-            chat.isStreaming = false;
-            chat.streamText = '';
-            chat.isConnected = true;
-            this.shouldScrollToBottom = true;
-            this.cdr.detectChanges();
-
-            // Send next chunk if remaining
-            if (this._pendingAutoFillChunks.length > 0) {
-               this.autoFillChunkIndex++;
-               const nextChunk = this._pendingAutoFillChunks.shift()!;
-               setTimeout(() => this.sendAutoFillChunk(nextChunk, this.autoFillChunkIndex, this.autoFillTotalChunks), 1000);
-            } else {
-               this.isAutoFilling = false;
-            }
-         }
-      });
-   }
-
-   /** Split fields into chunks respecting section boundaries */
-   private chunkFieldsBySection(
-      fields: { key: string; label: string; type: string; section: string }[]
-   ): { key: string; label: string; type: string; section: string }[][] {
-      const bySection = new Map<string, typeof fields>();
-      for (const f of fields) {
-         const arr = bySection.get(f.section) || [];
-         arr.push(f);
-         bySection.set(f.section, arr);
-      }
-
-      const chunks: typeof fields[] = [];
-      let currentChunk: typeof fields = [];
-
-      for (const [, sectionFields] of bySection) {
-         if (currentChunk.length + sectionFields.length > this.AUTO_FILL_CHUNK_SIZE && currentChunk.length > 0) {
-            chunks.push(currentChunk);
-            currentChunk = [];
-         }
-         if (sectionFields.length > this.AUTO_FILL_CHUNK_SIZE) {
-            for (let i = 0; i < sectionFields.length; i += this.AUTO_FILL_CHUNK_SIZE) {
-               chunks.push(sectionFields.slice(i, i + this.AUTO_FILL_CHUNK_SIZE));
-            }
-         } else {
-            currentChunk.push(...sectionFields);
-         }
-      }
-      if (currentChunk.length > 0) chunks.push(currentChunk);
-      return chunks;
-   }
 
    // ─── Meta Parsing ─────────────────────────────────────
 
@@ -473,7 +308,7 @@ export class NpaAgentChatComponent implements AfterViewChecked {
          if (this.chatContainer) {
             this.chatContainer.nativeElement.scrollTop = this.chatContainer.nativeElement.scrollHeight;
          }
-      } catch (err) {}
+      } catch (err) { }
    }
 
    trackByMsgIndex(index: number, _msg: ChatMessage): number {

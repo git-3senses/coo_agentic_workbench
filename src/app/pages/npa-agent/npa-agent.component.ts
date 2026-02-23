@@ -8,6 +8,7 @@ import { NpaDashboardComponent } from '../../components/npa/dashboard/npa-dashbo
 import { NpaDetailComponent } from './npa-detail/npa-detail.component';
 import { AgentGovernanceService } from '../../services/agent-governance.service';
 import { LayoutService } from '../../services/layout.service';
+import { NpaService } from '../../services/npa.service';
 
 @Component({
    selector: 'app-npa-agent',
@@ -52,6 +53,7 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
    private route = inject(ActivatedRoute);
    private router = inject(Router);
    private governanceService = inject(AgentGovernanceService);
+   private npaService = inject(NpaService);
 
    viewMode: 'DASHBOARD' | 'IDEATION' | 'WORK_ITEM' = 'DASHBOARD';
 
@@ -99,15 +101,59 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
    }
 
    goToDraftWithData(payload: any) {
+      console.log('[NPAAgent] Transitioning to Draft with payload:', payload);
+
       // Transition from Chat -> Draft with pre-filled data
-      this.npaContext = payload;
-      // If payload has an npaId (from CTA card), go directly to detail view (no editor overlay)
       if (payload?.npaId) {
+         // Existing NPA (from CTA card)
+         this.npaContext = payload;
          this.viewMode = 'WORK_ITEM';
          this.autoOpenEditor = false;
          this.layoutService.setSidebarVisible(false);
       } else {
-         this.goToDraft();
+         // New NPA from Ideation session
+         const createData = {
+            title: payload.product_name || payload.title || 'Untitled NPA',
+            description: payload.product_description || payload.description || 'Draft created from ideation.',
+            npa_type: payload.npa_type || 'STANDARD'
+         };
+
+         this.npaService.create(createData).subscribe({
+            next: (res) => {
+               const newId = res.id;
+               console.log(`[NPAAgent] Created new NPA: ${newId}`);
+
+               // Prepare any extra initial data (classification, etc)
+               const updatePayload = {
+                  formData: [
+                     { field_key: 'risk_level', field_value: payload.risk_level || 'MEDIUM', lineage: 'AUTO' },
+                     { field_key: 'is_cross_border', field_value: payload.is_cross_border ? 'true' : 'false', lineage: 'AUTO' }
+                  ]
+               };
+
+               this.npaService.update(newId, updatePayload).subscribe({
+                  next: () => {
+                     console.log(`[NPAAgent] Initial data persisted for ${newId}`);
+                     this.npaContext = { id: newId, npaId: newId, ...payload };
+                     this.viewMode = 'WORK_ITEM';
+                     this.autoOpenEditor = true; // Open the draft builder immediately
+                     this.layoutService.setSidebarVisible(false);
+                  },
+                  error: (err) => {
+                     console.warn('[NPAAgent] Failed to persist initial data:', err);
+                     // Proceed anyway
+                     this.npaContext = { id: newId, npaId: newId, ...payload };
+                     this.viewMode = 'WORK_ITEM';
+                     this.autoOpenEditor = true;
+                     this.layoutService.setSidebarVisible(false);
+                  }
+               });
+            },
+            error: (err) => {
+               console.error('[NPAAgent] Failed to create NPA:', err);
+               alert('Failed to create NPA record. Please try again.');
+            }
+         });
       }
    }
 

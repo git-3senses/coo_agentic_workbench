@@ -425,9 +425,9 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
           numbering: '5',
           guidance: 'Describe BIA considerations, updated BCP requirements, and any additional continuity measures.',
           fieldKeys: ['bia_considerations', 'bcp_requirements', 'continuity_measures',
-                      'bcm_critical_processes', 'bcm_recovery_strategy', 'bcm_alternate_site',
-                      'bcm_communication_plan', 'bcm_testing_frequency', 'bcm_vendor_dependencies',
-                      'bcm_staff_awareness', 'bcm_regulatory_compliance', 'bcm_incident_response']
+            'bcm_critical_processes', 'bcm_recovery_strategy', 'bcm_alternate_site',
+            'bcm_communication_plan', 'bcm_testing_frequency', 'bcm_vendor_dependencies',
+            'bcm_staff_awareness', 'bcm_regulatory_compliance', 'bcm_incident_response']
         }
       ]
     },
@@ -500,8 +500,8 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               numbering: '2',
               guidance: 'Describe the accounting treatment (Trading Book vs Banking Book, Fair Value, On/Off Balance Sheet) and tax considerations across jurisdictions.',
               fieldKeys: ['tax_impact', 'accounting_book', 'fair_value_treatment', 'on_off_balance', 'tax_jurisdictions',
-                          'service_output_fees', 'service_fee_structure', 'service_fee_allocation',
-                          'reg_matching_ifrs', 'reg_matching_mas', 'reg_matching_gst', 'reg_matching_wht']
+                'service_output_fees', 'service_fee_structure', 'service_fee_allocation',
+                'reg_matching_ifrs', 'reg_matching_mas', 'reg_matching_gst', 'reg_matching_wht']
             },
             {
               id: 'PC.IV.A.3',
@@ -965,8 +965,8 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
         numbering: 'Part C.4',
         guidance: 'Address intellectual property, data ownership, and data privacy requirements.',
         fieldKeys: ['data_residency', 'tp_data_ownership', 'tp_ip_rights', 'tp_pdpa_compliance',
-                    'tp_cross_border_transfer', 'tp_data_deletion', 'tp_consent_management',
-                    'tp_breach_notification', 'tp_dpo_contact', 'tp_privacy_impact']
+          'tp_cross_border_transfer', 'tp_data_deletion', 'tp_consent_management',
+          'tp_breach_notification', 'tp_dpo_contact', 'tp_privacy_impact']
       }
     ]
   }
@@ -974,7 +974,7 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
 
 
 // ────────────────────────────────────────────────────────────
-// Field Registry — AUTOFILL Classification
+// Field Registry — Field-Fill Classification
 // ────────────────────────────────────────────────────────────
 //
 // Every field_key is classified into one of 4 fill strategies:
@@ -1008,7 +1008,7 @@ export interface FieldRegistryEntry {
   key: string;
   /** Human-readable label */
   label: string;
-  /** Which autofill strategy to use */
+  /** Which field-fill strategy to use */
   strategy: FieldFillStrategy;
   /** For RULE: name of the lookup source (e.g., 'npa_record', 'org_chart', 'jurisdiction_table') */
   ruleSource?: string;
@@ -1040,501 +1040,527 @@ export interface FieldRegistryEntry {
  *   MANUAL  67 fields — human-only
  */
 export const NPA_FIELD_REGISTRY: FieldRegistryEntry[] = [
+  // CORE / LEGACY FIELDS (Synchronized with DB ref_npa_fields)
+  { key: 'approving_authority', label: 'Approving Authority', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'bia_completed', label: 'BIA Completed', nodeId: 'PC.I', fieldType: 'yesno', strategy: 'RULE' },
+  { key: 'business_case_status', label: 'Business Case Status', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'business_unit', label: 'Business Unit', nodeId: 'PC.I', fieldType: 'dropdown', strategy: 'RULE', options: ['Treasury & Markets', 'Wealth Management', 'Corporate Banking', 'Institutional Banking', 'Consumer Banking', 'Digital Assets'] },
+  { key: 'customer_profile', label: 'Customer Profile', nodeId: 'PC.I', fieldType: 'textarea', strategy: 'RULE' },
+  { key: 'desk', label: 'Trading Desk', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'dr_test_frequency', label: 'DR Test Frequency', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'geographic_scope', label: 'Geographic Scope', nodeId: 'PC.I', fieldType: 'multiselect', strategy: 'RULE' },
+  { key: 'group_product_head', label: 'Group Product Head', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'hedging_purpose', label: 'Hedging Purpose', nodeId: 'PC.I', fieldType: 'textarea', strategy: 'RULE' },
+  { key: 'isda_agreement', label: 'ISDA Agreement', nodeId: 'PC.IV', fieldType: 'textarea', strategy: 'RULE' },
+  { key: 'kickoff_date', label: 'Kickoff Date', nodeId: 'PC.I', fieldType: 'date', strategy: 'RULE' },
+  { key: 'mtj_journey', label: 'MTJ Journey', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'npa_process_type', label: 'NPA Process Type', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'pac_approval_date', label: 'PAC Approval Date', nodeId: 'PC.I', fieldType: 'date', strategy: 'RULE' },
+  { key: 'product_manager_name', label: 'Product Manager', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'proposal_preparer', label: 'Proposal Preparer', nodeId: 'PC.I', fieldType: 'text', strategy: 'RULE' },
+  { key: 'required_signoffs', label: 'Required Sign-offs', nodeId: 'APP.1', fieldType: 'textarea', strategy: 'RULE' },
+  { key: 'rpo_minutes', label: 'RPO (Minutes)', nodeId: 'PC.II', fieldType: 'text', strategy: 'RULE' },
+  { key: 'rto_hours', label: 'RTO (Hours)', nodeId: 'PC.II', fieldType: 'text', strategy: 'RULE' },
+  { key: 'signoff_order', label: 'Sign-off Order', nodeId: 'APP.1', fieldType: 'dropdown', strategy: 'RULE', options: ['Parallel', 'Sequential'] },
+  { key: 'strike_price', label: 'Strike Price', nodeId: 'PC.III', fieldType: 'currency', strategy: 'RULE' },
+  { key: 'supporting_documents', label: 'Supporting Documents', nodeId: 'APP.6', fieldType: 'file_upload', strategy: 'RULE' },
+  { key: 'term_sheet', label: 'Term Sheet', nodeId: 'APP.6', fieldType: 'file_upload', strategy: 'RULE' },
+  { key: 'trade_date', label: 'Expected Trade Date', nodeId: 'PC.I', fieldType: 'date', strategy: 'RULE' },
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION I: Product Specifications (Basic Information)
   // ═══════════════════════════════════════════════════════════════
 
   // I.1.a — Purpose / Rationale
-  { key: 'business_rationale',      label: 'Business Rationale',                 strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea', required: true },
-  { key: 'problem_statement',       label: 'Problem Statement',                  strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
-  { key: 'value_proposition',       label: 'Value Proposition',                  strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
-  { key: 'customer_benefit',        label: 'Benefits to Customers',              strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
-  { key: 'bu_benefit',              label: 'Benefits to BU/SU',                  strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
+  { key: 'business_rationale', label: 'Business Rationale', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea', required: true },
+  { key: 'problem_statement', label: 'Problem Statement', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
+  { key: 'value_proposition', label: 'Value Proposition', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
+  { key: 'customer_benefit', label: 'Benefits to Customers', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
+  { key: 'bu_benefit', label: 'Benefits to BU/SU', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
 
   // I.1.b — Scope and Parameters
-  { key: 'product_name',            label: 'Product Name',                       strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b', fieldType: 'text', required: true },
-  { key: 'product_type',            label: 'Product Type',                       strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['Derivative', 'Structured Product', 'Loan', 'Bond', 'Fund', 'Insurance', 'Digital Asset', 'Other'] },
-  { key: 'underlying_asset',        label: 'Underlying Asset',                   strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b', fieldType: 'text' },
-  { key: 'currency_denomination',   label: 'Currency Denomination',              strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['SGD', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'HKD', 'AUD', 'INR', 'IDR', 'TWD', 'Multi-currency'] },
-  { key: 'tenor',                   label: 'Tenor',                              strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b', fieldType: 'text' },
-  { key: 'funding_type',            label: 'Funded vs Unfunded',                 strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['Funded', 'Unfunded', 'Partially Funded'] },
-  { key: 'repricing_info',          label: 'Repricing Information',              strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.1.b', fieldType: 'textarea' },
-  { key: 'product_role',            label: 'Role of Proposing Unit',             strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['Manufacturer', 'Distributor', 'Principal', 'Agent', 'Arranger'] },
-  { key: 'product_maturity',        label: 'Product Maturity',                   strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['Established', 'Mature', 'Growing', 'Emerging', 'New'] },
-  { key: 'product_lifecycle',       label: 'Product Life Cycle',                 strategy: 'COPY',   copySection: 'product_specs',   nodeId: 'PC.I.1.b', fieldType: 'textarea' },
-  { key: 'product_features',        label: 'Product Features Summary',           strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.1.b', fieldType: 'textarea' },
+  { key: 'product_name', label: 'Product Name', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'text', required: true },
+  { key: 'product_type', label: 'Product Type', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['Derivative', 'Structured Product', 'Loan', 'Bond', 'Fund', 'Insurance', 'Digital Asset', 'Other'] },
+  { key: 'underlying_asset', label: 'Underlying Asset', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'text' },
+  { key: 'currency_denomination', label: 'Currency Denomination', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['SGD', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'HKD', 'AUD', 'INR', 'IDR', 'TWD', 'Multi-currency'] },
+  { key: 'tenor', label: 'Tenor', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'text' },
+  { key: 'funding_type', label: 'Funded vs Unfunded', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['Funded', 'Unfunded', 'Partially Funded'] },
+  { key: 'repricing_info', label: 'Repricing Information', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.1.b', fieldType: 'textarea' },
+  { key: 'product_role', label: 'Role of Proposing Unit', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['Manufacturer', 'Distributor', 'Principal', 'Agent', 'Arranger'] },
+  { key: 'product_maturity', label: 'Product Maturity', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.1.b', fieldType: 'dropdown', options: ['Established', 'Mature', 'Growing', 'Emerging', 'New'] },
+  { key: 'product_lifecycle', label: 'Product Life Cycle', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.1.b', fieldType: 'textarea' },
+  { key: 'product_features', label: 'Product Features Summary', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.1.b', fieldType: 'textarea' },
 
   // I.1.c — Expected Transaction Volume and Revenue
-  { key: 'notional_amount',         label: 'Transaction Volume (Notional)',      strategy: 'RULE',   ruleSource: 'npa_record',       nodeId: 'PC.I.1.c', fieldType: 'currency', required: true },
-  { key: 'revenue_year1',           label: 'Revenue Year 1 (Gross)',             strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
-  { key: 'revenue_year1_net',       label: 'Revenue Year 1 (Net of TP)',        strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
-  { key: 'revenue_year2',           label: 'Revenue Year 2 (Gross)',             strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
-  { key: 'revenue_year2_net',       label: 'Revenue Year 2 (Net of TP)',        strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
-  { key: 'revenue_year3',           label: 'Revenue Year 3 (Gross)',             strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
-  { key: 'revenue_year3_net',       label: 'Revenue Year 3 (Net of TP)',        strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
-  { key: 'expected_volume',         label: 'Expected Annual Volume',             strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'text' },
+  { key: 'notional_amount', label: 'Transaction Volume (Notional)', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.c', fieldType: 'currency', required: true },
+  { key: 'revenue_year1', label: 'Revenue Year 1 (Gross)', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
+  { key: 'revenue_year1_net', label: 'Revenue Year 1 (Net of TP)', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
+  { key: 'revenue_year2', label: 'Revenue Year 2 (Gross)', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
+  { key: 'revenue_year2_net', label: 'Revenue Year 2 (Net of TP)', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
+  { key: 'revenue_year3', label: 'Revenue Year 3 (Gross)', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
+  { key: 'revenue_year3_net', label: 'Revenue Year 3 (Net of TP)', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'currency' },
+  { key: 'expected_volume', label: 'Expected Annual Volume', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'text' },
 
   // I.1.d — Business Model
-  { key: 'target_roi',              label: 'Target ROI',                         strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'text' },
-  { key: 'revenue_streams',         label: 'Revenue Streams',                    strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'bullet_list' },
-  { key: 'gross_margin_split',      label: 'Gross Margin Split',                 strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'textarea' },
-  { key: 'cost_allocation',         label: 'Cost Allocation',                    strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'textarea' },
+  { key: 'target_roi', label: 'Target ROI', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'text' },
+  { key: 'revenue_streams', label: 'Revenue Streams', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'bullet_list' },
+  { key: 'gross_margin_split', label: 'Gross Margin Split', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'textarea' },
+  { key: 'cost_allocation', label: 'Cost Allocation', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'textarea' },
 
   // I.1.e — SPV
-  { key: 'spv_involved',            label: 'Is SPV/SPE Involved?',               strategy: 'MANUAL', nodeId: 'PC.I.1.e', fieldType: 'yesno' },
-  { key: 'spv_details',             label: 'SPV Details',                        strategy: 'MANUAL', nodeId: 'PC.I.1.e', fieldType: 'textarea', dependsOn: { field: 'spv_involved', value: 'Yes' } },
-  { key: 'spv_arranger',            label: 'SPV Arranger',                       strategy: 'MANUAL', nodeId: 'PC.I.1.e', fieldType: 'text', dependsOn: { field: 'spv_involved', value: 'Yes' } },
-  { key: 'spv_country',             label: 'SPV Country of Incorporation',       strategy: 'MANUAL', nodeId: 'PC.I.1.e', fieldType: 'text', dependsOn: { field: 'spv_involved', value: 'Yes' } },
+  { key: 'spv_involved', label: 'Is SPV/SPE Involved?', strategy: 'MANUAL', nodeId: 'PC.I.1.e', fieldType: 'yesno' },
+  { key: 'spv_details', label: 'SPV Details', strategy: 'MANUAL', nodeId: 'PC.I.1.e', fieldType: 'textarea', dependsOn: { field: 'spv_involved', value: 'Yes' } },
+  { key: 'spv_arranger', label: 'SPV Arranger', strategy: 'MANUAL', nodeId: 'PC.I.1.e', fieldType: 'text', dependsOn: { field: 'spv_involved', value: 'Yes' } },
+  { key: 'spv_country', label: 'SPV Country of Incorporation', strategy: 'MANUAL', nodeId: 'PC.I.1.e', fieldType: 'text', dependsOn: { field: 'spv_involved', value: 'Yes' } },
 
   // I.2 — Target Customer
-  { key: 'customer_segments',        label: 'Target Customer Segments',           strategy: 'MANUAL', nodeId: 'PC.I.2', fieldType: 'multiselect', options: ['Institutional', 'Corporate', 'SME', 'Retail - Mass', 'Retail - Affluent', 'Retail - Private Banking', 'Government', 'Financial Institutions'] },
-  { key: 'customer_restrictions',    label: 'Regulatory Restrictions on Customers', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.I.2', fieldType: 'textarea' },
-  { key: 'customer_suitability',     label: 'Customer Suitability Criteria',      strategy: 'COPY',  copySection: 'product_specs', nodeId: 'PC.I.2', fieldType: 'textarea' },
-  { key: 'customer_min_turnover',    label: 'Minimum Annual Turnover',            strategy: 'MANUAL', nodeId: 'PC.I.2', fieldType: 'currency' },
-  { key: 'customer_geographic',      label: 'Geographic Scope',                   strategy: 'RULE',  ruleSource: 'npa_record', nodeId: 'PC.I.2', fieldType: 'multiselect', options: ['Singapore', 'Hong Kong', 'China', 'India', 'Indonesia', 'Taiwan', 'Rest of APAC', 'Global'] },
+  { key: 'customer_segments', label: 'Target Customer Segments', strategy: 'MANUAL', nodeId: 'PC.I.2', fieldType: 'multiselect', options: ['Institutional', 'Corporate', 'SME', 'Retail - Mass', 'Retail - Affluent', 'Retail - Private Banking', 'Government', 'Financial Institutions'] },
+  { key: 'customer_restrictions', label: 'Regulatory Restrictions on Customers', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.I.2', fieldType: 'textarea' },
+  { key: 'customer_suitability', label: 'Customer Suitability Criteria', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.2', fieldType: 'textarea' },
+  { key: 'customer_min_turnover', label: 'Minimum Annual Turnover', strategy: 'MANUAL', nodeId: 'PC.I.2', fieldType: 'currency' },
+  { key: 'customer_geographic', label: 'Geographic Scope', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.2', fieldType: 'multiselect', options: ['Singapore', 'Hong Kong', 'China', 'India', 'Indonesia', 'Taiwan', 'Rest of APAC', 'Global'] },
 
   // I.3 — Commercialization Approach
-  { key: 'distribution_channels',    label: 'Distribution Channels',              strategy: 'COPY',  copySection: 'product_specs', nodeId: 'PC.I.3.a', fieldType: 'multiselect', options: ['DBS Bank', 'DBSV', 'DBS Treasures', 'DBS Private Bank', 'digibank', 'Third Party Distributors', 'Direct Sales'] },
-  { key: 'channel_rationale',        label: 'Multi-Entity/Location Rationale',    strategy: 'LLM',   llmCategory: 'product_description', nodeId: 'PC.I.3.a', fieldType: 'textarea' },
-  { key: 'sales_suitability',        label: 'Sales Suitability',                  strategy: 'COPY',  copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
-  { key: 'onboarding_process',       label: 'Customer Onboarding Process',        strategy: 'COPY',  copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
-  { key: 'marketing_plan',           label: 'Marketing & Communication Plan',     strategy: 'LLM',   llmCategory: 'product_description', nodeId: 'PC.I.3.c', fieldType: 'textarea' },
+  { key: 'distribution_channels', label: 'Distribution Channels', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.3.a', fieldType: 'multiselect', options: ['DBS Bank', 'DBSV', 'DBS Treasures', 'DBS Private Bank', 'digibank', 'Third Party Distributors', 'Direct Sales'] },
+  { key: 'channel_rationale', label: 'Multi-Entity/Location Rationale', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.3.a', fieldType: 'textarea' },
+  { key: 'sales_suitability', label: 'Sales Suitability', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
+  { key: 'onboarding_process', label: 'Customer Onboarding Process', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
+  { key: 'marketing_plan', label: 'Marketing & Communication Plan', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.3.c', fieldType: 'textarea' },
 
   // I.4 — PAC Conditions
-  { key: 'pac_reference',            label: 'PAC Reference Number',               strategy: 'MANUAL', nodeId: 'PC.I.4', fieldType: 'text' },
-  { key: 'pac_conditions',           label: 'PAC Conditions List',                strategy: 'MANUAL', nodeId: 'PC.I.4', fieldType: 'bullet_list' },
-  { key: 'pac_date',                 label: 'PAC Approval Date',                  strategy: 'MANUAL', nodeId: 'PC.I.4', fieldType: 'date' },
+  { key: 'pac_reference', label: 'PAC Reference Number', strategy: 'MANUAL', nodeId: 'PC.I.4', fieldType: 'text' },
+  { key: 'pac_conditions', label: 'PAC Conditions List', strategy: 'MANUAL', nodeId: 'PC.I.4', fieldType: 'bullet_list' },
+  { key: 'pac_date', label: 'PAC Approval Date', strategy: 'MANUAL', nodeId: 'PC.I.4', fieldType: 'date' },
 
   // I.5 — External Parties
-  { key: 'external_parties_involved', label: 'External Parties Involved?',        strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'yesno' },
-  { key: 'ip_considerations',        label: 'IP Considerations',                  strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'textarea', dependsOn: { field: 'external_parties_involved', value: 'Yes' } },
-  { key: 'external_party_names',     label: 'External Party Names',               strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'bullet_list', dependsOn: { field: 'external_parties_involved', value: 'Yes' } },
-  { key: 'rasp_reference',           label: 'RASP Baseline Reference',            strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'text', dependsOn: { field: 'external_parties_involved', value: 'Yes' } },
-  { key: 'esg_data_used',            label: 'ESG/Sustainable Data Used?',          strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'yesno' },
+  { key: 'external_parties_involved', label: 'External Parties Involved?', strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'yesno' },
+  { key: 'ip_considerations', label: 'IP Considerations', strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'textarea', dependsOn: { field: 'external_parties_involved', value: 'Yes' } },
+  { key: 'external_party_names', label: 'External Party Names', strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'bullet_list', dependsOn: { field: 'external_parties_involved', value: 'Yes' } },
+  { key: 'rasp_reference', label: 'RASP Baseline Reference', strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'text', dependsOn: { field: 'external_parties_involved', value: 'Yes' } },
+  { key: 'esg_data_used', label: 'ESG/Sustainable Data Used?', strategy: 'MANUAL', nodeId: 'PC.I.5', fieldType: 'yesno' },
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION II: Operational & Technology Information
   // ═══════════════════════════════════════════════════════════════
 
   // II.1.a — Operating Model
-  { key: 'front_office_model',       label: 'Front Office Operating Model',       strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
-  { key: 'middle_office_model',      label: 'Middle Office Operating Model',      strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
-  { key: 'back_office_model',        label: 'Back Office Operating Model',        strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
-  { key: 'third_party_ops',          label: 'Third Party Operations',             strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
-  { key: 'collateral_mgmt_ops',      label: 'Collateral Management Requirements', strategy: 'LLM',  llmCategory: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
+  { key: 'front_office_model', label: 'Front Office Operating Model', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
+  { key: 'middle_office_model', label: 'Middle Office Operating Model', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
+  { key: 'back_office_model', label: 'Back Office Operating Model', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
+  { key: 'third_party_ops', label: 'Third Party Operations', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
+  { key: 'collateral_mgmt_ops', label: 'Collateral Management Requirements', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.1.a', fieldType: 'textarea' },
 
   // II.1.b — Booking Process
-  { key: 'booking_legal_form',       label: 'Booking Legal Form',                 strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'text' },
-  { key: 'booking_family',           label: 'Booking Family',                     strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'text' },
-  { key: 'booking_typology',         label: 'Booking Typology',                   strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'text' },
-  { key: 'portfolio_allocation',     label: 'Portfolio Allocation',               strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'text' },
-  { key: 'confirmation_process',     label: 'Confirmation Process',               strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
-  { key: 'reconciliation',           label: 'Reconciliation',                     strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
-  { key: 'exception_handling',       label: 'Exception & Manual Handling',        strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
-  { key: 'accounting_treatment',     label: 'Accounting Treatment',               strategy: 'LLM',   llmCategory: 'financial_projection', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
-  { key: 'settlement_flow',          label: 'Settlement Flow Description',         strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
+  { key: 'booking_legal_form', label: 'Booking Legal Form', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'text' },
+  { key: 'booking_family', label: 'Booking Family', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'text' },
+  { key: 'booking_typology', label: 'Booking Typology', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'text' },
+  { key: 'portfolio_allocation', label: 'Portfolio Allocation', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'text' },
+  { key: 'confirmation_process', label: 'Confirmation Process', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
+  { key: 'reconciliation', label: 'Reconciliation', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
+  { key: 'exception_handling', label: 'Exception & Manual Handling', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
+  { key: 'accounting_treatment', label: 'Accounting Treatment', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
+  { key: 'settlement_flow', label: 'Settlement Flow Description', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
 
   // II.2 — Technical Platform
-  { key: 'new_system_changes',       label: 'New System Changes Required?',        strategy: 'MANUAL', nodeId: 'PC.II.2.a', fieldType: 'yesno' },
-  { key: 'booking_system',           label: 'Booking System',                      strategy: 'RULE',  ruleSource: 'system_config', nodeId: 'PC.II.2.a', fieldType: 'dropdown', options: ['Murex', 'Calypso', 'Summit', 'Opics', 'Kondor+', 'SAP', 'Other'] },
-  { key: 'tech_requirements',        label: 'Technology Requirements',             strategy: 'LLM',   llmCategory: 'operational', nodeId: 'PC.II.2.a', fieldType: 'textarea' },
-  { key: 'system_integration',       label: 'System Integration Scope',            strategy: 'LLM',   llmCategory: 'operational', nodeId: 'PC.II.2.a', fieldType: 'textarea', dependsOn: { field: 'new_system_changes', value: 'Yes' } },
-  { key: 'valuation_model',          label: 'Valuation Model',                     strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.II.2.b', fieldType: 'textarea' },
-  { key: 'fo_system_changes',        label: 'Front Office System Changes',         strategy: 'LLM',   llmCategory: 'operational', nodeId: 'PC.II.2.b', fieldType: 'textarea' },
-  { key: 'settlement_method',        label: 'Settlement Method',                   strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.II.2.c', fieldType: 'dropdown', options: ['SWIFT', 'MEPS+', 'CLS', 'DvP', 'FoP', 'Manual'] },
-  { key: 'be_system_changes',        label: 'Back End System Changes',             strategy: 'LLM',   llmCategory: 'operational', nodeId: 'PC.II.2.c', fieldType: 'textarea' },
-  { key: 'manual_workarounds',       label: 'Manual Work-Arounds',                 strategy: 'MANUAL', nodeId: 'PC.II.2.c', fieldType: 'textarea' },
+  { key: 'new_system_changes', label: 'New System Changes Required?', strategy: 'MANUAL', nodeId: 'PC.II.2.a', fieldType: 'yesno' },
+  { key: 'booking_system', label: 'Booking System', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.II.2.a', fieldType: 'dropdown', options: ['Murex', 'Calypso', 'Summit', 'Opics', 'Kondor+', 'SAP', 'Other'] },
+  { key: 'tech_requirements', label: 'Technology Requirements', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.2.a', fieldType: 'textarea' },
+  { key: 'system_integration', label: 'System Integration Scope', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.2.a', fieldType: 'textarea', dependsOn: { field: 'new_system_changes', value: 'Yes' } },
+  { key: 'valuation_model', label: 'Valuation Model', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.II.2.b', fieldType: 'textarea' },
+  { key: 'fo_system_changes', label: 'Front Office System Changes', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.2.b', fieldType: 'textarea' },
+  { key: 'settlement_method', label: 'Settlement Method', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.II.2.c', fieldType: 'dropdown', options: ['SWIFT', 'MEPS+', 'CLS', 'DvP', 'FoP', 'Manual'] },
+  { key: 'be_system_changes', label: 'Back End System Changes', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.2.c', fieldType: 'textarea' },
+  { key: 'manual_workarounds', label: 'Manual Work-Arounds', strategy: 'MANUAL', nodeId: 'PC.II.2.c', fieldType: 'textarea' },
 
   // II.3 — Information Security
-  { key: 'system_enhancements',      label: 'System Enhancements Involved?',       strategy: 'MANUAL', nodeId: 'PC.II.3', fieldType: 'yesno' },
-  { key: 'iss_deviations',           label: 'ISS Policy Deviations',               strategy: 'MANUAL', nodeId: 'PC.II.3', fieldType: 'textarea', dependsOn: { field: 'system_enhancements', value: 'Yes' } },
-  { key: 'pentest_status',           label: 'Penetration Test Status',              strategy: 'MANUAL', nodeId: 'PC.II.3', fieldType: 'dropdown', options: ['Not Required', 'Planned', 'In Progress', 'Completed - Pass', 'Completed - Remediation Required'], dependsOn: { field: 'system_enhancements', value: 'Yes' } },
-  { key: 'security_assessment',      label: 'Security Assessment Details',          strategy: 'MANUAL', nodeId: 'PC.II.3', fieldType: 'textarea', dependsOn: { field: 'system_enhancements', value: 'Yes' } },
+  { key: 'system_enhancements', label: 'System Enhancements Involved?', strategy: 'MANUAL', nodeId: 'PC.II.3', fieldType: 'yesno' },
+  { key: 'iss_deviations', label: 'ISS Policy Deviations', strategy: 'MANUAL', nodeId: 'PC.II.3', fieldType: 'textarea', dependsOn: { field: 'system_enhancements', value: 'Yes' } },
+  { key: 'pentest_status', label: 'Penetration Test Status', strategy: 'MANUAL', nodeId: 'PC.II.3', fieldType: 'dropdown', options: ['Not Required', 'Planned', 'In Progress', 'Completed - Pass', 'Completed - Remediation Required'], dependsOn: { field: 'system_enhancements', value: 'Yes' } },
+  { key: 'security_assessment', label: 'Security Assessment Details', strategy: 'MANUAL', nodeId: 'PC.II.3', fieldType: 'textarea', dependsOn: { field: 'system_enhancements', value: 'Yes' } },
 
   // II.4 — Technology Resiliency
-  { key: 'grc_id',                   label: 'GRC ID (External Party Risk)',         strategy: 'MANUAL', nodeId: 'PC.II.4', fieldType: 'text' },
-  { key: 'hsm_required',             label: 'HSM Required?',                        strategy: 'MANUAL', nodeId: 'PC.II.4', fieldType: 'yesno' },
-  { key: 'rto_target',               label: 'Recovery Time Objective (RTO)',        strategy: 'RULE',  ruleSource: 'system_config', nodeId: 'PC.II.4', fieldType: 'text' },
-  { key: 'rpo_target',               label: 'Recovery Point Objective (RPO)',       strategy: 'RULE',  ruleSource: 'system_config', nodeId: 'PC.II.4', fieldType: 'text' },
-  { key: 'dr_testing_plan',          label: 'DR Testing Plan',                      strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.4', fieldType: 'textarea' },
+  { key: 'grc_id', label: 'GRC ID (External Party Risk)', strategy: 'MANUAL', nodeId: 'PC.II.4', fieldType: 'text' },
+  { key: 'hsm_required', label: 'HSM Required?', strategy: 'MANUAL', nodeId: 'PC.II.4', fieldType: 'yesno' },
+  { key: 'rto_target', label: 'Recovery Time Objective (RTO)', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.II.4', fieldType: 'text' },
+  { key: 'rpo_target', label: 'Recovery Point Objective (RPO)', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.II.4', fieldType: 'text' },
+  { key: 'dr_testing_plan', label: 'DR Testing Plan', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.4', fieldType: 'textarea' },
 
   // II.5 — Business Continuity Management
-  { key: 'bia_considerations',       label: 'BIA Considerations',                   strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'bcp_requirements',         label: 'Updated BCP Requirements',             strategy: 'COPY',  copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'continuity_measures',      label: 'Additional Continuity Measures',       strategy: 'MANUAL', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bia_considerations', label: 'BIA Considerations', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcp_requirements', label: 'Updated BCP Requirements', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'continuity_measures', label: 'Additional Continuity Measures', strategy: 'MANUAL', nodeId: 'PC.II.5', fieldType: 'textarea' },
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION III: Pricing Model Details
   // ═══════════════════════════════════════════════════════════════
 
-  { key: 'pricing_model_required',   label: 'Pricing Model Validation Required?',   strategy: 'MANUAL', nodeId: 'PC.III.1', fieldType: 'yesno' },
-  { key: 'pricing_methodology',      label: 'Pricing Methodology',                  strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea', dependsOn: { field: 'pricing_model_required', value: 'Yes' } },
-  { key: 'roae_analysis',            label: 'ROAE Analysis',                         strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
-  { key: 'pricing_assumptions',      label: 'Pricing Assumptions',                   strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
-  { key: 'bespoke_adjustments',      label: 'Bespoke Adjustments',                   strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
-  { key: 'pricing_model_name',       label: 'Pricing Model Name',                    strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.III.2', fieldType: 'text' },
-  { key: 'model_validation_date',    label: 'Model Validation Date',                 strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.III.2', fieldType: 'date' },
-  { key: 'model_restrictions',       label: 'Model Restrictions',                    strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.2', fieldType: 'textarea' },
-  { key: 'risk_data_assessment_ref', label: 'Risk Data Assessment Tool Reference',   strategy: 'MANUAL', nodeId: 'PC.III.2', fieldType: 'text' },
-  { key: 'simm_treatment',           label: 'SIMM Treatment',                        strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.3', fieldType: 'textarea' },
-  { key: 'simm_sensitivities',       label: 'SIMM Sensitivities',                    strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.3', fieldType: 'textarea' },
+  { key: 'pricing_model_required', label: 'Pricing Model Validation Required?', strategy: 'MANUAL', nodeId: 'PC.III.1', fieldType: 'yesno' },
+  { key: 'pricing_methodology', label: 'Pricing Methodology', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea', dependsOn: { field: 'pricing_model_required', value: 'Yes' } },
+  { key: 'roae_analysis', label: 'ROAE Analysis', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
+  { key: 'pricing_assumptions', label: 'Pricing Assumptions', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
+  { key: 'bespoke_adjustments', label: 'Bespoke Adjustments', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
+  { key: 'pricing_model_name', label: 'Pricing Model Name', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.III.2', fieldType: 'text' },
+  { key: 'model_validation_date', label: 'Model Validation Date', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.III.2', fieldType: 'date' },
+  { key: 'model_restrictions', label: 'Model Restrictions', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.2', fieldType: 'textarea' },
+  { key: 'risk_data_assessment_ref', label: 'Risk Data Assessment Tool Reference', strategy: 'MANUAL', nodeId: 'PC.III.2', fieldType: 'text' },
+  { key: 'simm_treatment', label: 'SIMM Treatment', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.3', fieldType: 'textarea' },
+  { key: 'simm_sensitivities', label: 'SIMM Sensitivities', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.3', fieldType: 'textarea' },
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION IV: Risk Analysis
   // ═══════════════════════════════════════════════════════════════
 
   // IV.A — Operational Risk / Legal & Compliance
-  { key: 'legal_opinion',            label: 'Legal Opinion',                         strategy: 'COPY',  copySection: 'legal', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
-  { key: 'licensing_requirements',   label: 'Licensing Requirements',                strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
-  { key: 'primary_regulation',       label: 'Primary Regulation',                    strategy: 'RULE',  ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1', fieldType: 'text' },
-  { key: 'secondary_regulations',    label: 'Secondary Regulations',                 strategy: 'RULE',  ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1', fieldType: 'bullet_list' },
-  { key: 'regulatory_reporting',     label: 'Regulatory Reporting',                  strategy: 'RULE',  ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
-  { key: 'cross_border_regulations', label: 'Cross-Border Regulatory Considerations', strategy: 'LLM',  llmCategory: 'compliance', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
-  { key: 'legal_docs_required',      label: 'Legal Documentation Required',          strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.IV.A.1', fieldType: 'bullet_list' },
-  { key: 'sanctions_check',          label: 'Sanctions Check',                       strategy: 'RULE',  ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1', fieldType: 'yesno' },
-  { key: 'aml_considerations',       label: 'AML Considerations',                    strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
+  { key: 'legal_opinion', label: 'Legal Opinion', strategy: 'COPY', copySection: 'legal', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
+  { key: 'licensing_requirements', label: 'Licensing Requirements', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
+  { key: 'primary_regulation', label: 'Primary Regulation', strategy: 'RULE', ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1', fieldType: 'text' },
+  { key: 'secondary_regulations', label: 'Secondary Regulations', strategy: 'RULE', ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1', fieldType: 'bullet_list' },
+  { key: 'regulatory_reporting', label: 'Regulatory Reporting', strategy: 'RULE', ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
+  { key: 'cross_border_regulations', label: 'Cross-Border Regulatory Considerations', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
+  { key: 'legal_docs_required', label: 'Legal Documentation Required', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.1', fieldType: 'bullet_list' },
+  { key: 'sanctions_check', label: 'Sanctions Check', strategy: 'RULE', ruleSource: 'jurisdiction_table', nodeId: 'PC.IV.A.1', fieldType: 'yesno' },
+  { key: 'aml_considerations', label: 'AML Considerations', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.1', fieldType: 'textarea' },
 
   // IV.A.2 — Finance and Tax
-  { key: 'tax_impact',               label: 'Tax Impact',                            strategy: 'COPY',  copySection: 'legal', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
-  { key: 'accounting_book',          label: 'Trading Book vs Banking Book',           strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.A.2', fieldType: 'dropdown', options: ['Trading Book', 'Banking Book'] },
-  { key: 'fair_value_treatment',     label: 'Fair Value Treatment',                   strategy: 'LLM',   llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
-  { key: 'on_off_balance',           label: 'On/Off Balance Sheet',                   strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.A.2', fieldType: 'dropdown', options: ['On Balance Sheet', 'Off Balance Sheet', 'Both'] },
-  { key: 'tax_jurisdictions',        label: 'Tax Jurisdictions Analysis',             strategy: 'LLM',   llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'tax_impact', label: 'Tax Impact', strategy: 'COPY', copySection: 'legal', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'accounting_book', label: 'Trading Book vs Banking Book', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.A.2', fieldType: 'dropdown', options: ['Trading Book', 'Banking Book'] },
+  { key: 'fair_value_treatment', label: 'Fair Value Treatment', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'on_off_balance', label: 'On/Off Balance Sheet', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.A.2', fieldType: 'dropdown', options: ['On Balance Sheet', 'Off Balance Sheet', 'Both'] },
+  { key: 'tax_jurisdictions', label: 'Tax Jurisdictions Analysis', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
 
   // IV.B — Market & Liquidity
-  { key: 'market_risk',              label: 'Market Risk Assessment',                 strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.1', fieldType: 'textarea', required: true },
-  { key: 'risk_classification',      label: 'Risk Classification',                   strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.1', fieldType: 'dropdown', options: ['Level 1', 'Level 2', 'Level 3'] },
-  { key: 'pricing_parameters',       label: 'Relevant Pricing Parameters',           strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.1', fieldType: 'textarea' },
+  { key: 'market_risk', label: 'Market Risk Assessment', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.1', fieldType: 'textarea', required: true },
+  { key: 'risk_classification', label: 'Risk Classification', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.1', fieldType: 'dropdown', options: ['Level 1', 'Level 2', 'Level 3'] },
+  { key: 'pricing_parameters', label: 'Relevant Pricing Parameters', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.1', fieldType: 'textarea' },
 
   // IV.B.1 — Market Risk Factor Matrix (table_grid)
-  { key: 'mrf_ir_delta',             label: 'MRF: IR Delta',                         strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_ir_vega',              label: 'MRF: IR Vega',                          strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_ir_gamma',             label: 'MRF: IR Gamma',                         strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_fx_delta',             label: 'MRF: FX Delta',                         strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_fx_vega',              label: 'MRF: FX Vega',                          strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_eq_delta',             label: 'MRF: Equity Delta',                     strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_eq_vega',              label: 'MRF: Equity Vega',                      strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_commodity',            label: 'MRF: Commodity',                        strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_credit',               label: 'MRF: Credit',                           strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
-  { key: 'mrf_correlation',          label: 'MRF: Correlation',                      strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_ir_delta', label: 'MRF: IR Delta', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_ir_vega', label: 'MRF: IR Vega', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_ir_gamma', label: 'MRF: IR Gamma', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_fx_delta', label: 'MRF: FX Delta', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_fx_vega', label: 'MRF: FX Vega', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_eq_delta', label: 'MRF: Equity Delta', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_eq_vega', label: 'MRF: Equity Vega', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_commodity', label: 'MRF: Commodity', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_credit', label: 'MRF: Credit', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
+  { key: 'mrf_correlation', label: 'MRF: Correlation', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.IV.B.1', fieldType: 'yesno' },
 
   // IV.B.2 — Funding / Liquidity Risk
-  { key: 'liquidity_risk',           label: 'Funding/Liquidity Risk',                strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.2', fieldType: 'textarea' },
-  { key: 'liquidity_cost',           label: 'Corporate Risk Liquidity Cost',         strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.2', fieldType: 'textarea' },
-  { key: 'contingent_cashflow',      label: 'Contingent Cash Flow Risk',             strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.2', fieldType: 'yesno' },
-  { key: 'contingent_cashflow_desc', label: 'Contingent Cash Flow Description',      strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.2', fieldType: 'textarea', dependsOn: { field: 'contingent_cashflow', value: 'Yes' } },
+  { key: 'liquidity_risk', label: 'Funding/Liquidity Risk', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.2', fieldType: 'textarea' },
+  { key: 'liquidity_cost', label: 'Corporate Risk Liquidity Cost', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.2', fieldType: 'textarea' },
+  { key: 'contingent_cashflow', label: 'Contingent Cash Flow Risk', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.2', fieldType: 'yesno' },
+  { key: 'contingent_cashflow_desc', label: 'Contingent Cash Flow Description', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.2', fieldType: 'textarea', dependsOn: { field: 'contingent_cashflow', value: 'Yes' } },
 
   // IV.B.3 — Regulatory Capital
-  { key: 'trading_book_assignment',  label: 'Trading Book Assignment Confirmed?',    strategy: 'MANUAL', nodeId: 'PC.IV.B.3', fieldType: 'yesno' },
-  { key: 'regulatory_capital',       label: 'Regulatory Capital Requirements',       strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.3', fieldType: 'textarea' },
-  { key: 'var_capture',              label: 'VaR Capture',                           strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.3', fieldType: 'textarea' },
-  { key: 'model_validation_proc',    label: 'Model Validation Procedures',           strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.3', fieldType: 'textarea' },
+  { key: 'trading_book_assignment', label: 'Trading Book Assignment Confirmed?', strategy: 'MANUAL', nodeId: 'PC.IV.B.3', fieldType: 'yesno' },
+  { key: 'regulatory_capital', label: 'Regulatory Capital Requirements', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.3', fieldType: 'textarea' },
+  { key: 'var_capture', label: 'VaR Capture', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.3', fieldType: 'textarea' },
+  { key: 'model_validation_proc', label: 'Model Validation Procedures', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.3', fieldType: 'textarea' },
 
   // IV.C — Credit Risk
-  { key: 'credit_risk',              label: 'Credit Risk Assessment',                strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.1', fieldType: 'textarea', required: true },
-  { key: 'new_limit_types',          label: 'New Credit Limit Types Required?',      strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.1', fieldType: 'yesno' },
-  { key: 'credit_support_required',  label: 'Credit Support Required?',              strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.1', fieldType: 'yesno' },
-  { key: 'counterparty_default',     label: 'Risk Mitigation Measures',              strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
-  { key: 'collateral_framework',     label: 'Collateral Framework',                  strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
-  { key: 'stress_test_results',      label: 'Stress Test Results',                   strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
-  { key: 'stress_scenarios',         label: 'Stress Scenarios',                      strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.3', fieldType: 'textarea' },
-  { key: 'exposure_limits',          label: 'Limits to Cover Exposure',              strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.3', fieldType: 'textarea' },
-  { key: 'monitoring_party',         label: 'Monitoring Party',                      strategy: 'MANUAL', nodeId: 'PC.IV.C.3', fieldType: 'text' },
-  { key: 'custody_risk',             label: 'Custody Risk',                          strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.4', fieldType: 'textarea' },
-  { key: 'collateral_risk_rated',    label: 'Collateral Risk-Rated per Core Policy?', strategy: 'MANUAL', nodeId: 'PC.IV.C.4', fieldType: 'yesno' },
-  { key: 'counterparty_rating',      label: 'Counterparty Rating',                   strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.5', fieldType: 'text' },
-  { key: 'pfe_standards',            label: 'PFE Standards (Standardized Approach)',  strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.5', fieldType: 'textarea' },
-  { key: 'ead_calculation',          label: 'EAD & Capital (Internal Model)',         strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.5', fieldType: 'textarea' },
-  { key: 'large_exposure_rules',     label: 'Large Exposure Rules',                  strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.IV.C.6', fieldType: 'textarea' },
-  { key: 'concentration_limits',     label: 'Concentration Limits',                  strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.IV.C.6', fieldType: 'textarea' },
-  { key: 'ccr_framework',            label: 'Counterparty Credit Risk Framework',    strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.7', fieldType: 'textarea' },
+  { key: 'credit_risk', label: 'Credit Risk Assessment', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.1', fieldType: 'textarea', required: true },
+  { key: 'new_limit_types', label: 'New Credit Limit Types Required?', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.1', fieldType: 'yesno' },
+  { key: 'credit_support_required', label: 'Credit Support Required?', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.1', fieldType: 'yesno' },
+  { key: 'counterparty_default', label: 'Risk Mitigation Measures', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
+  { key: 'collateral_framework', label: 'Collateral Framework', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
+  { key: 'stress_test_results', label: 'Stress Test Results', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
+  { key: 'stress_scenarios', label: 'Stress Scenarios', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.3', fieldType: 'textarea' },
+  { key: 'exposure_limits', label: 'Limits to Cover Exposure', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.3', fieldType: 'textarea' },
+  { key: 'monitoring_party', label: 'Monitoring Party', strategy: 'MANUAL', nodeId: 'PC.IV.C.3', fieldType: 'text' },
+  { key: 'custody_risk', label: 'Custody Risk', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.4', fieldType: 'textarea' },
+  { key: 'collateral_risk_rated', label: 'Collateral Risk-Rated per Core Policy?', strategy: 'MANUAL', nodeId: 'PC.IV.C.4', fieldType: 'yesno' },
+  { key: 'counterparty_rating', label: 'Counterparty Rating', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.5', fieldType: 'text' },
+  { key: 'pfe_standards', label: 'PFE Standards (Standardized Approach)', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.5', fieldType: 'textarea' },
+  { key: 'ead_calculation', label: 'EAD & Capital (Internal Model)', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.5', fieldType: 'textarea' },
+  { key: 'large_exposure_rules', label: 'Large Exposure Rules', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.C.6', fieldType: 'textarea' },
+  { key: 'concentration_limits', label: 'Concentration Limits', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.C.6', fieldType: 'textarea' },
+  { key: 'ccr_framework', label: 'Counterparty Credit Risk Framework', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.7', fieldType: 'textarea' },
 
   // IV.D — Reputational Risk
-  { key: 'reputational_risk',        label: 'Reputational Risk Assessment',          strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'textarea' },
-  { key: 'negative_impact',          label: 'Potential Negative Impact?',             strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'yesno' },
-  { key: 'esg_assessment',           label: 'ESG Assessment',                        strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'textarea' },
-  { key: 'esg_classification',       label: 'ESG Classification',                    strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'dropdown', options: ['Green', 'Social', 'Sustainable', 'Transition', 'Not Applicable'] },
+  { key: 'reputational_risk', label: 'Reputational Risk Assessment', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'textarea' },
+  { key: 'negative_impact', label: 'Potential Negative Impact?', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'yesno' },
+  { key: 'esg_assessment', label: 'ESG Assessment', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'textarea' },
+  { key: 'esg_classification', label: 'ESG Classification', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'dropdown', options: ['Green', 'Social', 'Sustainable', 'Transition', 'Not Applicable'] },
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION V: Data Management
   // ═══════════════════════════════════════════════════════════════
 
-  { key: 'data_governance',          label: 'Data Governance Framework',             strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
-  { key: 'data_ownership',           label: 'Data Ownership',                        strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'text' },
-  { key: 'data_stewardship',         label: 'Data Stewardship',                      strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'text' },
-  { key: 'data_quality_monitoring',  label: 'Data Quality Monitoring',               strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
-  { key: 'data_privacy',             label: 'Data Privacy Assessment',               strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
-  { key: 'data_retention',           label: 'Data Retention Policy',                 strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
-  { key: 'gdpr_compliance',          label: 'GDPR/Privacy Compliance',               strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'yesno' },
-  { key: 'pure_assessment_id',       label: 'PURE Assessment ID',                    strategy: 'MANUAL', nodeId: 'PC.V.2', fieldType: 'text' },
-  { key: 'pure_purposeful',          label: 'PURE: Purposeful',                      strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.V.2', fieldType: 'textarea' },
-  { key: 'pure_unsurprising',        label: 'PURE: Unsurprising',                    strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.V.2', fieldType: 'textarea' },
-  { key: 'pure_respectful',          label: 'PURE: Respectful',                      strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.V.2', fieldType: 'textarea' },
-  { key: 'pure_explainable',         label: 'PURE: Explainable',                     strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.V.2', fieldType: 'textarea' },
-  { key: 'reporting_requirements',   label: 'Risk Data Aggregation & Reporting',     strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.V.3', fieldType: 'textarea' },
-  { key: 'automated_reporting',      label: 'Automated Regulatory Reporting',        strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'PC.V.3', fieldType: 'textarea' },
+  { key: 'data_governance', label: 'Data Governance Framework', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
+  { key: 'data_ownership', label: 'Data Ownership', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'text' },
+  { key: 'data_stewardship', label: 'Data Stewardship', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'text' },
+  { key: 'data_quality_monitoring', label: 'Data Quality Monitoring', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
+  { key: 'data_privacy', label: 'Data Privacy Assessment', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
+  { key: 'data_retention', label: 'Data Retention Policy', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
+  { key: 'gdpr_compliance', label: 'GDPR/Privacy Compliance', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'yesno' },
+  { key: 'pure_assessment_id', label: 'PURE Assessment ID', strategy: 'MANUAL', nodeId: 'PC.V.2', fieldType: 'text' },
+  { key: 'pure_purposeful', label: 'PURE: Purposeful', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.V.2', fieldType: 'textarea' },
+  { key: 'pure_unsurprising', label: 'PURE: Unsurprising', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.V.2', fieldType: 'textarea' },
+  { key: 'pure_respectful', label: 'PURE: Respectful', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.V.2', fieldType: 'textarea' },
+  { key: 'pure_explainable', label: 'PURE: Explainable', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.V.2', fieldType: 'textarea' },
+  { key: 'reporting_requirements', label: 'Risk Data Aggregation & Reporting', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.V.3', fieldType: 'textarea' },
+  { key: 'automated_reporting', label: 'Automated Regulatory Reporting', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.V.3', fieldType: 'textarea' },
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION VI: Other Risk Identification and Mitigation
   // ═══════════════════════════════════════════════════════════════
 
-  { key: 'other_risks_exist',        label: 'Other Risks Not Described in I-V?',     strategy: 'MANUAL', nodeId: 'PC.VI', fieldType: 'yesno' },
-  { key: 'operational_risk',         label: 'Operational Risk Assessment',           strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.VI', fieldType: 'textarea', dependsOn: { field: 'other_risks_exist', value: 'Yes' } },
-  { key: 'additional_risk_mitigants', label: 'Additional Risk Mitigants',            strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.VI', fieldType: 'bullet_list', dependsOn: { field: 'other_risks_exist', value: 'Yes' } },
+  { key: 'other_risks_exist', label: 'Other Risks Not Described in I-V?', strategy: 'MANUAL', nodeId: 'PC.VI', fieldType: 'yesno' },
+  { key: 'operational_risk', label: 'Operational Risk Assessment', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.VI', fieldType: 'textarea', dependsOn: { field: 'other_risks_exist', value: 'Yes' } },
+  { key: 'additional_risk_mitigants', label: 'Additional Risk Mitigants', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.VI', fieldType: 'bullet_list', dependsOn: { field: 'other_risks_exist', value: 'Yes' } },
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION VII: Additional Info for Trading Products
   // ═══════════════════════════════════════════════════════════════
 
-  { key: 'trading_product',          label: 'Involves Trading Product?',              strategy: 'RULE',  ruleSource: 'npa_record', nodeId: 'PC.VII', fieldType: 'yesno' },
-  { key: 'appendix5_required',       label: 'Appendix 5 Assessment Required?',       strategy: 'RULE',  ruleSource: 'npa_record', nodeId: 'PC.VII', fieldType: 'yesno', dependsOn: { field: 'trading_product', value: 'Yes' } },
+  { key: 'trading_product', label: 'Involves Trading Product?', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.VII', fieldType: 'yesno' },
+  { key: 'appendix5_required', label: 'Appendix 5 Assessment Required?', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.VII', fieldType: 'yesno', dependsOn: { field: 'trading_product', value: 'Yes' } },
 
   // ═══════════════════════════════════════════════════════════════
   // APPENDICES
   // ═══════════════════════════════════════════════════════════════
 
   // APP.1 — Entity/Location Information
-  { key: 'booking_entity',           label: 'Booking Entity',                        strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text', required: true },
-  { key: 'sales_entity',             label: 'Sales / Origination Entity',            strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'sales_location',           label: 'Sales / Origination Location',          strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'booking_location',         label: 'Booking Location',                      strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'risk_taking_entity',       label: 'Risk Taking Entity',                    strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'risk_taking_location',     label: 'Risk Taking Location',                  strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'processing_entity',        label: 'Processing Entity',                     strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'processing_location',      label: 'Processing Location',                   strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'counterparty',             label: 'Counterparty',                          strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'booking_entity', label: 'Booking Entity', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text', required: true },
+  { key: 'sales_entity', label: 'Sales / Origination Entity', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'sales_location', label: 'Sales / Origination Location', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'booking_location', label: 'Booking Location', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'risk_taking_entity', label: 'Risk Taking Entity', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'risk_taking_location', label: 'Risk Taking Location', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'processing_entity', label: 'Processing Entity', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'processing_location', label: 'Processing Location', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'counterparty', label: 'Counterparty', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
 
   // APP.2 — Intellectual Property
-  { key: 'dbs_ip_exists',            label: 'DBS IP Created/Used?',                  strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'yesno' },
-  { key: 'dbs_ip_details',           label: 'DBS IP Details',                        strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'textarea', dependsOn: { field: 'dbs_ip_exists', value: 'Yes' } },
-  { key: 'third_party_ip_exists',    label: 'Third Party IP Used?',                  strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'yesno' },
-  { key: 'third_party_ip_details',   label: 'Third Party IP Details',                strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'textarea', dependsOn: { field: 'third_party_ip_exists', value: 'Yes' } },
-  { key: 'ip_licensing',             label: 'IP Licensing Arrangements',             strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'textarea' },
+  { key: 'dbs_ip_exists', label: 'DBS IP Created/Used?', strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'yesno' },
+  { key: 'dbs_ip_details', label: 'DBS IP Details', strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'textarea', dependsOn: { field: 'dbs_ip_exists', value: 'Yes' } },
+  { key: 'third_party_ip_exists', label: 'Third Party IP Used?', strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'yesno' },
+  { key: 'third_party_ip_details', label: 'Third Party IP Details', strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'textarea', dependsOn: { field: 'third_party_ip_exists', value: 'Yes' } },
+  { key: 'ip_licensing', label: 'IP Licensing Arrangements', strategy: 'MANUAL', nodeId: 'APP.2', fieldType: 'textarea' },
 
   // APP.3 — Financial Crime Risk Areas
-  { key: 'aml_assessment',           label: 'AML Assessment',                        strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea', required: true },
-  { key: 'terrorism_financing',      label: 'Terrorism Financing Risk',              strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea' },
-  { key: 'sanctions_assessment',     label: 'Sanctions Assessment',                  strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea' },
-  { key: 'fraud_risk',               label: 'Fraud Risk Assessment',                 strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea' },
-  { key: 'bribery_corruption',       label: 'Bribery & Corruption Risk',             strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea' },
-  { key: 'fc_risk_rating',           label: 'Overall Financial Crime Risk Rating',   strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'dropdown', options: ['Low', 'Medium', 'High', 'Very High'] },
-  { key: 'fc_mitigation_measures',   label: 'FC Mitigation Measures',                strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'bullet_list' },
+  { key: 'aml_assessment', label: 'AML Assessment', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea', required: true },
+  { key: 'terrorism_financing', label: 'Terrorism Financing Risk', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea' },
+  { key: 'sanctions_assessment', label: 'Sanctions Assessment', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea' },
+  { key: 'fraud_risk', label: 'Fraud Risk Assessment', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea' },
+  { key: 'bribery_corruption', label: 'Bribery & Corruption Risk', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'textarea' },
+  { key: 'fc_risk_rating', label: 'Overall Financial Crime Risk Rating', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'dropdown', options: ['Low', 'Medium', 'High', 'Very High'] },
+  { key: 'fc_mitigation_measures', label: 'FC Mitigation Measures', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3', fieldType: 'bullet_list' },
 
   // APP.4 — Risk Data Aggregation
-  { key: 'rda_compliance',           label: 'RDA Regulatory Compliance',             strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.4', fieldType: 'textarea' },
-  { key: 'rda_data_sources',         label: 'Risk Data Sources',                     strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'APP.4', fieldType: 'bullet_list' },
-  { key: 'rda_aggregation_method',   label: 'Data Aggregation Methodology',          strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'APP.4', fieldType: 'textarea' },
+  { key: 'rda_compliance', label: 'RDA Regulatory Compliance', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.4', fieldType: 'textarea' },
+  { key: 'rda_data_sources', label: 'Risk Data Sources', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'APP.4', fieldType: 'bullet_list' },
+  { key: 'rda_aggregation_method', label: 'Data Aggregation Methodology', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'APP.4', fieldType: 'textarea' },
 
   // APP.5 — Additional Info for Trading Products
-  { key: 'app5_revenue_sharing',     label: 'Revenue Sharing Model',                 strategy: 'LLM',   llmCategory: 'financial_projection', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'app5_capital_allocation',  label: 'Capital Allocation',                    strategy: 'LLM',   llmCategory: 'financial_projection', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'app5_hedge_purpose',       label: 'Hedge Purpose?',                        strategy: 'MANUAL', nodeId: 'APP.5', fieldType: 'yesno' },
-  { key: 'app5_hedge_description',   label: 'Hedge Description',                     strategy: 'LLM',   llmCategory: 'product_description', nodeId: 'APP.5', fieldType: 'textarea', dependsOn: { field: 'app5_hedge_purpose', value: 'Yes' } },
-  { key: 'collateral_types',         label: 'Collateral Types',                      strategy: 'COPY',  copySection: 'trading', nodeId: 'APP.5', fieldType: 'multiselect', options: ['Cash', 'Government Bonds', 'Corporate Bonds', 'Equities', 'Real Estate', 'Commodities', 'Other'] },
-  { key: 'custody_arrangements',     label: 'Custody Arrangements',                  strategy: 'COPY',  copySection: 'trading', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'valuation_method',         label: 'Valuation Method',                      strategy: 'COPY',  copySection: 'trading', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'funding_source',           label: 'Funding Source',                        strategy: 'COPY',  copySection: 'trading', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'booking_schema',           label: 'Booking Schema',                        strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'lifecycle_management',     label: 'Lifecycle Management',                  strategy: 'COPY',  copySection: 'trading', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'cross_product_integration', label: 'Cross-Product Integration',            strategy: 'LLM',   llmCategory: 'operational', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'app5_tech_architecture',   label: 'Technology Architecture',               strategy: 'LLM',   llmCategory: 'operational', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'app5_security_req',        label: 'Security Requirements',                 strategy: 'MANUAL', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'app5_scalability',         label: 'Scalability Requirements',              strategy: 'LLM',   llmCategory: 'operational', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'app5_compliance_framework', label: 'Compliance Framework',                 strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'app5_reg_monitoring',      label: 'Regulatory Monitoring',                 strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'app5_revenue_sharing', label: 'Revenue Sharing Model', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'app5_capital_allocation', label: 'Capital Allocation', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'app5_hedge_purpose', label: 'Hedge Purpose?', strategy: 'MANUAL', nodeId: 'APP.5', fieldType: 'yesno' },
+  { key: 'app5_hedge_description', label: 'Hedge Description', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'APP.5', fieldType: 'textarea', dependsOn: { field: 'app5_hedge_purpose', value: 'Yes' } },
+  { key: 'collateral_types', label: 'Collateral Types', strategy: 'COPY', copySection: 'trading', nodeId: 'APP.5', fieldType: 'multiselect', options: ['Cash', 'Government Bonds', 'Corporate Bonds', 'Equities', 'Real Estate', 'Commodities', 'Other'] },
+  { key: 'custody_arrangements', label: 'Custody Arrangements', strategy: 'COPY', copySection: 'trading', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'valuation_method', label: 'Valuation Method', strategy: 'COPY', copySection: 'trading', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'funding_source', label: 'Funding Source', strategy: 'COPY', copySection: 'trading', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'booking_schema', label: 'Booking Schema', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'lifecycle_management', label: 'Lifecycle Management', strategy: 'COPY', copySection: 'trading', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'cross_product_integration', label: 'Cross-Product Integration', strategy: 'LLM', llmCategory: 'operational', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'app5_tech_architecture', label: 'Technology Architecture', strategy: 'LLM', llmCategory: 'operational', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'app5_security_req', label: 'Security Requirements', strategy: 'MANUAL', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'app5_scalability', label: 'Scalability Requirements', strategy: 'LLM', llmCategory: 'operational', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'app5_compliance_framework', label: 'Compliance Framework', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'app5_reg_monitoring', label: 'Regulatory Monitoring', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.5', fieldType: 'textarea' },
 
   // APP.6 — Third-Party Platforms
-  { key: 'third_party_platform',     label: 'Third-Party Platform Used?',             strategy: 'MANUAL', nodeId: 'APP.6', fieldType: 'yesno' },
-  { key: 'platform_name',            label: 'Platform Name',                          strategy: 'MANUAL', nodeId: 'APP.6', fieldType: 'text', dependsOn: { field: 'third_party_platform', value: 'Yes' } },
-  { key: 'platform_risk_assessment', label: 'Platform Risk Assessment',               strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'APP.6', fieldType: 'textarea', dependsOn: { field: 'third_party_platform', value: 'Yes' } },
-  { key: 'info_security_assessment', label: 'Information Security Assessment',        strategy: 'MANUAL', nodeId: 'APP.6', fieldType: 'textarea', dependsOn: { field: 'third_party_platform', value: 'Yes' } },
-  { key: 'data_residency',           label: 'Data Residency Consideration',           strategy: 'LLM',   llmCategory: 'compliance', nodeId: 'APP.6', fieldType: 'textarea', dependsOn: { field: 'third_party_platform', value: 'Yes' } },
+  { key: 'third_party_platform', label: 'Third-Party Platform Used?', strategy: 'MANUAL', nodeId: 'APP.6', fieldType: 'yesno' },
+  { key: 'platform_name', label: 'Platform Name', strategy: 'MANUAL', nodeId: 'APP.6', fieldType: 'text', dependsOn: { field: 'third_party_platform', value: 'Yes' } },
+  { key: 'platform_risk_assessment', label: 'Platform Risk Assessment', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'APP.6', fieldType: 'textarea', dependsOn: { field: 'third_party_platform', value: 'Yes' } },
+  { key: 'info_security_assessment', label: 'Information Security Assessment', strategy: 'MANUAL', nodeId: 'APP.6', fieldType: 'textarea', dependsOn: { field: 'third_party_platform', value: 'Yes' } },
+  { key: 'data_residency', label: 'Data Residency Consideration', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.6', fieldType: 'textarea', dependsOn: { field: 'third_party_platform', value: 'Yes' } },
 
   // ═══════════════════════════════════════════════════════════════
   // ADDITIONAL GRANULAR FIELDS — Sub-detail level
   // ═══════════════════════════════════════════════════════════════
 
   // Section I — additional detail
-  { key: 'product_currency_pair',    label: 'Currency Pair (if FX)',                  strategy: 'RULE',  ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'text' },
-  { key: 'product_benchmark',        label: 'Benchmark / Reference Rate',            strategy: 'RULE',  ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'text' },
-  { key: 'product_notional_ccy',     label: 'Notional Currency',                     strategy: 'RULE',  ruleSource: 'npa_record', nodeId: 'PC.I.1.c', fieldType: 'dropdown', options: ['SGD', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'HKD', 'AUD', 'Multi-currency'] },
-  { key: 'transfer_pricing',         label: 'Transfer Pricing Methodology',          strategy: 'LLM',   llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'textarea' },
-  { key: 'break_even_timeline',      label: 'Break-Even Timeline',                   strategy: 'LLM',   llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'text' },
-  { key: 'competitive_landscape',    label: 'Competitive Landscape',                 strategy: 'LLM',   llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
-  { key: 'market_opportunity',       label: 'Market Opportunity Assessment',         strategy: 'LLM',   llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
-  { key: 'customer_accreditation',   label: 'Customer Accreditation Requirements',   strategy: 'MANUAL', nodeId: 'PC.I.2.c', fieldType: 'textarea' },
-  { key: 'kyc_requirements',         label: 'KYC/CDD Requirements',                 strategy: 'COPY',  copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
-  { key: 'complaints_handling',      label: 'Complaints Handling Process',           strategy: 'COPY',  copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
+  { key: 'product_currency_pair', label: 'Currency Pair (if FX)', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'text' },
+  { key: 'product_benchmark', label: 'Benchmark / Reference Rate', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.b', fieldType: 'text' },
+  { key: 'product_notional_ccy', label: 'Notional Currency', strategy: 'RULE', ruleSource: 'npa_record', nodeId: 'PC.I.1.c', fieldType: 'dropdown', options: ['SGD', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'HKD', 'AUD', 'Multi-currency'] },
+  { key: 'transfer_pricing', label: 'Transfer Pricing Methodology', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.c', fieldType: 'textarea' },
+  { key: 'break_even_timeline', label: 'Break-Even Timeline', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'text' },
+  { key: 'competitive_landscape', label: 'Competitive Landscape', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
+  { key: 'market_opportunity', label: 'Market Opportunity Assessment', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
+  { key: 'customer_accreditation', label: 'Customer Accreditation Requirements', strategy: 'MANUAL', nodeId: 'PC.I.2.c', fieldType: 'textarea' },
+  { key: 'kyc_requirements', label: 'KYC/CDD Requirements', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
+  { key: 'complaints_handling', label: 'Complaints Handling Process', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
 
   // Section II — operational detail
-  { key: 'trade_capture_system',     label: 'Trade Capture System',                  strategy: 'RULE',  ruleSource: 'system_config', nodeId: 'PC.II.2.a', fieldType: 'text' },
-  { key: 'risk_system',              label: 'Risk Management System',                strategy: 'RULE',  ruleSource: 'system_config', nodeId: 'PC.II.2.a', fieldType: 'text' },
-  { key: 'reporting_system',         label: 'Reporting System',                      strategy: 'RULE',  ruleSource: 'system_config', nodeId: 'PC.II.2.a', fieldType: 'text' },
-  { key: 'stp_rate',                 label: 'Expected STP Rate',                     strategy: 'LLM',   llmCategory: 'operational', nodeId: 'PC.II.1.b', fieldType: 'text' },
-  { key: 'nostro_accounts',          label: 'Nostro Account Requirements',           strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
-  { key: 'mktdata_requirements',     label: 'Market Data Requirements',              strategy: 'LLM',   llmCategory: 'operational', nodeId: 'PC.II.2.b', fieldType: 'textarea' },
+  { key: 'trade_capture_system', label: 'Trade Capture System', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.II.2.a', fieldType: 'text' },
+  { key: 'risk_system', label: 'Risk Management System', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.II.2.a', fieldType: 'text' },
+  { key: 'reporting_system', label: 'Reporting System', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.II.2.a', fieldType: 'text' },
+  { key: 'stp_rate', label: 'Expected STP Rate', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.1.b', fieldType: 'text' },
+  { key: 'nostro_accounts', label: 'Nostro Account Requirements', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.II.1.b', fieldType: 'textarea' },
+  { key: 'mktdata_requirements', label: 'Market Data Requirements', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.2.b', fieldType: 'textarea' },
 
   // Section III — pricing detail
-  { key: 'fva_adjustment',           label: 'FVA Adjustment',                        strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
-  { key: 'xva_treatment',            label: 'XVA Treatment',                         strategy: 'LLM',   llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
-  { key: 'day_count_convention',     label: 'Day Count Convention',                  strategy: 'RULE',  ruleSource: 'product_config', nodeId: 'PC.III.1', fieldType: 'dropdown', options: ['ACT/360', 'ACT/365', '30/360', 'ACT/ACT'] },
+  { key: 'fva_adjustment', label: 'FVA Adjustment', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
+  { key: 'xva_treatment', label: 'XVA Treatment', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.1', fieldType: 'textarea' },
+  { key: 'day_count_convention', label: 'Day Count Convention', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.III.1', fieldType: 'dropdown', options: ['ACT/360', 'ACT/365', '30/360', 'ACT/ACT'] },
 
   // Section IV — risk detail
-  { key: 'wrong_way_risk',           label: 'Wrong-Way Risk',                        strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
-  { key: 'cva_dva_impact',           label: 'CVA/DVA Impact',                        strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.5', fieldType: 'textarea' },
-  { key: 'netting_agreements',       label: 'Netting Agreements',                    strategy: 'COPY',  copySection: 'legal', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
-  { key: 'isda_master',              label: 'ISDA Master Agreement',                 strategy: 'MANUAL', nodeId: 'PC.IV.C.2', fieldType: 'yesno' },
-  { key: 'csa_in_place',             label: 'CSA in Place',                          strategy: 'MANUAL', nodeId: 'PC.IV.C.4', fieldType: 'yesno' },
-  { key: 'country_risk',             label: 'Country Risk Assessment',               strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'textarea' },
-  { key: 'model_risk',               label: 'Model Risk',                            strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.1', fieldType: 'textarea' },
+  { key: 'wrong_way_risk', label: 'Wrong-Way Risk', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
+  { key: 'cva_dva_impact', label: 'CVA/DVA Impact', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.C.5', fieldType: 'textarea' },
+  { key: 'netting_agreements', label: 'Netting Agreements', strategy: 'COPY', copySection: 'legal', nodeId: 'PC.IV.C.2', fieldType: 'textarea' },
+  { key: 'isda_master', label: 'ISDA Master Agreement', strategy: 'MANUAL', nodeId: 'PC.IV.C.2', fieldType: 'yesno' },
+  { key: 'csa_in_place', label: 'CSA in Place', strategy: 'MANUAL', nodeId: 'PC.IV.C.4', fieldType: 'yesno' },
+  { key: 'country_risk', label: 'Country Risk Assessment', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.D', fieldType: 'textarea' },
+  { key: 'model_risk', label: 'Model Risk', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.B.1', fieldType: 'textarea' },
 
   // Section V — data detail
-  { key: 'data_lineage',             label: 'Data Lineage Documentation',            strategy: 'COPY',  copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
-  { key: 'data_classification',      label: 'Data Classification Level',             strategy: 'RULE',  ruleSource: 'system_config', nodeId: 'PC.V.1', fieldType: 'dropdown', options: ['Public', 'Internal', 'Confidential', 'Restricted'] },
+  { key: 'data_lineage', label: 'Data Lineage Documentation', strategy: 'COPY', copySection: 'data_mgmt', nodeId: 'PC.V.1', fieldType: 'textarea' },
+  { key: 'data_classification', label: 'Data Classification Level', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.V.1', fieldType: 'dropdown', options: ['Public', 'Internal', 'Confidential', 'Restricted'] },
 
   // Appendix 1 — location detail
-  { key: 'hedge_entity',             label: 'Hedge Entity',                          strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'hedge_location',           label: 'Hedge Location',                        strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
-  { key: 'clearing_entity',          label: 'Clearing Entity',                       strategy: 'RULE',  ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'hedge_entity', label: 'Hedge Entity', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'hedge_location', label: 'Hedge Location', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
+  { key: 'clearing_entity', label: 'Clearing Entity', strategy: 'RULE', ruleSource: 'org_chart', nodeId: 'APP.1', fieldType: 'text' },
 
   // Appendix 5 — trading detail
-  { key: 'margin_methodology',       label: 'Margin Methodology',                    strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'close_out_netting',        label: 'Close-Out Netting',                     strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'trade_reporting',          label: 'Trade Reporting Requirements',          strategy: 'RULE',  ruleSource: 'jurisdiction_table', nodeId: 'APP.5', fieldType: 'textarea' },
-  { key: 'clearing_obligation',      label: 'Clearing Obligation',                   strategy: 'RULE',  ruleSource: 'jurisdiction_table', nodeId: 'APP.5', fieldType: 'yesno' },
+  { key: 'margin_methodology', label: 'Margin Methodology', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'close_out_netting', label: 'Close-Out Netting', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'trade_reporting', label: 'Trade Reporting Requirements', strategy: 'RULE', ruleSource: 'jurisdiction_table', nodeId: 'APP.5', fieldType: 'textarea' },
+  { key: 'clearing_obligation', label: 'Clearing Obligation', strategy: 'RULE', ruleSource: 'jurisdiction_table', nodeId: 'APP.5', fieldType: 'yesno' },
 
   // ═══════════════════════════════════════════════════════════════
   // GAP-FILL FIELDS — Added 2026-02-23 per Phase 1 audit
   // ═══════════════════════════════════════════════════════════════
 
   // ── Section I.2 — Target Customer (missing sub-questions e, g) ──
-  { key: 'customer_objectives',       label: 'Customer Objectives & Risk Profile',     strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.2.e', fieldType: 'textarea' },
-  { key: 'customer_key_risks',        label: 'Key Risks Faced by Target Customers',    strategy: 'LLM',    llmCategory: 'risk_analysis',       nodeId: 'PC.I.2.g', fieldType: 'textarea' },
+  { key: 'customer_objectives', label: 'Customer Objectives & Risk Profile', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'PC.I.2.e', fieldType: 'textarea' },
+  { key: 'customer_key_risks', label: 'Key Risks Faced by Target Customers', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.I.2.g', fieldType: 'textarea' },
 
   // ── Section I.3 — Commercialization (missing d, e) ──
-  { key: 'sales_surveillance',        label: 'Sales Surveillance Process',             strategy: 'COPY',   copySection: 'product_specs', nodeId: 'PC.I.3.d', fieldType: 'textarea' },
-  { key: 'staff_training',            label: 'Staff Training Requirements',            strategy: 'COPY',   copySection: 'product_specs', nodeId: 'PC.I.3.e', fieldType: 'textarea' },
+  { key: 'sales_surveillance', label: 'Sales Surveillance Process', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.3.d', fieldType: 'textarea' },
+  { key: 'staff_training', label: 'Staff Training Requirements', strategy: 'COPY', copySection: 'product_specs', nodeId: 'PC.I.3.e', fieldType: 'textarea' },
 
   // ── Section II.1.c — Operational Adequacy ──
-  { key: 'ops_adequacy_checklist',    label: 'Operational Adequacy Checklist',         strategy: 'MANUAL', nodeId: 'PC.II.1.c', fieldType: 'checkbox_group', options: ['Adequate staffing confirmed', 'Process documentation complete', 'Systems ready for go-live', 'Controls tested and effective', 'Monitoring dashboards configured', 'Escalation procedures documented', 'Audit trail requirements met'] },
+  { key: 'ops_adequacy_checklist', label: 'Operational Adequacy Checklist', strategy: 'MANUAL', nodeId: 'PC.II.1.c', fieldType: 'checkbox_group', options: ['Adequate staffing confirmed', 'Process documentation complete', 'Systems ready for go-live', 'Controls tested and effective', 'Monitoring dashboards configured', 'Escalation procedures documented', 'Audit trail requirements met'] },
 
   // ── Section II.1.d — Operating Account Controls ──
-  { key: 'operating_account_controls', label: 'Operating Account Controls',            strategy: 'COPY',   copySection: 'operational', nodeId: 'PC.II.1.d', fieldType: 'textarea' },
+  { key: 'operating_account_controls', label: 'Operating Account Controls', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.d', fieldType: 'textarea' },
 
   // ── Section II.1.e — Limit Structure ──
-  { key: 'limit_structure',           label: 'Limit Structure',                        strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.II.1.e', fieldType: 'textarea' },
-  { key: 'limit_monitoring',          label: 'Limit Monitoring Process',               strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.1.e', fieldType: 'textarea' },
+  { key: 'limit_structure', label: 'Limit Structure', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.II.1.e', fieldType: 'textarea' },
+  { key: 'limit_monitoring', label: 'Limit Monitoring Process', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.e', fieldType: 'textarea' },
 
   // ── Section II.1.f — Manual Fallback ──
-  { key: 'manual_fallback',           label: 'Manual Process Fallback Required?',      strategy: 'MANUAL', nodeId: 'PC.II.1.f', fieldType: 'yesno' },
-  { key: 'manual_fallback_details',   label: 'Manual Fallback Details',                strategy: 'MANUAL', nodeId: 'PC.II.1.f', fieldType: 'textarea', dependsOn: { field: 'manual_fallback', value: 'Yes' } },
+  { key: 'manual_fallback', label: 'Manual Process Fallback Required?', strategy: 'MANUAL', nodeId: 'PC.II.1.f', fieldType: 'yesno' },
+  { key: 'manual_fallback_details', label: 'Manual Fallback Details', strategy: 'MANUAL', nodeId: 'PC.II.1.f', fieldType: 'textarea', dependsOn: { field: 'manual_fallback', value: 'Yes' } },
 
   // ── Section II.1.g — Collateral Management ──
-  { key: 'collateral_eligibility',    label: 'Eligible Collateral Types',              strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.1.g', fieldType: 'textarea' },
-  { key: 'collateral_haircuts',       label: 'Collateral Haircuts',                    strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.II.1.g', fieldType: 'textarea' },
-  { key: 'margin_frequency',          label: 'Margining Frequency',                    strategy: 'RULE',   ruleSource: 'product_config',  nodeId: 'PC.II.1.g', fieldType: 'dropdown', options: ['Daily', 'Weekly', 'Monthly', 'Ad-hoc', 'N/A'] },
-  { key: 'collateral_disputes',       label: 'Collateral Dispute Resolution',          strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.1.g', fieldType: 'textarea' },
+  { key: 'collateral_eligibility', label: 'Eligible Collateral Types', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.g', fieldType: 'textarea' },
+  { key: 'collateral_haircuts', label: 'Collateral Haircuts', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.II.1.g', fieldType: 'textarea' },
+  { key: 'margin_frequency', label: 'Margining Frequency', strategy: 'RULE', ruleSource: 'product_config', nodeId: 'PC.II.1.g', fieldType: 'dropdown', options: ['Daily', 'Weekly', 'Monthly', 'Ad-hoc', 'N/A'] },
+  { key: 'collateral_disputes', label: 'Collateral Dispute Resolution', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.g', fieldType: 'textarea' },
 
   // ── Section II.1.h — Custody Account ──
-  { key: 'custody_required',          label: 'Custody Account Required?',              strategy: 'MANUAL', nodeId: 'PC.II.1.h', fieldType: 'yesno' },
-  { key: 'custody_details',           label: 'Custody Arrangement Details',            strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.1.h', fieldType: 'textarea', dependsOn: { field: 'custody_required', value: 'Yes' } },
+  { key: 'custody_required', label: 'Custody Account Required?', strategy: 'MANUAL', nodeId: 'PC.II.1.h', fieldType: 'yesno' },
+  { key: 'custody_details', label: 'Custody Arrangement Details', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.1.h', fieldType: 'textarea', dependsOn: { field: 'custody_required', value: 'Yes' } },
 
   // ── Section II.1.i — Trade Repository ──
-  { key: 'trade_repository_reporting', label: 'Trade Repository / ESFR Reporting',     strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.II.1.i', fieldType: 'textarea' },
+  { key: 'trade_repository_reporting', label: 'Trade Repository / ESFR Reporting', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.II.1.i', fieldType: 'textarea' },
 
   // ── Section II.1.j — SFEMC ──
-  { key: 'sfemc_references',          label: 'SFEMC / Code of Conduct References',    strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.II.1.j', fieldType: 'textarea' },
+  { key: 'sfemc_references', label: 'SFEMC / Code of Conduct References', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.II.1.j', fieldType: 'textarea' },
 
   // ── Section II.5 — BCM expansion (9 additional fields) ──
-  { key: 'bcm_critical_processes',    label: 'Critical Business Processes',            strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'bcm_recovery_strategy',     label: 'Recovery Strategy',                      strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'bcm_alternate_site',        label: 'Alternate Site Arrangements',            strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'bcm_communication_plan',    label: 'Crisis Communication Plan',              strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'bcm_testing_frequency',     label: 'BCM Testing Frequency',                  strategy: 'RULE',   ruleSource: 'system_config',   nodeId: 'PC.II.5', fieldType: 'dropdown', options: ['Quarterly', 'Semi-annually', 'Annually', 'As Required'] },
-  { key: 'bcm_vendor_dependencies',   label: 'Vendor/Third-Party Dependencies',        strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'bcm_staff_awareness',       label: 'Staff Awareness & Training',             strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'bcm_regulatory_compliance', label: 'BCM Regulatory Compliance',              strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.II.5', fieldType: 'textarea' },
-  { key: 'bcm_incident_response',     label: 'Incident Response Plan',                 strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_critical_processes', label: 'Critical Business Processes', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_recovery_strategy', label: 'Recovery Strategy', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_alternate_site', label: 'Alternate Site Arrangements', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_communication_plan', label: 'Crisis Communication Plan', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_testing_frequency', label: 'BCM Testing Frequency', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.II.5', fieldType: 'dropdown', options: ['Quarterly', 'Semi-annually', 'Annually', 'As Required'] },
+  { key: 'bcm_vendor_dependencies', label: 'Vendor/Third-Party Dependencies', strategy: 'LLM', llmCategory: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_staff_awareness', label: 'Staff Awareness & Training', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_regulatory_compliance', label: 'BCM Regulatory Compliance', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_incident_response', label: 'Incident Response Plan', strategy: 'COPY', copySection: 'operational', nodeId: 'PC.II.5', fieldType: 'textarea' },
 
   // ── Section III.3 — Backtesting (missing) ──
-  { key: 'simm_backtesting',          label: 'SIMM Backtesting Results',               strategy: 'LLM',    llmCategory: 'pricing',        nodeId: 'PC.III.3', fieldType: 'textarea' },
+  { key: 'simm_backtesting', label: 'SIMM Backtesting Results', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'PC.III.3', fieldType: 'textarea' },
 
   // ── Section IV.A.2 — Finance & Tax expansion ──
-  { key: 'service_output_fees',       label: 'Service Output Fees',                    strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
-  { key: 'service_fee_structure',     label: 'Fee Structure Details',                  strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
-  { key: 'service_fee_allocation',    label: 'Fee Allocation Methodology',             strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
-  { key: 'reg_matching_ifrs',         label: 'IFRS Regulatory Matching',               strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
-  { key: 'reg_matching_mas',          label: 'MAS Notice Regulatory Matching',         strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
-  { key: 'reg_matching_gst',          label: 'GST Treatment',                          strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
-  { key: 'reg_matching_wht',          label: 'Withholding Tax Treatment',              strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'service_output_fees', label: 'Service Output Fees', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'service_fee_structure', label: 'Fee Structure Details', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'service_fee_allocation', label: 'Fee Allocation Methodology', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'reg_matching_ifrs', label: 'IFRS Regulatory Matching', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'reg_matching_mas', label: 'MAS Notice Regulatory Matching', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'reg_matching_gst', label: 'GST Treatment', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'reg_matching_wht', label: 'Withholding Tax Treatment', strategy: 'LLM', llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
 
   // ── Section IV.A.3 — Financial Crimes & Financial Security (NEW) ──
-  { key: 'fc_conduct_considerations', label: 'Conduct Considerations',                 strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.3', fieldType: 'textarea' },
-  { key: 'fc_mar_assessment',         label: 'MAR Assessment',                         strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.3', fieldType: 'textarea' },
-  { key: 'fc_mar_sub_items',          label: 'MAR Sub-Items (MAS References)',         strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.3', fieldType: 'bullet_list' },
-  { key: 'fc_mra_boundary_test',      label: 'MRA Boundary Test Required?',            strategy: 'MANUAL', nodeId: 'PC.IV.A.3', fieldType: 'yesno' },
-  { key: 'fc_mra_details',            label: 'MRA Boundary Test Details',              strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.3', fieldType: 'textarea', dependsOn: { field: 'fc_mra_boundary_test', value: 'Yes' } },
+  { key: 'fc_conduct_considerations', label: 'Conduct Considerations', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.3', fieldType: 'textarea' },
+  { key: 'fc_mar_assessment', label: 'MAR Assessment', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.3', fieldType: 'textarea' },
+  { key: 'fc_mar_sub_items', label: 'MAR Sub-Items (MAS References)', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.3', fieldType: 'bullet_list' },
+  { key: 'fc_mra_boundary_test', label: 'MRA Boundary Test Required?', strategy: 'MANUAL', nodeId: 'PC.IV.A.3', fieldType: 'yesno' },
+  { key: 'fc_mra_details', label: 'MRA Boundary Test Details', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'PC.IV.A.3', fieldType: 'textarea', dependsOn: { field: 'fc_mra_boundary_test', value: 'Yes' } },
 
   // ── Section IV.A.D — Funding Liquidity Risk (NEW) ──
-  { key: 'flr_lcr_nsfr_metrics',      label: 'LCR/NSFR/EAFL Metrics',                 strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
-  { key: 'flr_hqla_qualification',    label: 'HQLA Qualification',                     strategy: 'MANUAL', nodeId: 'PC.IV.A.D', fieldType: 'yesno' },
-  { key: 'flr_cashflow_modeling',     label: 'Cashflow Modeling',                      strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
-  { key: 'flr_liquidity_facility',    label: 'Liquidity Facility Required?',           strategy: 'MANUAL', nodeId: 'PC.IV.A.D', fieldType: 'yesno' },
-  { key: 'flr_limit_implementation',  label: 'Limit Implementation Plan',              strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
+  { key: 'flr_lcr_nsfr_metrics', label: 'LCR/NSFR/EAFL Metrics', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
+  { key: 'flr_hqla_qualification', label: 'HQLA Qualification', strategy: 'MANUAL', nodeId: 'PC.IV.A.D', fieldType: 'yesno' },
+  { key: 'flr_cashflow_modeling', label: 'Cashflow Modeling', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
+  { key: 'flr_liquidity_facility', label: 'Liquidity Facility Required?', strategy: 'MANUAL', nodeId: 'PC.IV.A.D', fieldType: 'yesno' },
+  { key: 'flr_limit_implementation', label: 'Limit Implementation Plan', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
 
   // ── Appendix 5 — Duplicate fix: app5_valuation_model ──
-  { key: 'app5_valuation_model',      label: 'Valuation Model (Trading)',              strategy: 'LLM',    llmCategory: 'pricing',        nodeId: 'APP.5.4', fieldType: 'textarea' },
+  { key: 'app5_valuation_model', label: 'Valuation Model (Trading)', strategy: 'LLM', llmCategory: 'pricing', nodeId: 'APP.5.4', fieldType: 'textarea' },
 
   // ── Section V.3 — Risk Data Aggregation (missing 1 field) ──
-  { key: 'rda_reporting_frequency',   label: 'RDAR Reporting Frequency',               strategy: 'RULE',   ruleSource: 'system_config',   nodeId: 'PC.V.3', fieldType: 'dropdown', options: ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Ad-hoc'] },
+  { key: 'rda_reporting_frequency', label: 'RDAR Reporting Frequency', strategy: 'RULE', ruleSource: 'system_config', nodeId: 'PC.V.3', fieldType: 'dropdown', options: ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Ad-hoc'] },
 
   // ── Appendix 4 — RDAR (missing 1 field) ──
-  { key: 'rda_data_quality',          label: 'Data Quality Assessment',                strategy: 'LLM',    llmCategory: 'data_mgmt',      nodeId: 'APP.4', fieldType: 'textarea' },
+  { key: 'rda_data_quality', label: 'Data Quality Assessment', strategy: 'LLM', llmCategory: 'data_mgmt', nodeId: 'APP.4', fieldType: 'textarea' },
 
   // ── Appendix 3 — Financial Crime expansion (12 new fields) ──
-  { key: 'fc_policy_framework',       label: 'Financial Crime Policy Framework',       strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
-  { key: 'fc_screening_controls',     label: 'Screening Controls',                    strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
-  { key: 'fc_transaction_monitoring', label: 'Transaction Monitoring',                 strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
-  { key: 'fc_suspicious_reporting',   label: 'Suspicious Transaction Reporting',       strategy: 'MANUAL', nodeId: 'APP.3.2', fieldType: 'textarea' },
-  { key: 'fc_record_keeping',         label: 'Record Keeping Requirements',            strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
-  { key: 'fc_staff_training',         label: 'Financial Crime Staff Training',         strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
-  { key: 'fc_independent_testing',    label: 'Independent Testing Program',            strategy: 'MANUAL', nodeId: 'APP.3.2', fieldType: 'textarea' },
-  { key: 'fc_validation_process',     label: 'Validation Process',                    strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.3', fieldType: 'textarea' },
-  { key: 'fc_surveillance_tools',     label: 'Surveillance Tools',                    strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.3.3', fieldType: 'textarea' },
-  { key: 'fc_regulatory_reporting',   label: 'Regulatory Reporting Obligations',      strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.3.3', fieldType: 'textarea' },
-  { key: 'fc_data_privacy_compliance', label: 'Data Privacy Compliance',              strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.3.4', fieldType: 'textarea' },
-  { key: 'fc_data_sharing_agreements', label: 'Data Sharing Agreements',              strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.4', fieldType: 'textarea' },
+  { key: 'fc_policy_framework', label: 'Financial Crime Policy Framework', strategy: 'COPY', copySection: 'legal', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_screening_controls', label: 'Screening Controls', strategy: 'COPY', copySection: 'legal', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_transaction_monitoring', label: 'Transaction Monitoring', strategy: 'COPY', copySection: 'legal', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_suspicious_reporting', label: 'Suspicious Transaction Reporting', strategy: 'MANUAL', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_record_keeping', label: 'Record Keeping Requirements', strategy: 'COPY', copySection: 'legal', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_staff_training', label: 'Financial Crime Staff Training', strategy: 'COPY', copySection: 'legal', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_independent_testing', label: 'Independent Testing Program', strategy: 'MANUAL', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_validation_process', label: 'Validation Process', strategy: 'COPY', copySection: 'legal', nodeId: 'APP.3.3', fieldType: 'textarea' },
+  { key: 'fc_surveillance_tools', label: 'Surveillance Tools', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3.3', fieldType: 'textarea' },
+  { key: 'fc_regulatory_reporting', label: 'Regulatory Reporting Obligations', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3.3', fieldType: 'textarea' },
+  { key: 'fc_data_privacy_compliance', label: 'Data Privacy Compliance', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.3.4', fieldType: 'textarea' },
+  { key: 'fc_data_sharing_agreements', label: 'Data Sharing Agreements', strategy: 'COPY', copySection: 'legal', nodeId: 'APP.3.4', fieldType: 'textarea' },
 
   // ── Appendix 6 — Third-Party Platforms expansion (25 new fields) ──
-  { key: 'tp_use_case_description',   label: 'Use Case Description',                  strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'APP.6.A', fieldType: 'textarea' },
-  { key: 'tp_business_justification', label: 'Business Justification',                strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'APP.6.A', fieldType: 'textarea' },
-  { key: 'tp_risk_rating',            label: 'Risk Rating',                           strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'APP.6.B', fieldType: 'dropdown', options: ['Low', 'Medium', 'High', 'Critical'] },
-  { key: 'tp_risk_mitigants',         label: 'Risk Mitigants',                        strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'APP.6.B', fieldType: 'textarea' },
-  { key: 'tp_data_classification',    label: 'Data Classification',                   strategy: 'MANUAL', nodeId: 'APP.6.C1', fieldType: 'dropdown', options: ['Public', 'Internal', 'Confidential', 'Restricted'] },
-  { key: 'tp_user_population',        label: 'User Population',                       strategy: 'MANUAL', nodeId: 'APP.6.C1', fieldType: 'textarea' },
-  { key: 'tp_integration_scope',      label: 'Integration Scope',                     strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'APP.6.C1', fieldType: 'textarea' },
-  { key: 'tp_data_flow',              label: 'Data Flow Description',                 strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'APP.6.C1', fieldType: 'textarea' },
-  { key: 'tp_exit_strategy',          label: 'Exit Strategy',                         strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'APP.6.C1', fieldType: 'textarea' },
-  { key: 'tp_encryption_standards',   label: 'Encryption Standards',                  strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
-  { key: 'tp_access_controls',        label: 'Access Controls',                       strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
-  { key: 'tp_audit_logging',          label: 'Audit Logging',                         strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'yesno' },
-  { key: 'tp_vulnerability_mgmt',     label: 'Vulnerability Management',              strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
-  { key: 'tp_incident_response',      label: 'Incident Response Plan',                strategy: 'COPY',   copySection: 'operational',    nodeId: 'APP.6.C2', fieldType: 'textarea' },
-  { key: 'tp_certifications',         label: 'Security Certifications',               strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'checkbox_group', options: ['SOC 2 Type II', 'ISO 27001', 'PCI DSS', 'CSA STAR', 'Other'] },
-  { key: 'tp_cyber_assessment',       label: 'Cybersecurity Assessment',              strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'APP.6.C3', fieldType: 'textarea' },
-  { key: 'tp_communication_archival', label: 'Communication Archival',                strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'yesno' },
-  { key: 'tp_retention_policy',       label: 'Data Retention Policy',                 strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'textarea' },
-  { key: 'tp_ediscovery',             label: 'e-Discovery Capability',                strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'yesno' },
-  { key: 'tp_data_ownership',         label: 'Data Ownership',                        strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
-  { key: 'tp_ip_rights',              label: 'IP Rights',                             strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
-  { key: 'tp_pdpa_compliance',        label: 'PDPA Compliance',                       strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.6.C4', fieldType: 'textarea' },
-  { key: 'tp_cross_border_transfer',  label: 'Cross-Border Data Transfer',            strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.6.C4', fieldType: 'textarea' },
-  { key: 'tp_data_deletion',          label: 'Data Deletion Process',                 strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
-  { key: 'tp_consent_management',     label: 'Consent Management',                    strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
-  { key: 'tp_breach_notification',    label: 'Breach Notification Process',           strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.6.C4', fieldType: 'textarea' },
-  { key: 'tp_dpo_contact',            label: 'Data Protection Officer Contact',       strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'text' },
-  { key: 'tp_privacy_impact',         label: 'Privacy Impact Assessment',             strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_use_case_description', label: 'Use Case Description', strategy: 'LLM', llmCategory: 'operational', nodeId: 'APP.6.A', fieldType: 'textarea' },
+  { key: 'tp_business_justification', label: 'Business Justification', strategy: 'LLM', llmCategory: 'product_description', nodeId: 'APP.6.A', fieldType: 'textarea' },
+  { key: 'tp_risk_rating', label: 'Risk Rating', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'APP.6.B', fieldType: 'dropdown', options: ['Low', 'Medium', 'High', 'Critical'] },
+  { key: 'tp_risk_mitigants', label: 'Risk Mitigants', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'APP.6.B', fieldType: 'textarea' },
+  { key: 'tp_data_classification', label: 'Data Classification', strategy: 'MANUAL', nodeId: 'APP.6.C1', fieldType: 'dropdown', options: ['Public', 'Internal', 'Confidential', 'Restricted'] },
+  { key: 'tp_user_population', label: 'User Population', strategy: 'MANUAL', nodeId: 'APP.6.C1', fieldType: 'textarea' },
+  { key: 'tp_integration_scope', label: 'Integration Scope', strategy: 'LLM', llmCategory: 'operational', nodeId: 'APP.6.C1', fieldType: 'textarea' },
+  { key: 'tp_data_flow', label: 'Data Flow Description', strategy: 'LLM', llmCategory: 'operational', nodeId: 'APP.6.C1', fieldType: 'textarea' },
+  { key: 'tp_exit_strategy', label: 'Exit Strategy', strategy: 'LLM', llmCategory: 'operational', nodeId: 'APP.6.C1', fieldType: 'textarea' },
+  { key: 'tp_encryption_standards', label: 'Encryption Standards', strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
+  { key: 'tp_access_controls', label: 'Access Controls', strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
+  { key: 'tp_audit_logging', label: 'Audit Logging', strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'yesno' },
+  { key: 'tp_vulnerability_mgmt', label: 'Vulnerability Management', strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
+  { key: 'tp_incident_response', label: 'Incident Response Plan', strategy: 'COPY', copySection: 'operational', nodeId: 'APP.6.C2', fieldType: 'textarea' },
+  { key: 'tp_certifications', label: 'Security Certifications', strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'checkbox_group', options: ['SOC 2 Type II', 'ISO 27001', 'PCI DSS', 'CSA STAR', 'Other'] },
+  { key: 'tp_cyber_assessment', label: 'Cybersecurity Assessment', strategy: 'LLM', llmCategory: 'risk_analysis', nodeId: 'APP.6.C3', fieldType: 'textarea' },
+  { key: 'tp_communication_archival', label: 'Communication Archival', strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'yesno' },
+  { key: 'tp_retention_policy', label: 'Data Retention Policy', strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'textarea' },
+  { key: 'tp_ediscovery', label: 'e-Discovery Capability', strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'yesno' },
+  { key: 'tp_data_ownership', label: 'Data Ownership', strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_ip_rights', label: 'IP Rights', strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_pdpa_compliance', label: 'PDPA Compliance', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_cross_border_transfer', label: 'Cross-Border Data Transfer', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_data_deletion', label: 'Data Deletion Process', strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_consent_management', label: 'Consent Management', strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_breach_notification', label: 'Breach Notification Process', strategy: 'COPY', copySection: 'legal', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_dpo_contact', label: 'Data Protection Officer Contact', strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'text' },
+  { key: 'tp_privacy_impact', label: 'Privacy Impact Assessment', strategy: 'LLM', llmCategory: 'compliance', nodeId: 'APP.6.C4', fieldType: 'textarea' },
 ];
 
 /**
@@ -1552,9 +1578,9 @@ export function getFieldsByStrategy(strategy: FieldFillStrategy): FieldRegistryE
 /** Get field keys grouped by strategy — used by Express prefill endpoint */
 export function getFieldKeysByStrategy(): Record<FieldFillStrategy, string[]> {
   return {
-    RULE:   NPA_FIELD_REGISTRY.filter(f => f.strategy === 'RULE').map(f => f.key),
-    COPY:   NPA_FIELD_REGISTRY.filter(f => f.strategy === 'COPY').map(f => f.key),
-    LLM:    NPA_FIELD_REGISTRY.filter(f => f.strategy === 'LLM').map(f => f.key),
+    RULE: NPA_FIELD_REGISTRY.filter(f => f.strategy === 'RULE').map(f => f.key),
+    COPY: NPA_FIELD_REGISTRY.filter(f => f.strategy === 'COPY').map(f => f.key),
+    LLM: NPA_FIELD_REGISTRY.filter(f => f.strategy === 'LLM').map(f => f.key),
     MANUAL: NPA_FIELD_REGISTRY.filter(f => f.strategy === 'MANUAL').map(f => f.key),
   };
 }

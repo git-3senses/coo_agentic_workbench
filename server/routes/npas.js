@@ -247,8 +247,8 @@ router.get('/:id/prefill', async (req, res) => {
         ruleValues['pricing_model_name'] = category.includes('derivative')
             ? 'Black-Scholes / Monte Carlo Simulation'
             : category.includes('structured')
-            ? 'Discounted Cash Flow + Monte Carlo'
-            : 'Mark-to-Market / Fair Value';
+                ? 'Discounted Cash Flow + Monte Carlo'
+                : 'Mark-to-Market / Fair Value';
         ruleValues['model_validation_date'] = new Date().toISOString().slice(0, 10);
 
         // Misc RULE fields from NPA record
@@ -540,14 +540,14 @@ router.post('/seed-demo', async (req, res) => {
                 const sectionId = fieldSectionMap[key] || 'SEC_PROD';
                 const fieldType = key.startsWith('hdr_') ? 'header' :
                     ['business_rationale', 'legal_opinion', 'market_risk', 'credit_risk', 'operational_risk',
-                    'liquidity_risk', 'reputational_risk', 'var_capture', 'stress_scenarios', 'counterparty_default',
-                    'custody_risk', 'esg_assessment', 'roae_analysis', 'pricing_assumptions', 'supporting_documents',
-                    'isda_agreement', 'tax_impact', 'npa_process_type', 'business_case_status', 'product_role',
-                    'underlying_asset', 'customer_segments', 'bundling_rationale',
-                    'distribution_channels', 'sales_suitability', 'marketing_plan',
-                    'aml_assessment', 'terrorism_financing', 'sanctions_assessment', 'fraud_risk', 'bribery_corruption',
-                    'collateral_types', 'valuation_method', 'funding_source', 'booking_schema',
-                    'data_privacy', 'risk_classification', 'regulatory_capital'].includes(key) ? 'textarea' : 'text';
+                        'liquidity_risk', 'reputational_risk', 'var_capture', 'stress_scenarios', 'counterparty_default',
+                        'custody_risk', 'esg_assessment', 'roae_analysis', 'pricing_assumptions', 'supporting_documents',
+                        'isda_agreement', 'tax_impact', 'npa_process_type', 'business_case_status', 'product_role',
+                        'underlying_asset', 'customer_segments', 'bundling_rationale',
+                        'distribution_channels', 'sales_suitability', 'marketing_plan',
+                        'aml_assessment', 'terrorism_financing', 'sanctions_assessment', 'fraud_risk', 'bribery_corruption',
+                        'collateral_types', 'valuation_method', 'funding_source', 'booking_schema',
+                        'data_privacy', 'risk_classification', 'regulatory_capital'].includes(key) ? 'textarea' : 'text';
                 // Header labels come from seed data (the 'value' field), regular labels auto-generated from key
                 const headerLabels = {
                     hdr_prod_basic: 'Product Specifications (Basic Information)',
@@ -915,6 +915,70 @@ router.post('/seed-demo', async (req, res) => {
         res.status(500).json({ error: err.message });
     } finally {
         conn.release();
+    }
+});
+
+// PUT /api/npas/:id — Update existing NPA (Unified Persistence)
+router.put('/:id', async (req, res) => {
+    const id = req.params.id;
+    const { title, description, npa_type, stage, status, formData } = req.body;
+    console.log(`[NPA UPDATE] ID: ${id}, fields:`, Object.keys(req.body));
+
+    try {
+        const conn = await db.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            // 1. Update project metadata
+            const updateFields = [];
+            const params = [];
+            if (title) { updateFields.push('title = ?'); params.push(title); }
+            if (description) { updateFields.push('description = ?'); params.push(description); }
+            if (npa_type) { updateFields.push('npa_type = ?'); params.push(npa_type); }
+            if (stage) { updateFields.push('current_stage = ?'); params.push(stage); }
+            if (status) { updateFields.push('status = ?'); params.push(status); }
+            updateFields.push('updated_at = NOW()');
+
+            if (updateFields.length > 0) {
+                await conn.query(
+                    `UPDATE npa_projects SET ${updateFields.join(', ')} WHERE id = ?`,
+                    [...params, id]
+                );
+            }
+
+            // 2. Update form data (field-by-field)
+            if (formData && Array.isArray(formData)) {
+                for (const field of formData) {
+                    const key = field.field_key || field.key;
+                    const val = field.field_value || field.value;
+                    const lineage = field.lineage || 'MANUAL';
+                    const confidence = field.confidence_score !== undefined ? field.confidence_score : (field.confidence || null);
+                    const metadata = field.metadata ? (typeof field.metadata === 'string' ? field.metadata : JSON.stringify(field.metadata)) : null;
+
+                    await conn.query(`
+                        INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score, metadata)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            field_value = VALUES(field_value),
+                            lineage = VALUES(lineage),
+                            confidence_score = VALUES(confidence_score),
+                            metadata = VALUES(metadata)
+                    `, [id, key, val, lineage, confidence, metadata]);
+                }
+            }
+
+            await conn.commit();
+            console.log(`[NPA UPDATE] Success for ${id}`);
+            res.json({ id, status: 'UPDATED' });
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
+    } catch (err) {
+        console.error('[NPA UPDATE] Error:', err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 

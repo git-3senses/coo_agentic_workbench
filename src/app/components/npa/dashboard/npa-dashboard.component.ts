@@ -615,18 +615,8 @@ export class NpaDashboardComponent implements OnInit {
    }
 
    onSeedDemo() {
-      this.seedingDemo = true;
-      this.npaService.seedDemo().subscribe({
-         next: (res) => {
-            this.seedingDemo = false;
-            console.log('[NpaDashboard] Demo NPA seeded:', res.id);
-            this.navigateToDetail.emit(res.id);
-         },
-         error: (err) => {
-            this.seedingDemo = false;
-            console.error('[NpaDashboard] Seed demo failed:', err);
-         }
-      });
+      // obsolete tracking method handled locally now
+      console.log('Seed demo clicked');
    }
 
    onCardExpand(id: string) {

@@ -11,7 +11,6 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
 import { NpaService } from '../../../services/npa.service';
 import { AGENT_REGISTRY, AgentAction, ClassificationResult, ClassificationScore } from '../../../lib/agent-interfaces';
 import { ClassificationResultComponent } from '../../npa/agent-results/classification-result.component';
-import { AutofillSummaryComponent } from '../../npa/agent-results/autofill-summary.component';
 import { RiskAssessmentResultComponent } from '../../npa/agent-results/risk-assessment-result.component';
 import { GovernanceStatusComponent } from '../../npa/agent-results/governance-status.component';
 import { DocCompletenessComponent } from '../../npa/agent-results/doc-completeness.component';
@@ -27,7 +26,7 @@ interface ChatMessage {
     content: string;
     timestamp: Date;
     agentIdentity?: AgentIdentity;
-    cardType?: 'DOMAIN_ROUTE' | 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION' | 'INFO' | 'AUTOFILL' | 'GOVERNANCE' | 'DOC_STATUS' | 'MONITORING' | 'NPA_CREATED' | 'NPA_DRAFT_CTA';
+    cardType?: 'DOMAIN_ROUTE' | 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION' | 'INFO' | 'GOVERNANCE' | 'DOC_STATUS' | 'MONITORING' | 'NPA_CREATED' | 'NPA_DRAFT_CTA';
     cardData?: any;
     agentAction?: string;
     isStreaming?: boolean; // True while SSE tokens are arriving (shows typing cursor)
@@ -45,8 +44,8 @@ interface AgentIdentity {
     selector: 'app-agent-workspace',
     standalone: true,
     imports: [CommonModule, LucideAngularModule, RouterLink, FormsModule, MarkdownModule,
-             ClassificationResultComponent, AutofillSummaryComponent, RiskAssessmentResultComponent,
-             GovernanceStatusComponent, DocCompletenessComponent, MonitoringAlertsComponent],
+        ClassificationResultComponent, RiskAssessmentResultComponent,
+        GovernanceStatusComponent, DocCompletenessComponent, MonitoringAlertsComponent],
     template: `
     <!-- ═══════ VIEW: LANDING (Overview + Chat Input) — only if config.showLanding ═══════ -->
     <div *ngIf="config.showLanding && viewMode === 'LANDING'" class="min-h-full flex flex-col items-center justify-center px-8 bg-white text-slate-900 relative overflow-hidden h-full">
@@ -299,7 +298,6 @@ interface AgentIdentity {
                         </div>
                     </div>
 
-                    <app-autofill-summary *ngIf="msg.cardType === 'AUTOFILL' && msg.cardData" [result]="msg.cardData" class="w-full animate-fade-in"></app-autofill-summary>
                     <app-risk-assessment-result *ngIf="msg.cardType === 'RISK' && msg.cardData" [result]="msg.cardData" class="w-full animate-fade-in"></app-risk-assessment-result>
                     <app-governance-status *ngIf="msg.cardType === 'GOVERNANCE' && msg.cardData" [result]="msg.cardData" class="w-full animate-fade-in"></app-governance-status>
                     <app-doc-completeness *ngIf="msg.cardType === 'DOC_STATUS' && msg.cardData" [result]="msg.cardData" class="w-full animate-fade-in"></app-doc-completeness>
@@ -808,7 +806,6 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         IDEATION: ['Gathering product information...', 'Searching for similar historical NPAs...', 'Checking prohibited products list...', 'Analyzing product structure...', 'Evaluating regulatory requirements...', 'Building NPA draft...'],
         CLASSIFIER: ['Running classification model...', 'Comparing against product taxonomy...', 'Checking prohibited/restricted lists...', 'Scoring product complexity...'],
         RISK: ['Evaluating risk factors...', 'Running risk scoring model...', 'Analyzing market exposure...', 'Checking regulatory risk limits...'],
-        AUTOFILL: ['Extracting form data...', 'Mapping fields from product data...', 'Populating template sections...', 'Validating auto-filled values...'],
         DILIGENCE: ['Searching knowledge base...', 'Retrieving relevant policies...', 'Cross-referencing guidelines...'],
         DEFAULT: ['Processing your request...', 'Analyzing data...', 'Preparing response...']
     };
@@ -930,8 +927,6 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
             cardType = 'HARD_STOP'; cardData = res.metadata?.payload;
         } else if (action === 'SHOW_PREDICTION' && res.metadata?.payload) {
             cardType = 'PREDICTION'; cardData = res.metadata.payload;
-        } else if (action === 'SHOW_AUTOFILL' && res.metadata?.payload) {
-            cardType = 'AUTOFILL'; cardData = res.metadata.payload;
         } else if (action === 'SHOW_RISK' && res.metadata?.payload) {
             cardType = 'RISK'; cardData = res.metadata.payload;
         } else if (action === 'SHOW_GOVERNANCE' && res.metadata?.payload) {

@@ -7,7 +7,6 @@ import { ChatSessionService } from '../../../services/chat-session.service';
 import { MarkdownModule } from 'ngx-markdown';
 import { AGENT_REGISTRY, AgentDefinition, AgentAction, AgentActivityUpdate, ClassificationResult, ClassificationScore } from '../../../lib/agent-interfaces';
 import { ClassificationResultComponent } from '../agent-results/classification-result.component';
-import { AutofillSummaryComponent } from '../agent-results/autofill-summary.component';
 import { RiskAssessmentResultComponent } from '../agent-results/risk-assessment-result.component';
 import { GovernanceStatusComponent } from '../agent-results/governance-status.component';
 import { DocCompletenessComponent } from '../agent-results/doc-completeness.component';
@@ -19,7 +18,7 @@ interface ChatMessage {
     content: string;
     timestamp: Date;
     agentIdentity?: AgentIdentity;
-    cardType?: 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION' | 'DELEGATION' | 'AUTOFILL' | 'GOVERNANCE' | 'DOC_STATUS' | 'MONITORING';
+    cardType?: 'CLASSIFICATION' | 'RISK' | 'HARD_STOP' | 'PREDICTION' | 'DELEGATION' | 'GOVERNANCE' | 'DOC_STATUS' | 'MONITORING' | 'INFO';
     cardData?: any;
     agentAction?: AgentAction;
 }
@@ -36,8 +35,8 @@ interface AgentIdentity {
     selector: 'app-orchestrator-chat',
     standalone: true,
     imports: [CommonModule, FormsModule, LucideAngularModule, MarkdownModule,
-             ClassificationResultComponent, AutofillSummaryComponent, RiskAssessmentResultComponent,
-             GovernanceStatusComponent, DocCompletenessComponent, MonitoringAlertsComponent],
+        ClassificationResultComponent, RiskAssessmentResultComponent,
+        GovernanceStatusComponent, DocCompletenessComponent, MonitoringAlertsComponent],
     template: `
     <div class="flex flex-col h-full bg-white relative">
       <!-- TOAST NOTIFICATION -->
@@ -121,11 +120,6 @@ interface AgentIdentity {
                     </div>
                 </div>
 
-                <!-- CARD: AUTOFILL SUMMARY -->
-                <app-autofill-summary *ngIf="msg.cardType === 'AUTOFILL' && msg.cardData"
-                                      [result]="msg.cardData"
-                                      class="w-full animate-fade-in">
-                </app-autofill-summary>
 
                 <!-- CARD: RISK ASSESSMENT -->
                 <app-risk-assessment-result *ngIf="msg.cardType === 'RISK' && msg.cardData"
@@ -144,6 +138,17 @@ interface AgentIdentity {
                                       [result]="msg.cardData"
                                       class="w-full animate-fade-in">
                 </app-doc-completeness>
+
+                <!-- CARD: INFO (Delegation/Transfer) -->
+                <div *ngIf="msg.cardType === 'INFO' && msg.cardData" class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow-sm animate-fade-in w-full">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
+                            <lucide-icon name="info" class="w-4 h-4"></lucide-icon>
+                        </div>
+                        <h4 class="text-sm font-bold text-blue-900">{{ msg.cardData.title }}</h4>
+                    </div>
+                    <p class="text-xs text-blue-800 leading-relaxed">{{ msg.cardData.description }}</p>
+                </div>
 
                 <!-- CARD: MONITORING ALERTS -->
                 <app-monitoring-alerts *ngIf="msg.cardType === 'MONITORING' && msg.cardData"
@@ -287,6 +292,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
     nextAgent: AgentIdentity | null = null;
     showGenerateButton = false;
     routingPayload: any = null;
+    private sessionDirty = false;
 
     // 13-AGENT REGISTRY (data-driven from AGENT_REGISTRY)
     readonly AGENTS: Record<string, AgentIdentity> = {};
@@ -395,6 +401,8 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             });
             this.isThinking = false;
             this.stopThinkingTimer();
+            this.sessionDirty = true;
+            this.autoSaveSession();
         });
     }
 
@@ -414,6 +422,8 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             timestamp: new Date(),
             agentIdentity: this.AGENTS['MASTER_COO']
         });
+        this.sessionDirty = true;
+        this.autoSaveSession();
     }
 
     handleKeyDown(event: KeyboardEvent) {
@@ -500,6 +510,8 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.messages.push({ role: 'user', content, timestamp: new Date() });
         this.userInput = '';
         this.isThinking = true;
+        this.sessionDirty = true;
+        this.autoSaveSession();
         const agentId = this.difyService.activeAgentId || 'IDEATION';
         this.thinkingMessage = `${this.currentAgent?.name || 'Agent'} is working`;
         this.startThinkingTimer(agentId);
@@ -522,6 +534,8 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
                 });
                 this.isThinking = false;
                 this.stopThinkingTimer();
+                this.sessionDirty = true;
+                this.autoSaveSession();
             }
         });
     }
@@ -551,9 +565,6 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             cardData = res.metadata?.payload;
         } else if (action === 'SHOW_PREDICTION' && res.metadata?.payload) {
             cardType = 'PREDICTION';
-            cardData = res.metadata.payload;
-        } else if (action === 'SHOW_AUTOFILL' && res.metadata?.payload) {
-            cardType = 'AUTOFILL';
             cardData = res.metadata.payload;
         } else if (action === 'SHOW_RISK' && res.metadata?.payload) {
             cardType = 'RISK';
@@ -600,24 +611,71 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
                 this.currentAgent = targetAgent;
             }
 
-            // Build an instant local greeting — no API call needed
-            const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
-            const agentName = targetAgent?.name || targetId;
-            const intentLine = intent ? `\n\nI understand you'd like to **${intent}**. ` : '\n\n';
-            const localGreeting = `👋 **${agentName}** is ready.${intentLine}Go ahead and describe your product idea or requirement — I'll guide you through the process step by step.`;
+            if (action === 'DELEGATE_AGENT' && targetId) {
+                const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
+                const agentName = targetAgent?.name || targetId;
 
-            this.messages.push({
-                role: 'agent',
-                content: localGreeting,
-                timestamp: new Date(),
-                agentIdentity: greetIdentity
-            });
-            this.isThinking = false;
-            this.stopThinkingTimer();
+                this.messages.push({
+                    role: 'agent',
+                    content: `**${agentName}** is now connected. Forwarding context from the orchestrator...`,
+                    timestamp: new Date(),
+                    agentIdentity: greetIdentity,
+                    cardType: 'INFO',
+                    cardData: { title: 'Agent Handoff', description: `${agentName} is taking over with full product context.` }
+                });
+
+                // Auto-send the orchestrator's last response as context to the new agent
+                this.isThinking = true;
+                this.startThinkingTimer(`${agentName} is loading context...`);
+                const contextSummary = this._buildDelegationContext(res.answer);
+                this.currentSubscription?.unsubscribe();
+                this.currentSubscription = this.difyService.sendMessage(
+                    contextSummary,
+                    { orchestrator_message: res.answer.substring(0, 4000) },
+                    targetId
+                ).subscribe({
+                    next: (res) => {
+                        this.handleDifyResponse(res);
+                    },
+                    error: () => {
+                        this.isThinking = false;
+                        this.stopThinkingTimer();
+                        this.sessionDirty = true;
+                        this.autoSaveSession();
+                    }
+                });
+            } else {
+                // Standard routing (ROUTE_DOMAIN etc.) — show local greeting
+                const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
+                const agentName = targetAgent?.name || targetId;
+                const intentLine = intent ? `\n\nI understand you'd like to **${intent}**. ` : '\n\n';
+                const localGreeting = `👋 **${agentName}** is ready.${intentLine}Go ahead and describe your product idea or requirement — I'll guide you through the process step by step.`;
+
+                this.messages.push({
+                    role: 'agent',
+                    content: localGreeting,
+                    timestamp: new Date(),
+                    agentIdentity: greetIdentity
+                });
+                this.isThinking = false;
+                this.stopThinkingTimer();
+            }
         } else {
             this.isThinking = false;
             this.stopThinkingTimer();
         }
+
+        this.sessionDirty = true;
+        this.autoSaveSession();
+    }
+
+    private _buildDelegationContext(orchestratorAnswer: string): string {
+        const trimmed = orchestratorAnswer.substring(0, 3000);
+        const userMessages = this.messages
+            .filter(m => m.role === 'user')
+            .map(m => m.content)
+            .join('\n');
+        return `[CONTEXT FROM ORCHESTRATOR]\nThe following product details were gathered during the routing phase. Please use this context to begin the structured interview — do not re-ask questions already answered.\n\nUser's original request:\n${userMessages.substring(0, 2000)}\n\nOrchestrator summary:\n${trimmed}`;
     }
 
     private finishDraft(payload?: any) {
@@ -686,6 +744,8 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
                             cardData: classificationData
                         });
                     }
+                    this.sessionDirty = true;
+                    this.autoSaveSession();
                 }
             },
             error: (err) => {
@@ -802,6 +862,15 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.showGenerateButton = false;
         this.activeAgents.forEach((_, key) => this.activeAgents.set(key, 'idle'));
         this.startConversation();
+    }
+
+    private autoSaveSession(): void {
+        if (this.messages.length === 0 || !this.sessionDirty) return;
+        this.chatSessionService.saveSession(
+            this.messages,
+            this.difyService.activeAgentId || this.currentAgent?.id,
+            this.currentAgent
+        );
     }
 
     /** Get agents that are currently active (running/done) for display */
