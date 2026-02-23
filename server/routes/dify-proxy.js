@@ -566,7 +566,15 @@ router.post('/chat', async (req, res) => {
         ideation_conversation_id: '', user_id: 'user-123', user_message: '',
         orchestrator_message: '', npa_data: ''
     };
-    const defaults = { ...universalDefaults, ...(CHATFLOW_DEFAULT_INPUTS[agent_id] || {}) };
+
+    // Only inject universal defaults into the specific Chatflow apps that require them.
+    // Agent apps (like MASTER_COO) will throw a 400 error if we send undeclared variables.
+    const needsUniversalDefaults = ['AG_NPA_BIZ', 'AG_NPA_TECH_OPS', 'AG_NPA_FINANCE', 'AG_NPA_RMG', 'AG_NPA_LCS'];
+    let defaults = CHATFLOW_DEFAULT_INPUTS[agent_id] || {};
+    if (needsUniversalDefaults.includes(agent_id)) {
+        defaults = { ...universalDefaults, ...defaults };
+    }
+
     const safeInputs = { ...defaults, ...inputs };
 
     // Always use streaming for Dify Agent apps (they don't support blocking)
