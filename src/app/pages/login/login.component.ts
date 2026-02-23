@@ -43,10 +43,7 @@ const ROLE_LABELS: Record<string, string> = {
     <div class="brand-overlay"></div>
     <div class="brand-content">
       <div class="brand-logo">
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-          <rect width="48" height="48" rx="12" fill="#D01E2A"/>
-          <text x="24" y="32" text-anchor="middle" font-family="Arial" font-weight="900" font-size="20" fill="white">DBS</text>
-        </svg>
+        <img src="assets/logos/Expanded_Logo.svg" alt="COO Workbench" class="brand-logo-img" />
         <div class="brand-title-group">
           <span class="brand-name">DBS Bank</span>
           <span class="brand-sub">COO Agentic Workbench</span>
@@ -54,26 +51,26 @@ const ROLE_LABELS: Record<string, string> = {
       </div>
 
       <div class="brand-headline">
-        <h1>New Product Approval<br><span>Command Centre</span></h1>
-        <p>AI-powered multi-agent platform for end-to-end NPA lifecycle management — from ideation to post-launch review.</p>
+        <h1>COO<br><span>Command Center</span></h1>
+        <p>AI-powered multi-agent workbench for COO workflows — NPA automation, approvals, escalations, and monitoring from initiation to post-launch review.</p>
       </div>
 
       <div class="feature-pills">
         <div class="pill">
           <span class="pill-icon">⚡</span>
-          <span>AI Draft Builder</span>
+          <span>NPA Automation</span>
         </div>
         <div class="pill">
           <span class="pill-icon">🛡️</span>
-          <span>Risk Classification</span>
+          <span>Risk & Compliance</span>
         </div>
         <div class="pill">
           <span class="pill-icon">✅</span>
-          <span>Multi-level Sign-off</span>
+          <span>Approvals & Sign-off</span>
         </div>
         <div class="pill">
           <span class="pill-icon">📊</span>
-          <span>PIR & Monitoring</span>
+          <span>Monitoring & PIR</span>
         </div>
       </div>
 
@@ -90,10 +87,7 @@ const ROLE_LABELS: Record<string, string> = {
       <!-- Header -->
       <div class="login-header">
         <div class="login-logo-sm">
-          <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="10" fill="#D01E2A"/>
-            <text x="24" y="31" text-anchor="middle" font-family="Arial" font-weight="900" font-size="18" fill="white">DBS</text>
-          </svg>
+          <img src="assets/logos/Collapsed_Logo.svg" alt="COO Workbench" class="login-logo-img" />
         </div>
         <div>
           <h2 class="login-title">Welcome back</h2>
@@ -286,6 +280,12 @@ const ROLE_LABELS: Record<string, string> = {
 .brand-logo {
   display: flex; align-items: center; gap: 14px;
 }
+.brand-logo-img {
+  height: 48px;
+  width: auto;
+  max-width: 220px;
+  display: block;
+}
 .brand-title-group { display: flex; flex-direction: column; }
 .brand-name {
   font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.3px;
@@ -351,6 +351,12 @@ const ROLE_LABELS: Record<string, string> = {
 /* ─── Login Header ─────────────────────────────────────────────────── */
 .login-header {
   display: flex; align-items: center; gap: 14px;
+}
+.login-logo-sm { display: flex; align-items: center; }
+.login-logo-img {
+  height: 36px;
+  width: auto;
+  display: block;
 }
 .login-title {
   font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.5px;
