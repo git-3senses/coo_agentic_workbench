@@ -560,7 +560,13 @@ router.post('/chat', async (req, res) => {
 
     // Merge default inputs for this agent to prevent "variable is required" 400 errors.
     // Client-provided values override defaults (spread order: defaults first, then client inputs).
-    const defaults = CHATFLOW_DEFAULT_INPUTS[agent_id] || {};
+    const universalDefaults = {
+        variable: '', session_id: '', current_project_id: '',
+        current_stage: 'draft_builder', user_role: 'analyst', last_action: '',
+        ideation_conversation_id: '', user_id: 'user-123', user_message: '',
+        orchestrator_message: '', npa_data: ''
+    };
+    const defaults = { ...universalDefaults, ...(CHATFLOW_DEFAULT_INPUTS[agent_id] || {}) };
     const safeInputs = { ...defaults, ...inputs };
 
     // Always use streaming for Dify Agent apps (they don't support blocking)
