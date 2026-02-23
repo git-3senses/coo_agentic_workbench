@@ -206,15 +206,7 @@ import { AuthService } from '../../../services/auth.service';
              </div>
           </div>
           
-          <div *ngIf="!chatMode()" class="flex items-center gap-3">
-              <button (click)="logout()" title="Sign out" class="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-red-400">
-                <lucide-icon name="log-out" class="w-4 h-4"></lucide-icon>
-              </button>
-              <div class="w-8 h-8 rounded-full bg-[#D01E2A] flex items-center justify-center text-xs font-bold shadow-lg border border-red-400/40"
-                   [title]="authUser()?.full_name || ''">
-                  {{ getInitials(authUser()?.full_name) }}
-              </div>
-          </div>
+
 
       </div>
     </header>
