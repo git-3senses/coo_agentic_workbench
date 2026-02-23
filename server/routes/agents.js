@@ -90,8 +90,8 @@ router.post('/sessions', async (req, res) => {
             `INSERT INTO agent_sessions (id, title, preview, agent_identity, domain_agent_json, user_id, project_id)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [id, title || 'New Chat', preview || null, agent_identity || null,
-             domain_agent_json ? JSON.stringify(domain_agent_json) : null,
-             user_id || 'default_user', project_id || null]
+                domain_agent_json ? JSON.stringify(domain_agent_json) : null,
+                user_id || 'default_user', project_id || null]
         );
 
         const [rows] = await db.query('SELECT * FROM agent_sessions WHERE id = ?', [id]);
@@ -207,7 +207,7 @@ router.post('/sessions/:id/messages', async (req, res) => {
             `INSERT INTO agent_messages (session_id, role, content, agent_identity_id, metadata)
              VALUES (?, ?, ?, ?, ?)`,
             [req.params.id, role, content, agent_identity_id || null,
-             metadata ? JSON.stringify(metadata) : null]
+            metadata ? JSON.stringify(metadata) : null]
         );
 
         // Also touch the session's updated_at and update preview if it's the first user message
@@ -245,14 +245,18 @@ router.post('/sessions/:id/messages/batch', async (req, res) => {
         await db.query('DELETE FROM agent_messages WHERE session_id = ?', [req.params.id]);
 
         // Insert all messages (with original timestamps to preserve order)
-        const values = messages.map(m => [
-            req.params.id,
-            m.role,
-            m.content,
-            m.agent_identity_id || null,
-            m.timestamp || new Date().toISOString(),
-            m.metadata ? JSON.stringify(m.metadata) : null
-        ]);
+        const values = messages.map(m => {
+            const dateObj = m.timestamp ? new Date(m.timestamp) : new Date();
+            const mysqlTimestamp = dateObj.toISOString().slice(0, 19).replace('T', ' ');
+            return [
+                req.params.id,
+                m.role,
+                m.content,
+                m.agent_identity_id || null,
+                mysqlTimestamp,
+                m.metadata ? JSON.stringify(m.metadata) : null
+            ];
+        });
 
         if (values.length > 0) {
             const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
