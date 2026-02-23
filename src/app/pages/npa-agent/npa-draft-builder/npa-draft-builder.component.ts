@@ -235,6 +235,9 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    /** Right panel collapse (hamburger) */
    rightPanelCollapsed = false;
 
+   /** Save status */
+   draftSaveError: string | null = null;
+
    // ─── Issues / Required tracking (for layout + right panel) ───────────────
    requiredMissingBySection: Record<string, number> = {};
    requiredTotal = 0;
@@ -307,7 +310,8 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
 
    ngOnInit(): void {
       const role = String(this.authService.currentUser?.role || '').toUpperCase();
-      this.isReadOnly = !(role === 'MAKER' || role === 'CHECKER');
+      // Treat missing token as read-only (prevents a confusing "edit mode" with 401s on persist).
+      this.isReadOnly = !(role === 'MAKER' || role === 'CHECKER') || !this.authService.token;
 
       if (this.inputData?.npaType) {
          this.npaClassification = this.inputData.npaType;
@@ -498,21 +502,76 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
 
       this.http.get<any[]>(`/api/npas/${id}/form-data`).subscribe({
          next: (formData) => {
-            if (!formData?.length) return;
-            for (const fd of formData) {
-               const field = this.fieldMap.get(fd.field_key);
-               if (field) {
-                  field.value = fd.field_value || '';
-                  field.lineage = (fd.lineage || 'MANUAL') as FieldLineage;
-                  field.confidence = fd.confidence_score;
-                  field.source = fd.metadata?.sourceSnippet;
-               }
+            if (formData?.length) {
+               this.applyFormDataToFieldMap(formData);
+               console.log('[DraftBuilder] Loaded', formData.length, 'fields from DB');
+            } else {
+               // No persisted form data yet — this is a freshly created NPA.
+               // Trigger deterministic pre-fill (RULE + COPY) from reference NPA.
+               console.log('[DraftBuilder] No existing form data — triggering auto-prefill for', id);
+               this.triggerPrefill(id);
             }
-            this.updateProgress();
-            this.recomputeRequiredStats();
-            console.log('[DraftBuilder] Loaded', formData.length, 'fields from DB');
          },
          error: (err) => console.warn('[DraftBuilder] Could not load form data:', err.message)
+      });
+   }
+
+   /**
+    * Apply an array of form-data rows (from DB or prefill) to the fieldMap.
+    * Updates progress and required stats after applying.
+    */
+   private applyFormDataToFieldMap(formData: any[]): void {
+      let applied = 0;
+      for (const fd of formData) {
+         const fieldKey = fd.field_key;
+         const value = fd.field_value ?? fd.value ?? '';
+         const field = this.fieldMap.get(fieldKey);
+         if (field && value) {
+            field.value = value;
+            field.lineage = (fd.lineage || 'AUTO') as FieldLineage;
+            field.confidence = fd.confidence_score ?? fd.confidence ?? null;
+            field.source = fd.metadata?.sourceSnippet || fd.source || null;
+            applied++;
+         }
+      }
+      this.updateProgress();
+      this.recomputeRequiredStats();
+      this.cdr.detectChanges();
+      return;
+   }
+
+   /**
+    * Deterministic pre-fill: calls GET /api/npas/:id/prefill to get RULE + COPY
+    * field values, persists them to DB, and applies them to the fieldMap.
+    * LLM and MANUAL fields remain empty for user/agent input.
+    */
+   private triggerPrefill(npaId: string): void {
+      this.http.get<any>(`/api/npas/${npaId}/prefill`).subscribe({
+         next: (prefillResult) => {
+            const filledFields = prefillResult?.filled_fields;
+            if (!filledFields?.length) {
+               console.log('[DraftBuilder] Prefill returned 0 fields');
+               return;
+            }
+
+            console.log(
+               `[DraftBuilder] Prefill returned ${filledFields.length} fields`,
+               `(${prefillResult.summary?.rule_count || 0} RULE, ${prefillResult.summary?.copy_count || 0} COPY)`,
+               prefillResult.similar_npa_id ? `from reference NPA: ${prefillResult.similar_npa_id}` : ''
+            );
+
+            // Apply to fieldMap immediately (don't wait for persist round-trip)
+            this.applyFormDataToFieldMap(filledFields);
+
+            // Persist to DB in background so future loads pick it up
+            this.http.post(`/api/npas/${npaId}/prefill/persist`, {
+               filled_fields: filledFields
+            }).subscribe({
+               next: (res: any) => console.log(`[DraftBuilder] Prefill persisted: ${res?.fields_saved || 0} fields`),
+               error: (err) => console.warn('[DraftBuilder] Prefill persist failed (fields still applied to UI):', err.message)
+            });
+         },
+         error: (err) => console.warn('[DraftBuilder] Prefill failed:', err.message)
       });
    }
 
@@ -1106,6 +1165,13 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       const projectId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
       if (!projectId) return;
 
+      // If not authenticated, don't spam requests; surface a clear error to the user.
+      if (!this.authService.token) {
+         this.draftSaveError = 'Not authenticated. Please re-login to save changes.';
+         this.isDirty = true;
+         return;
+      }
+
       const filled_fields: any[] = [];
       this.fieldMap.forEach((field, key) => {
          if (!this.isSectionApplicable(field.nodeId?.split('.').slice(0, 2).join('.') || '')) return;
@@ -1123,18 +1189,28 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       if (this.isSavingDraft) return;
 
       this.isSavingDraft = true;
+      this.draftSaveError = null;
       this.http.post(`/api/npas/${encodeURIComponent(projectId)}/form-data`, { filled_fields }).subscribe({
          next: () => {
             this.lastSavedAt = new Date();
             this.isDirty = false;
             this.isSavingDraft = false;
+            this.draftSaveError = null;
             if (mode === 'manual') console.log('[DraftBuilder] Saved to DB:', projectId);
             afterPersist?.();
             this.cdr.detectChanges();
          },
          error: (err) => {
             this.isSavingDraft = false;
-            console.warn('[DraftBuilder] Failed to persist form data:', err?.message || err);
+            const status = Number(err?.status || 0);
+            if (status === 401) {
+               this.draftSaveError = 'Session expired. Please log in again to save.';
+            } else {
+               this.draftSaveError = err?.error?.error || err?.message || 'Failed to save draft to DB';
+            }
+            this.isDirty = true;
+            console.warn('[DraftBuilder] Failed to persist form data:', this.draftSaveError);
+            this.cdr.detectChanges();
          }
       });
    }

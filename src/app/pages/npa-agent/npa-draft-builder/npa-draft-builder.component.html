@@ -56,6 +56,12 @@
             </span>
          </button>
 
+         <div *ngIf="draftSaveError"
+            class="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold max-w-[320px]">
+            <lucide-icon name="alert-circle" class="w-4 h-4 flex-none"></lucide-icon>
+            <span class="truncate">{{ draftSaveError }}</span>
+         </div>
+
          <button (click)="saveDraft()"
             [disabled]="isReadOnly || isSavingDraft"
             class="px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:hover:bg-blue-600 disabled:cursor-not-allowed">
