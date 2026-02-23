@@ -11,7 +11,7 @@ import { HttpClient } from '@angular/common/http';
   styleUrl: './evidence-library.css',
 })
 export class EvidenceLibraryComponent implements OnInit {
-  activeCategory: 'ALL' | 'PRECEDENTS' | 'AUDITS' | 'EXCEPTIONS' = 'ALL';
+  activeCategory: 'ALL' | 'PRECEDENTS' | 'PATTERNS' | 'AUDITS' | 'EXCEPTIONS' = 'ALL';
   private http = inject(HttpClient);
 
   evidenceItems: any[] = [];
@@ -44,7 +44,61 @@ export class EvidenceLibraryComponent implements OnInit {
   }
 
   get filteredItems() {
+    if (this.activeCategory === 'PATTERNS') return [];
     if (this.activeCategory === 'ALL') return this.evidenceItems;
     return this.evidenceItems.filter(item => item.type === this.activeCategory);
+  }
+
+  get precedentPatterns() {
+    const precedents = this.evidenceItems.filter(i => i.type === 'PRECEDENTS');
+    const total = precedents.length;
+    const approved = precedents.filter(p => p.status === 'APPROVED').length;
+    const rejected = precedents.filter(p => p.status === 'REJECTED').length;
+
+    const scores = precedents.map(p => (typeof p.score === 'number' ? p.score : null)).filter(s => s !== null) as number[];
+    const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+
+    const keywordCounts = new Map<string, number>();
+    const stop = new Set([
+      'the', 'and', 'for', 'with', 'via', 'from', 'into', 'over', 'under', 'to', 'of', 'in', 'a', 'an', 'on', 'by',
+      'product', 'agreement', 'platform', 'listed', 'multi', 'asset'
+    ]);
+    for (const p of precedents) {
+      const words = String(p.title || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\\s-]/g, ' ')
+        .split(/\\s+/)
+        .map(w => w.trim())
+        .filter(w => w.length >= 3 && !stop.has(w));
+      for (const w of words) keywordCounts.set(w, (keywordCounts.get(w) || 0) + 1);
+    }
+    const topKeywords = [...keywordCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([k, v]) => ({ k, v }));
+
+    return [
+      {
+        id: 'PAT-001',
+        icon: 'radar',
+        title: 'Precedent Outcome Mix',
+        desc: total ? `Approved ${approved}/${total}, Rejected ${rejected}/${total}.` : 'No precedents available yet.',
+        metric: total ? `${Math.round((approved / total) * 100)}% approved` : 'N/A',
+      },
+      {
+        id: 'PAT-002',
+        icon: 'bar-chart-2',
+        title: 'Average Relevance Score',
+        desc: avgScore === null ? 'No scored precedents yet.' : `Average relevance across scored precedents: ${avgScore}%.`,
+        metric: avgScore === null ? 'N/A' : `${avgScore}%`,
+      },
+      {
+        id: 'PAT-003',
+        icon: 'search',
+        title: 'Common Themes (from titles)',
+        desc: topKeywords.length ? topKeywords.map(t => `${t.k} (${t.v})`).join(', ') : 'Not enough data to infer themes.',
+        metric: topKeywords.length ? `${topKeywords[0].k}` : 'N/A',
+      },
+    ];
   }
 }
