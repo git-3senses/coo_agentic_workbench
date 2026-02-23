@@ -1,8 +1,10 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { SharedIconsModule } from '../../../shared/icons/shared-icons.module';
 import { LayoutService } from '../../../services/layout.service';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
     selector: 'app-app-sidebar',
@@ -289,10 +291,18 @@ import { LayoutService } from '../../../services/layout.service';
 
        <!-- Footer (expanded only) -->
        <div *ngIf="!isCollapsed()" class="p-3 border-t border-gray-200/60 w-full flex flex-col gap-2 z-40 sticky bottom-0 bg-[#f9f9f9]">
-           <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors font-medium text-black" title="User Profile">
-               <div class="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px]">V</div>
-               <span class="truncate">Vikramaditya</span>
-           </a>
+           <div class="flex items-center gap-3 px-3 py-2 rounded-md">
+               <div class="w-7 h-7 rounded-full bg-[#D01E2A] flex items-center justify-center text-white text-[10px] font-bold flex-none">
+                 {{ getInitials(currentUser()?.full_name) }}
+               </div>
+               <div class="flex-1 min-w-0">
+                 <div class="text-xs font-semibold text-gray-900 truncate">{{ currentUser()?.display_name || currentUser()?.full_name }}</div>
+                 <div class="text-[10px] text-gray-400 truncate">{{ currentUser()?.role }}</div>
+               </div>
+               <button (click)="logout()" title="Sign out" class="p-1.5 rounded hover:bg-red-50 hover:text-red-500 text-gray-400 transition-colors flex-none">
+                 <lucide-icon name="log-out" class="w-3.5 h-3.5"></lucide-icon>
+               </button>
+           </div>
        </div>
     </aside>
   `,
@@ -305,9 +315,23 @@ import { LayoutService } from '../../../services/layout.service';
 })
 export class AppSidebarComponent {
     private layoutService = inject(LayoutService);
+    private authService = inject(AuthService);
+    private router = inject(Router);
+
     isCollapsed = this.layoutService.isSidebarCollapsed;
+    currentUser = toSignal(this.authService.user$, { initialValue: this.authService.currentUser });
 
     toggleSidebar() {
         this.layoutService.toggleSidebar();
+    }
+
+    getInitials(name: string | undefined): string {
+        if (!name) return '?';
+        return name.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase();
+    }
+
+    logout() {
+        this.authService.logout();
+        this.router.navigate(['/login']);
     }
 }

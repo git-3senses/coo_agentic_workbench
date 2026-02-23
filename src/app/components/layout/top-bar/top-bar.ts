@@ -1,14 +1,17 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { SharedIconsModule } from '../../../shared/icons/shared-icons.module';
 import { LayoutService } from '../../../services/layout.service';
 import { UserService, UserRole } from '../../../services/user.service';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
-  selector: 'app-top-bar',
-  standalone: true,
-  imports: [CommonModule, SharedIconsModule],
-  template: `
+    selector: 'app-top-bar',
+    standalone: true,
+    imports: [CommonModule, SharedIconsModule],
+    template: `
     <header class="h-16 w-full bg-[#172733] text-white flex items-center px-0 transition-all duration-300">
       
       <!-- Left: Branding & Toggle Container -->
@@ -204,76 +207,93 @@ import { UserService, UserRole } from '../../../services/user.service';
           </div>
           
           <div *ngIf="!chatMode()" class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-500/20 border border-indigo-400">
-                  {{ currentUser().name.charAt(0) }}
+              <button (click)="logout()" title="Sign out" class="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-red-400">
+                <lucide-icon name="log-out" class="w-4 h-4"></lucide-icon>
+              </button>
+              <div class="w-8 h-8 rounded-full bg-[#D01E2A] flex items-center justify-center text-xs font-bold shadow-lg border border-red-400/40"
+                   [title]="authUser()?.full_name || ''">
+                  {{ getInitials(authUser()?.full_name) }}
               </div>
           </div>
 
       </div>
     </header>
   `,
-  styles: []
+    styles: []
 })
 export class TopBarComponent {
-  private layoutService = inject(LayoutService);
-  private userService = inject(UserService);
+    private layoutService = inject(LayoutService);
+    private userService = inject(UserService);
+    private authService = inject(AuthService);
+    private router = inject(Router);
 
-  isCollapsed = this.layoutService.isSidebarCollapsed;
-  chatMode = this.layoutService.chatMode;
-  currentUser = this.userService.currentUser;
-  isRoleMenuOpen = false;
+    isCollapsed = this.layoutService.isSidebarCollapsed;
+    chatMode = this.layoutService.chatMode;
+    currentUser = this.userService.currentUser;
+    authUser = toSignal(this.authService.user$, { initialValue: this.authService.currentUser });
+    isRoleMenuOpen = false;
 
-  toggleSidebar() {
-    this.layoutService.toggleSidebar();
-  }
-
-  toggleRoleMenu() {
-    this.isRoleMenuOpen = !this.isRoleMenuOpen;
-  }
-
-  switchRole(role: UserRole) {
-    this.userService.switchRole(role);
-    this.isRoleMenuOpen = false;
-  }
-
-  getRoleBadgeClass(role: string) {
-    if (role === 'MAKER') return 'bg-blue-600 text-white';
-    if (role === 'CHECKER') return 'bg-purple-600 text-white';
-    if (role === 'COO') return 'bg-yellow-600 text-white';
-    if (role === 'ADMIN') return 'bg-gray-600 text-white';
-
-    if (role === 'APPROVER_RISK') return 'bg-red-600 text-white';
-    if (role === 'APPROVER_MARKET') return 'bg-pink-600 text-white';
-    if (role === 'APPROVER_FINANCE') return 'bg-emerald-600 text-white';
-    if (role === 'APPROVER_TAX') return 'bg-teal-600 text-white';
-    if (role === 'APPROVER_LEGAL') return 'bg-indigo-400 text-white';
-    if (role === 'APPROVER_OPS') return 'bg-orange-600 text-white';
-    if (role === 'APPROVER_TECH') return 'bg-cyan-600 text-white';
-
-    return 'bg-gray-600 text-white';
-  }
-
-  getRoleInitial(role: string) {
-    if (role === 'MAKER') return 'M';
-    if (role === 'CHECKER') return 'C';
-    if (role === 'COO') return 'O';
-    if (role === 'ADMIN') return 'A';
-
-    if (role === 'APPROVER_RISK') return 'CR';
-    if (role === 'APPROVER_MARKET') return 'MR';
-    if (role === 'APPROVER_FINANCE') return 'F';
-    if (role === 'APPROVER_TAX') return 'TX';
-    if (role === 'APPROVER_LEGAL') return 'L';
-    if (role === 'APPROVER_OPS') return 'Op';
-    if (role === 'APPROVER_TECH') return 'T';
-
-    return '?';
-  }
-
-  formatRoleName(role: string) {
-    if (role.startsWith('APPROVER_')) {
-      return role.replace('APPROVER_', '') + ' HEAD';
+    toggleSidebar() {
+        this.layoutService.toggleSidebar();
     }
-    return role + ' VIEW';
-  }
+
+    toggleRoleMenu() {
+        this.isRoleMenuOpen = !this.isRoleMenuOpen;
+    }
+
+    switchRole(role: UserRole) {
+        this.userService.switchRole(role);
+        this.isRoleMenuOpen = false;
+    }
+
+    logout() {
+        this.authService.logout();
+        this.router.navigate(['/login']);
+    }
+
+    getInitials(name: string | undefined): string {
+        if (!name) return '?';
+        return name.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase();
+    }
+
+    getRoleBadgeClass(role: string) {
+        if (role === 'MAKER') return 'bg-blue-600 text-white';
+        if (role === 'CHECKER') return 'bg-purple-600 text-white';
+        if (role === 'COO') return 'bg-yellow-600 text-white';
+        if (role === 'ADMIN') return 'bg-gray-600 text-white';
+
+        if (role === 'APPROVER_RISK') return 'bg-red-600 text-white';
+        if (role === 'APPROVER_MARKET') return 'bg-pink-600 text-white';
+        if (role === 'APPROVER_FINANCE') return 'bg-emerald-600 text-white';
+        if (role === 'APPROVER_TAX') return 'bg-teal-600 text-white';
+        if (role === 'APPROVER_LEGAL') return 'bg-indigo-400 text-white';
+        if (role === 'APPROVER_OPS') return 'bg-orange-600 text-white';
+        if (role === 'APPROVER_TECH') return 'bg-cyan-600 text-white';
+
+        return 'bg-gray-600 text-white';
+    }
+
+    getRoleInitial(role: string) {
+        if (role === 'MAKER') return 'M';
+        if (role === 'CHECKER') return 'C';
+        if (role === 'COO') return 'O';
+        if (role === 'ADMIN') return 'A';
+
+        if (role === 'APPROVER_RISK') return 'CR';
+        if (role === 'APPROVER_MARKET') return 'MR';
+        if (role === 'APPROVER_FINANCE') return 'F';
+        if (role === 'APPROVER_TAX') return 'TX';
+        if (role === 'APPROVER_LEGAL') return 'L';
+        if (role === 'APPROVER_OPS') return 'Op';
+        if (role === 'APPROVER_TECH') return 'T';
+
+        return '?';
+    }
+
+    formatRoleName(role: string) {
+        if (role.startsWith('APPROVER_')) {
+            return role.replace('APPROVER_', '') + ' HEAD';
+        }
+        return role + ' VIEW';
+    }
 }
