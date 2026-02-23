@@ -57,19 +57,19 @@ const ROLE_LABELS: Record<string, string> = {
 
       <div class="feature-pills">
         <div class="pill">
-          <span class="pill-icon">⚡</span>
+          <span class="pill-icon material-symbols-outlined" aria-hidden="true">bolt</span>
           <span>NPA Automation</span>
         </div>
         <div class="pill">
-          <span class="pill-icon">🛡️</span>
+          <span class="pill-icon material-symbols-outlined" aria-hidden="true">security</span>
           <span>Risk & Compliance</span>
         </div>
         <div class="pill">
-          <span class="pill-icon">✅</span>
+          <span class="pill-icon material-symbols-outlined" aria-hidden="true">fact_check</span>
           <span>Approvals & Sign-off</span>
         </div>
         <div class="pill">
-          <span class="pill-icon">📊</span>
+          <span class="pill-icon material-symbols-outlined" aria-hidden="true">monitoring</span>
           <span>Monitoring & PIR</span>
         </div>
       </div>
@@ -113,7 +113,7 @@ const ROLE_LABELS: Record<string, string> = {
             <label class="field-label">Email Address</label>
             <div class="field-wrap">
               <span class="field-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span class="material-symbols-outlined" aria-hidden="true">mail</span>
               </span>
               <input
                 class="field-input"
@@ -131,7 +131,7 @@ const ROLE_LABELS: Record<string, string> = {
             <label class="field-label">Password</label>
             <div class="field-wrap">
               <span class="field-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span class="material-symbols-outlined" aria-hidden="true">lock</span>
               </span>
               <input
                 class="field-input"
@@ -143,9 +143,9 @@ const ROLE_LABELS: Record<string, string> = {
                 [disabled]="loading" />
               <button type="button" class="pw-toggle" (click)="showPassword = !showPassword">
                 @if (showPassword) {
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  <span class="material-symbols-outlined" aria-hidden="true">visibility_off</span>
                 } @else {
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
                 }
               </button>
             </div>
@@ -154,7 +154,7 @@ const ROLE_LABELS: Record<string, string> = {
 
           @if (error) {
             <div class="error-box">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span class="material-symbols-outlined" aria-hidden="true">error</span>
               <span>{{ error }}</span>
             </div>
           }
@@ -164,7 +164,7 @@ const ROLE_LABELS: Record<string, string> = {
               <span class="spinner"></span>
               <span>Signing in...</span>
             } @else {
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              <span class="material-symbols-outlined" aria-hidden="true">login</span>
               <span>Sign In</span>
             }
           </button>
@@ -201,7 +201,7 @@ const ROLE_LABELS: Record<string, string> = {
 
           @if (error) {
             <div class="error-box">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span class="material-symbols-outlined" aria-hidden="true">error</span>
               <span>{{ error }}</span>
             </div>
           }
@@ -214,7 +214,7 @@ const ROLE_LABELS: Record<string, string> = {
               <span class="spinner"></span>
               <span>Signing in...</span>
             } @else {
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              <span class="material-symbols-outlined" aria-hidden="true">login</span>
               <span>{{ selectedQuickUser ? 'Sign in as ' + selectedQuickUser.name : 'Select a user to continue' }}</span>
             }
           </button>
@@ -319,6 +319,10 @@ const ROLE_LABELS: Record<string, string> = {
 }
 .pill:hover { background: rgba(255,255,255,0.1); }
 .pill-icon { font-size: 14px; }
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  line-height: 1;
+}
 
 .brand-footer { margin-top: auto; }
 .brand-badge {
