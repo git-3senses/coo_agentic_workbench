@@ -4,22 +4,43 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Draft Builder – Concrete Redesign (Mock)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0"
+      rel="stylesheet"
+    />
     <style>
       :root {
-        --bg: #f8fafc;
-        --panel: #ffffff;
-        --muted: #64748b;
-        --text: #0f172a;
-        --border: rgba(15, 23, 42, 0.10);
+        /* Mirror app theme tokens (see src/styles.css) */
+        --background: 220 20% 97%;
+        --foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --muted: 220 14% 96%;
+        --muted-foreground: 220 9% 46%;
+        --primary: 204 100% 40%; /* DBS Blue #0077CC */
+        --primary-foreground: 210 40% 98%;
+        --destructive: 0 100% 62%; /* DBS Red #FF3E3E */
+        --border-hsl: 220 13% 91%;
+        --ring: 204 100% 40%;
+
+        /* Derived */
+        --bg: hsl(var(--background));
+        --panel: hsl(var(--card));
+        --text: hsl(var(--foreground));
+        --muted-text: hsl(var(--muted-foreground));
+        --border: hsl(var(--border-hsl));
         --border-strong: rgba(15, 23, 42, 0.16);
-        --blue: #2563eb;
-        --amber: #f59e0b;
-        --green: #10b981;
+        --primary-color: hsl(var(--primary));
+        --danger-color: hsl(var(--destructive));
+        --success: #10b981;
+        --warning: #f59e0b;
         --red: #ef4444;
         --shadow: 0 1px 2px rgba(0,0,0,0.05);
         --shadow-lg: 0 16px 40px rgba(15,23,42,0.10);
-        --radius: 14px;
-        --radius-sm: 10px;
+        /* Less rounded than previous mock; matches app feel */
+        --radius: 10px;
+        --radius-sm: 8px;
         --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       }
 
@@ -58,12 +79,13 @@
         background: #fff;
         display: inline-flex; align-items: center; justify-content: center;
         cursor: pointer;
+        color: rgba(15, 23, 42, 0.78);
       }
       .title {
         display: flex; flex-direction: column; line-height: 1.1;
       }
       .title h1 { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: -0.01em; }
-      .title p { margin: 2px 0 0; font-size: 10px; color: var(--muted); font-weight: 600; }
+      .title p { margin: 2px 0 0; font-size: 10px; color: var(--muted-text); font-weight: 650; }
 
       .topbar-right { display: flex; align-items: center; gap: 12px; }
       .pill {
@@ -73,7 +95,7 @@
         background: #fff;
         font-size: 11px;
         font-weight: 800;
-        color: var(--muted);
+        color: var(--muted-text);
       }
       .progress {
         display: flex; align-items: center; gap: 10px;
@@ -94,11 +116,11 @@
         display: block;
         height: 100%;
         width: 57%;
-        background: linear-gradient(90deg, var(--blue), #60a5fa);
+        background: linear-gradient(90deg, var(--primary-color), #57b0ff);
       }
       .metrics { display: flex; gap: 8px; align-items: baseline; }
-      .metrics .pct { font-weight: 900; color: var(--blue); font-variant-numeric: tabular-nums; }
-      .metrics .counts { font-size: 10px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .metrics .pct { font-weight: 900; color: var(--primary-color); font-variant-numeric: tabular-nums; }
+      .metrics .counts { font-size: 10px; color: var(--muted-text); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 
       .main { flex: 1; display: grid; grid-template-columns: 250px 1fr 360px; min-height: 0; }
 
@@ -110,7 +132,7 @@
 
       /* Left stepper */
       .stepper { padding: 14px 12px; overflow: auto; height: 100%; }
-      .stepper h2 { margin: 0 0 10px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+      .stepper h2 { margin: 0 0 10px; font-size: 11px; color: var(--muted-text); text-transform: uppercase; letter-spacing: 0.08em; }
       .step {
         padding: 10px 10px;
         border-radius: 12px;
@@ -120,30 +142,30 @@
         align-items: center;
         cursor: pointer;
       }
-      .step:hover { background: rgba(37, 99, 235, 0.05); }
-      .step.active { background: rgba(37, 99, 235, 0.08); outline: 1px solid rgba(37, 99, 235, 0.18); }
+      .step:hover { background: hsla(var(--primary), 0.05); }
+      .step.active { background: hsla(var(--primary), 0.08); outline: 1px solid hsla(var(--primary), 0.18); }
       .dot {
         width: 18px; height: 18px; border-radius: 999px;
         display: inline-flex; align-items: center; justify-content: center;
         font-size: 10px; font-weight: 900;
         border: 1px solid var(--border);
-        color: var(--muted);
+        color: var(--muted-text);
         background: #fff;
       }
-      .step.active .dot { border-color: rgba(37, 99, 235, 0.35); color: var(--blue); }
+      .step.active .dot { border-color: hsla(var(--primary), 0.35); color: var(--primary-color); }
       .step-title { font-size: 12px; font-weight: 800; }
-      .step-sub { font-size: 10px; color: var(--muted); margin-top: 2px; font-weight: 700; }
+      .step-sub { font-size: 10px; color: var(--muted-text); margin-top: 2px; font-weight: 750; }
       .badge {
         font-size: 10px;
         font-weight: 900;
         padding: 4px 8px;
         border-radius: 999px;
         border: 1px solid var(--border);
-        color: var(--muted);
+        color: var(--muted-text);
         background: #fff;
         font-variant-numeric: tabular-nums;
       }
-      .badge.req { border-color: rgba(239, 68, 68, 0.20); color: #b91c1c; background: rgba(239, 68, 68, 0.06); }
+      .badge.req { border-color: hsla(var(--destructive), 0.22); color: #b91c1c; background: hsla(var(--destructive), 0.08); }
       .badge.ok { border-color: rgba(16, 185, 129, 0.22); color: #047857; background: rgba(16, 185, 129, 0.07); }
 
       /* Center header + form */
@@ -158,28 +180,28 @@
       }
       .section-header .lhs { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
       .icon {
-        width: 36px; height: 36px; border-radius: 12px;
+        width: 36px; height: 36px; border-radius: var(--radius);
         display: inline-flex; align-items: center; justify-content: center;
-        background: rgba(37, 99, 235, 0.08);
-        border: 1px solid rgba(37, 99, 235, 0.15);
-        color: var(--blue);
+        background: hsla(var(--primary), 0.08);
+        border: 1px solid hsla(var(--primary), 0.15);
+        color: var(--primary-color);
         flex: none;
       }
       .section-header h3 { margin: 0; font-size: 14px; font-weight: 900; letter-spacing: -0.01em; }
-      .section-header p { margin: 4px 0 0; font-size: 11px; color: var(--muted); font-weight: 650; }
+      .section-header p { margin: 4px 0 0; font-size: 11px; color: var(--muted-text); font-weight: 700; }
       .quick-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
       .btn {
         border: 1px solid var(--border);
         background: #fff;
         padding: 8px 10px;
-        border-radius: 12px;
+        border-radius: var(--radius-sm);
         font-size: 11px;
         font-weight: 900;
         cursor: pointer;
         display: inline-flex; align-items: center; gap: 8px;
       }
-      .btn.primary { border-color: rgba(37, 99, 235, 0.25); background: rgba(37, 99, 235, 0.07); color: #1d4ed8; }
-      .btn.danger { border-color: rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.07); color: #b91c1c; }
+      .btn.primary { border-color: hsla(var(--primary), 0.25); background: hsla(var(--primary), 0.07); color: #1d4ed8; }
+      .btn.danger { border-color: hsla(var(--destructive), 0.25); background: hsla(var(--destructive), 0.08); color: #b91c1c; }
 
       .canvas { padding: 14px 16px 24px; overflow: auto; }
 
@@ -225,10 +247,10 @@
         border-radius: 999px;
         border: 1px solid var(--border);
         background: #fff;
-        color: var(--muted);
+        color: var(--muted-text);
         font-weight: 900;
       }
-      .chip.ai { border-color: rgba(37, 99, 235, 0.25); color: #1d4ed8; background: rgba(37, 99, 235, 0.06); cursor: pointer; }
+      .chip.ai { border-color: hsla(var(--primary), 0.25); color: #1d4ed8; background: hsla(var(--primary), 0.06); cursor: pointer; }
       .chip.manual { border-color: rgba(15, 23, 42, 0.10); }
       .chip.adapted { border-color: rgba(245, 158, 11, 0.25); color: #92400e; background: rgba(245, 158, 11, 0.07); }
       .chip.lowconf { border-color: rgba(239, 68, 68, 0.25); color: #b91c1c; background: rgba(239, 68, 68, 0.06); }
@@ -240,7 +262,7 @@
         width: 100%;
         border: 1px solid var(--border-strong);
         background: #fff;
-        border-radius: 12px;
+        border-radius: var(--radius-sm);
         padding: 10px 12px;
         font-size: 12px;
         font-weight: 650;
@@ -250,12 +272,14 @@
         transition: box-shadow 120ms ease, border-color 120ms ease;
       }
       .textarea { min-height: 92px; resize: vertical; }
-      .input:focus, .textarea:focus { border-color: rgba(37, 99, 235, 0.55); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12); }
+      .input:focus, .textarea:focus { border-color: hsla(var(--primary), 0.55); box-shadow: 0 0 0 4px hsla(var(--primary), 0.12); }
 
       /* READONLY mode rendering */
       body.mode-readonly .field { background: transparent; border: 0; padding: 10px 0; margin-bottom: 12px; }
       body.mode-readonly .cluster { padding: 16px; }
       body.mode-readonly .field-row { padding: 0; }
+      body.mode-readonly .input,
+      body.mode-readonly .textarea { display: none; }
       body.mode-readonly .readonly-text {
         padding: 0;
         font-size: 13px;
@@ -277,9 +301,9 @@
         justify-content: space-between;
         gap: 12px;
         flex-wrap: wrap;
-        color: var(--muted);
+        color: var(--muted-text);
         font-size: 10px;
-        font-weight: 750;
+        font-weight: 800;
       }
       .link {
         color: #1d4ed8;
@@ -305,7 +329,7 @@
         background: transparent;
         font-size: 11px;
         font-weight: 950;
-        color: var(--muted);
+        color: var(--muted-text);
         cursor: pointer;
       }
       .tab.active {
@@ -329,7 +353,7 @@
         background: #fff;
         font-size: 11px;
         font-weight: 950;
-        color: var(--muted);
+        color: var(--muted-text);
         cursor: pointer;
         white-space: nowrap;
       }
@@ -365,7 +389,7 @@
       .compose textarea {
         flex: 1;
         border: 1px solid var(--border-strong);
-        border-radius: 14px;
+        border-radius: var(--radius);
         padding: 10px 12px;
         min-height: 44px;
         max-height: 110px;
@@ -375,9 +399,9 @@
       }
       .send {
         width: 42px; height: 42px;
-        border-radius: 14px;
-        border: 1px solid rgba(37, 99, 235, 0.30);
-        background: rgba(37, 99, 235, 0.08);
+        border-radius: var(--radius);
+        border: 1px solid hsla(var(--primary), 0.30);
+        background: hsla(var(--primary), 0.08);
         color: #1d4ed8;
         font-weight: 950;
         cursor: pointer;
@@ -411,8 +435,99 @@
       .field-task .bd { margin-top: 8px; font-size: 11px; color: rgba(15,23,42,0.86); font-weight: 700; line-height: 1.4; }
       .field-task .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
       .mini { padding: 7px 10px; border-radius: 12px; border: 1px solid var(--border); background: #fff; font-size: 11px; font-weight: 950; cursor: pointer; }
-      .mini.primary { border-color: rgba(37,99,235,0.25); background: rgba(37,99,235,0.08); color: #1d4ed8; }
+      .mini.primary { border-color: hsla(var(--primary), 0.25); background: hsla(var(--primary), 0.08); color: #1d4ed8; }
       .mini.ghost { background: transparent; }
+
+      /* Material Symbols */
+      .ms {
+        font-family: "Material Symbols Outlined";
+        font-weight: normal;
+        font-style: normal;
+        font-size: 18px;
+        line-height: 1;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-feature-settings: 'liga';
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Comment button */
+      .comment-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: #fff;
+        color: rgba(15, 23, 42, 0.78);
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 900;
+      }
+      .comment-btn:hover { background: hsl(var(--muted)); }
+
+      /* Version placeholder */
+      .placeholder {
+        border: 1px dashed rgba(15, 23, 42, 0.18);
+        border-radius: var(--radius);
+        padding: 10px;
+        background: rgba(248, 250, 252, 0.7);
+        color: var(--muted-text);
+        font-size: 11px;
+        font-weight: 850;
+        margin-top: 12px;
+      }
+
+      /* Comments overlay */
+      .overlay-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.40);
+        display: none;
+        z-index: 1000;
+      }
+      .overlay-backdrop.open { display: block; }
+      .overlay {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100vh;
+        width: min(520px, 92vw);
+        background: var(--panel);
+        border-left: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        transform: translateX(110%);
+        transition: transform 180ms ease;
+        z-index: 1001;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .overlay.open { transform: translateX(0); }
+      .overlay-head {
+        padding: 14px 14px 12px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .overlay-head h6 { margin: 0; font-size: 13px; font-weight: 950; letter-spacing: -0.01em; }
+      .overlay-head .sub { margin-top: 3px; font-size: 11px; font-weight: 800; color: var(--muted-text); }
+      .overlay-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; }
+      .thread { border: 1px solid var(--border); border-radius: var(--radius); background: #fff; overflow: hidden; }
+      .msg { padding: 10px 12px; border-top: 1px solid var(--border); }
+      .msg:first-child { border-top: 0; }
+      .msg .meta { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; color: var(--muted-text); font-weight: 900; }
+      .msg .txt { margin-top: 6px; font-size: 12px; line-height: 1.45; font-weight: 650; color: rgba(15,23,42,0.92); white-space: pre-wrap; }
+      .reply-box { margin-top: 10px; display: flex; gap: 8px; align-items: flex-end; }
+      .reply-box textarea { flex: 1; min-height: 44px; max-height: 120px; resize: vertical; border-radius: var(--radius); border: 1px solid var(--border); padding: 10px 12px; font-size: 12px; font-weight: 650; }
+      .overlay-foot { padding: 12px 14px; border-top: 1px solid var(--border); background: #fff; }
     </style>
   </head>
 
@@ -435,7 +550,7 @@
           <!-- Added (non-removing): required-only progress + quality -->
           <div class="progress">
             <div class="bar" title="Required completion">
-              <span style="width: 78%; background: linear-gradient(90deg, var(--green), #34d399);"></span>
+              <span style="width: 78%; background: linear-gradient(90deg, var(--success), #34d399);"></span>
             </div>
             <div class="metrics">
               <div class="pct" style="color: #047857;">78%</div>
@@ -452,6 +567,12 @@
               <div class="counts">192/364</div>
             </div>
           </div>
+
+          <!-- Comments are available for all personas -->
+          <button class="comment-btn" data-comment-ref="Draft: NPA-2026-003" title="Draft comments">
+            <span class="ms" aria-hidden="true">chat_bubble</span>
+            Comments
+          </button>
 
           <button class="btn primary">Save Draft</button>
         </div>
@@ -543,6 +664,10 @@
                     <span class="chip lowconf edit-only" title="Low confidence / needs review">Needs review</span>
                   </div>
                   <div class="chips">
+                    <button class="comment-btn" data-comment-ref="Field: Business Rationale · product_specifications.basic_information.business_rationale" title="Comment">
+                      <span class="ms" aria-hidden="true">comment</span>
+                      2
+                    </button>
                     <span class="chip">Text</span>
                     <span class="chip edit-only">Attach</span>
                   </div>
@@ -559,6 +684,11 @@
                   <span>Lineage: MANUAL · Last edited: 12:41</span>
                   <a class="link" href="#">Add supporting citation</a>
                 </div>
+
+                <!-- Placeholder for future per-field versioning -->
+                <div class="placeholder">
+                  Versioning (placeholder): v3 · Diff / restore controls will appear here later (no feature removed).
+                </div>
               </div>
 
               <div class="field">
@@ -569,6 +699,10 @@
                     <span class="chip adapted edit-only">Adapted</span>
                   </div>
                   <div class="chips">
+                    <button class="comment-btn" data-comment-ref="Field: Problem Statement · product_specifications.basic_information.problem_statement" title="Comment">
+                      <span class="ms" aria-hidden="true">comment</span>
+                      0
+                    </button>
                     <span class="chip">Text</span>
                   </div>
                 </div>
@@ -582,6 +716,10 @@
                   <span>Lineage: ADAPTED · Confidence: 85%</span>
                   <a class="link" href="#">View provenance</a>
                 </div>
+
+                <div class="placeholder">
+                  Versioning (placeholder): v1 · Diff / restore controls will appear here later.
+                </div>
               </div>
 
               <div class="field">
@@ -592,6 +730,10 @@
                     <span class="chip manual edit-only">Manual</span>
                   </div>
                   <div class="chips">
+                    <button class="comment-btn" data-comment-ref="Field: Value Proposition · product_specifications.basic_information.value_proposition" title="Comment">
+                      <span class="ms" aria-hidden="true">comment</span>
+                      1
+                    </button>
                     <span class="chip">Text</span>
                   </div>
                 </div>
@@ -620,6 +762,10 @@
                     <span class="chip ai edit-only">Ask AI</span>
                   </div>
                   <div class="chips">
+                    <button class="comment-btn" data-comment-ref="Field: Target Clients · product_specifications.supporting_details.target_clients" title="Comment">
+                      <span class="ms" aria-hidden="true">comment</span>
+                      0
+                    </button>
                     <span class="chip">Multi</span>
                   </div>
                 </div>
@@ -638,6 +784,10 @@
                     <span class="chip ai edit-only">Ask AI</span>
                   </div>
                   <div class="chips">
+                    <button class="comment-btn" data-comment-ref="Field: Distribution Channels · product_specifications.supporting_details.distribution_channels" title="Comment">
+                      <span class="ms" aria-hidden="true">comment</span>
+                      0
+                    </button>
                     <span class="chip">Text</span>
                   </div>
                 </div>
@@ -727,6 +877,92 @@
         </aside>
       </div>
     </div>
+
+    <!-- Comments Overlay -->
+    <div class="overlay-backdrop" id="commentBackdrop" aria-hidden="true"></div>
+    <aside class="overlay" id="commentOverlay" aria-label="Comments panel">
+      <div class="overlay-head">
+        <div style="min-width:0;">
+          <h6>Comments</h6>
+          <div class="sub" id="commentRef">—</div>
+        </div>
+        <button class="btn-icon" id="commentClose" title="Close">✕</button>
+      </div>
+
+      <div class="overlay-body">
+        <div class="thread" id="commentThread">
+          <div class="msg">
+            <div class="meta"><span>Sarah Chen · Maker</span><span>Today 12:38</span></div>
+            <div class="txt">Please align this with MAS notice requirements and include target client segment.</div>
+          </div>
+          <div class="msg">
+            <div class="meta"><span>James Wilson · Checker</span><span>Today 12:44</span></div>
+            <div class="txt">Add a sentence on why ETF wrapper mitigates complexity risks vs direct bond exposure.</div>
+          </div>
+        </div>
+
+        <div class="placeholder">
+          Thread supports replies + resolve state (placeholder). UI slot is here now; wiring to DB comes later.
+        </div>
+      </div>
+
+      <div class="overlay-foot">
+        <div class="reply-box">
+          <textarea id="commentInput" placeholder="Add a comment…"></textarea>
+          <button class="send" id="commentSend" title="Post">➤</button>
+        </div>
+        <div class="placeholder">
+          Versions (placeholder): each field edit will create a version entry with diff + restore.
+        </div>
+      </div>
+    </aside>
+
+    <script>
+      (function () {
+        const backdrop = document.getElementById('commentBackdrop');
+        const overlay = document.getElementById('commentOverlay');
+        const ref = document.getElementById('commentRef');
+        const closeBtn = document.getElementById('commentClose');
+        const sendBtn = document.getElementById('commentSend');
+        const input = document.getElementById('commentInput');
+        const thread = document.getElementById('commentThread');
+
+        function open(refText) {
+          ref.textContent = refText || 'Draft comments';
+          backdrop.classList.add('open');
+          overlay.classList.add('open');
+          setTimeout(() => input && input.focus(), 0);
+        }
+
+        function close() {
+          backdrop.classList.remove('open');
+          overlay.classList.remove('open');
+        }
+
+        document.addEventListener('click', (e) => {
+          const btn = e.target.closest && e.target.closest('[data-comment-ref]');
+          if (!btn) return;
+          e.preventDefault();
+          open(btn.getAttribute('data-comment-ref'));
+        });
+
+        backdrop.addEventListener('click', close);
+        closeBtn.addEventListener('click', close);
+
+        sendBtn.addEventListener('click', () => {
+          const txt = (input.value || '').trim();
+          if (!txt) return;
+          const msg = document.createElement('div');
+          msg.className = 'msg';
+          msg.innerHTML =
+            '<div class="meta"><span>You</span><span>Just now</span></div>' +
+            '<div class="txt"></div>';
+          msg.querySelector('.txt').textContent = txt;
+          thread.appendChild(msg);
+          input.value = '';
+          thread.scrollTop = thread.scrollHeight;
+        });
+      })();
+    </script>
   </body>
 </html>
-
