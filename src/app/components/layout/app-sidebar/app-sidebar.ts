@@ -289,7 +289,7 @@ import { AuthService } from '../../../services/auth.service';
 
        </nav>
 
-       <!-- Footer (expanded only) -->
+       <!-- Footer (expanded) -->
        <div *ngIf="!isCollapsed()" class="p-3 border-t border-gray-200/60 w-full flex flex-col gap-2 z-40 sticky bottom-0 bg-[#f9f9f9]">
            <div class="flex items-center gap-3 px-3 py-2 rounded-md">
                <div class="w-7 h-7 rounded-full bg-[#D01E2A] flex items-center justify-center text-white text-[10px] font-bold flex-none">
@@ -299,10 +299,17 @@ import { AuthService } from '../../../services/auth.service';
                  <div class="text-xs font-semibold text-gray-900 truncate">{{ currentUser()?.display_name || currentUser()?.full_name }}</div>
                  <div class="text-[10px] text-gray-400 truncate">{{ currentUser()?.role }}</div>
                </div>
-               <button (click)="logout()" title="Sign out" class="p-1.5 rounded hover:bg-red-50 hover:text-red-500 text-gray-400 transition-colors flex-none">
-                 <lucide-icon name="log-out" class="w-3.5 h-3.5"></lucide-icon>
+               <button (click)="logout()" title="Sign out" class="p-2 rounded hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors flex-none">
+                 <lucide-icon name="log-out" class="w-4 h-4"></lucide-icon>
                </button>
            </div>
+       </div>
+
+       <!-- Footer (collapsed) -->
+       <div *ngIf="isCollapsed()" class="p-2 border-t border-gray-200/60 w-full z-40 sticky bottom-0 bg-[#f9f9f9] flex items-center justify-center">
+           <button (click)="logout()" title="Sign out" class="p-2 rounded-md hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors">
+             <lucide-icon name="log-out" class="w-5 h-5"></lucide-icon>
+           </button>
        </div>
     </aside>
   `,
