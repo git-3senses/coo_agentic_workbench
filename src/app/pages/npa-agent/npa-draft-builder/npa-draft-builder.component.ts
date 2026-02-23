@@ -232,6 +232,9 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    /** Read-only UI mode for non Maker/Checker personas */
    isReadOnly = false;
 
+   /** Right panel collapse (hamburger) */
+   rightPanelCollapsed = false;
+
    // ─── Issues / Required tracking (for layout + right panel) ───────────────
    requiredMissingBySection: Record<string, number> = {};
    requiredTotal = 0;
@@ -1005,6 +1008,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    openIssuesPanel(): void {
       this.agentPanelTab = 'ISSUES';
       this.recomputeRequiredStats();
+      if (this.rightPanelCollapsed) this.rightPanelCollapsed = false;
    }
 
    goToNextMissingRequired(): void {

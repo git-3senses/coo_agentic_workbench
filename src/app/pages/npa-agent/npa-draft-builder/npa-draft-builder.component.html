@@ -67,12 +67,12 @@
    <!-- ═══════════════════════════════════════════════════════════ -->
    <!-- MAIN 3-COLUMN LAYOUT                                       -->
    <!-- ═══════════════════════════════════════════════════════════ -->
-   <div class="flex-1 overflow-hidden flex">
+   <div class="flex-1 overflow-hidden flex gap-4 p-4">
 
       <!-- ─────────────────────────────────────────────────────── -->
       <!-- LEFT COLUMN: Section Stepper (w-60)                     -->
       <!-- ─────────────────────────────────────────────────────── -->
-      <div class="w-64 flex-none bg-white border-r border-slate-200 flex flex-col overflow-hidden">
+      <div class="w-72 flex-none bg-white border border-slate-200 rounded-xl flex flex-col overflow-hidden">
          <app-npa-section-stepper
             [sections]="stepperSections"
             [activeSectionId]="activeSectionId"
@@ -87,11 +87,11 @@
       <!-- ─────────────────────────────────────────────────────── -->
       <!-- CENTER COLUMN: Section Form Renderer (flex-1)           -->
       <!-- ─────────────────────────────────────────────────────── -->
-      <div class="flex-1 flex flex-col overflow-hidden bg-slate-50">
+      <div class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl">
 
          <!-- Section Header -->
          <div *ngIf="getActiveSection() as section"
-            class="flex-none px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between">
+            class="flex-none px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between rounded-t-xl">
             <div class="flex items-center gap-3">
                <div class="p-2 rounded-lg border"
                   [class]="getGroupForSection(section.id).bgClass + ' border ' + getGroupForSection(section.id).borderClass">
@@ -222,10 +222,23 @@
       <!-- ─────────────────────────────────────────────────────── -->
       <!-- RIGHT COLUMN: Agent Chat / Knowledge Panel (w-80)       -->
       <!-- ─────────────────────────────────────────────────────── -->
-      <div class="w-80 flex-none bg-white border-l border-slate-200 flex flex-col overflow-hidden">
+      <div
+         class="flex-none bg-white border border-slate-200 rounded-xl flex flex-col overflow-hidden transition-[width] duration-200"
+         [class.w-96]="!rightPanelCollapsed"
+         [class.w-12]="rightPanelCollapsed">
+
+         <div class="flex-none flex items-center justify-between px-2 py-2 border-b border-slate-200 bg-slate-50/50">
+            <button (click)="rightPanelCollapsed = !rightPanelCollapsed"
+               class="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+               [title]="rightPanelCollapsed ? 'Expand panel' : 'Collapse panel'">
+               <lucide-icon name="menu" class="w-4 h-4"></lucide-icon>
+            </button>
+            <div *ngIf="!rightPanelCollapsed" class="text-[11px] font-bold text-slate-700">Assistant Panel</div>
+            <div *ngIf="!rightPanelCollapsed" class="w-8"></div>
+         </div>
 
          <!-- Tabbed Header for Right Panel -->
-         <div class="flex-none flex items-center p-1.5 bg-slate-50 border-b border-slate-200">
+         <div *ngIf="!rightPanelCollapsed" class="flex-none flex items-center p-1.5 bg-slate-50 border-b border-slate-200">
             <button (click)="agentPanelTab = 'CHAT'"
                class="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-xs font-semibold transition-colors"
                [class.bg-white]="agentPanelTab === 'CHAT'" [class.shadow-sm]="agentPanelTab === 'CHAT'"
@@ -261,7 +274,7 @@
          </div>
 
          <!-- VIEW 1: Agent Chat -->
-         <app-npa-agent-chat #agentChat *ngIf="agentPanelTab === 'CHAT'" [signOffGroups]="signOffGroups"
+         <app-npa-agent-chat #agentChat *ngIf="!rightPanelCollapsed && agentPanelTab === 'CHAT'" [signOffGroups]="signOffGroups"
             [activeAgentId]="activeAgentId" [agentChats]="agentChats" [sectionFieldGroups]="sectionFieldGroups"
             [inputData]="inputData"
             (agentSelected)="selectAgent($event)" (validateRequested)="validateDraft()"
@@ -269,7 +282,7 @@
          </app-npa-agent-chat>
 
          <!-- VIEW 2: Knowledge Base & Evidence Panel -->
-         <div *ngIf="agentPanelTab === 'KNOWLEDGE'" class="flex-1 flex flex-col min-h-0 bg-slate-50/30 relative">
+         <div *ngIf="!rightPanelCollapsed && agentPanelTab === 'KNOWLEDGE'" class="flex-1 flex flex-col min-h-0 bg-slate-50/30 relative">
 
             <!-- Citation Details -->
             <div *ngIf="selectedCitation" class="flex-1 flex flex-col min-h-0">
@@ -330,7 +343,7 @@
          </div>
 
          <!-- VIEW 3: Issues -->
-         <div *ngIf="agentPanelTab === 'ISSUES'" class="flex-1 flex flex-col min-h-0 bg-white">
+         <div *ngIf="!rightPanelCollapsed && agentPanelTab === 'ISSUES'" class="flex-1 flex flex-col min-h-0 bg-white">
             <div class="px-4 py-3 border-b border-slate-200 bg-slate-50/50">
                <div class="text-xs font-bold text-slate-800">Issues</div>
                <div class="mt-1 text-[11px] text-slate-500">
