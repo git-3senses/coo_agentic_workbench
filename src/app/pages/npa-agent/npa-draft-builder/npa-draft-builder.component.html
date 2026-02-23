@@ -211,7 +211,7 @@
          </div>
 
          <!-- VIEW 1: Agent Chat -->
-         <app-npa-agent-chat *ngIf="agentPanelTab === 'CHAT'" [signOffGroups]="signOffGroups"
+         <app-npa-agent-chat #agentChat *ngIf="agentPanelTab === 'CHAT'" [signOffGroups]="signOffGroups"
             [activeAgentId]="activeAgentId" [agentChats]="agentChats" [sectionFieldGroups]="sectionFieldGroups"
             [inputData]="inputData"
             (agentSelected)="selectAgent($event)" (validateRequested)="validateDraft()"

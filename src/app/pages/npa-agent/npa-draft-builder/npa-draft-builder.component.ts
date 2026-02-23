@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, inject, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SharedIconsModule } from '../../../shared/icons/shared-icons.module';
@@ -182,6 +182,8 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
 
    private http = inject(HttpClient);
    private cdr = inject(ChangeDetectorRef);
+
+   @ViewChild('agentChat') agentChatComponent?: NpaAgentChatComponent;
 
    // ─── Stepper State ──────────────────────────────────────────
    stepperSections: StepperSection[] = [];
@@ -457,15 +459,11 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       const sectionId = field.nodeId?.split('.').slice(0, 2).join('.') || '';
       const owner = this.getSectionOwner(sectionId);
       this.activeAgentId = owner;
-      // The NpaAgentChatComponent will handle the actual sending
-      const chat = this.agentChats.get(owner);
-      if (chat) {
-         chat.messages.push({
-            role: 'user',
-            content: `Help me fill the "${field.label}" field. What should the value be based on the product context?`,
-            timestamp: new Date()
-         });
-      }
+      this.agentPanelTab = 'CHAT';
+
+      // Ensure the chat component is rendered (it's behind an *ngIf) and receives the new activeAgentId.
+      this.cdr.detectChanges();
+      setTimeout(() => this.agentChatComponent?.askAboutField(field), 0);
    }
 
 

@@ -1012,6 +1012,7 @@ router.get('/agents/status', (req, res) => {
             type: a.type,
             icon: a.icon,
             color: a.color,
+            configured: a.configured,
             status: a.configured ? 'ready' : 'unconfigured'
         }))
     };
