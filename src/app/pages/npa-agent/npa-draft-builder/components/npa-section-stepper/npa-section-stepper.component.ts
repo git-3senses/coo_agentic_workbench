@@ -16,6 +16,7 @@ export class NpaSectionStepperComponent {
    @Input() filledFields = 0;
    @Input() totalFields = 0;
    @Input() overallProgress = 0;
+   @Input() requiredMissingBySection: Record<string, number> = {};
 
    @Output() sectionSelected = new EventEmitter<string>();
 
@@ -42,5 +43,9 @@ export class NpaSectionStepperComponent {
 
    trackBySectionId(_index: number, section: StepperSection): string {
       return section.id;
+   }
+
+   missingRequired(sectionId: string): number {
+      return Number(this.requiredMissingBySection?.[sectionId] || 0);
    }
 }

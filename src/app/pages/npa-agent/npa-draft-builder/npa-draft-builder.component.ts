@@ -232,6 +232,13 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    /** Read-only UI mode for non Maker/Checker personas */
    isReadOnly = false;
 
+   // ─── Issues / Required tracking (for layout + right panel) ───────────────
+   requiredMissingBySection: Record<string, number> = {};
+   requiredTotal = 0;
+   requiredFilled = 0;
+   requiredMissing = 0;
+   focusedFieldKey: string | null = null;
+
    // Comments drawer state (non-breaking placeholder)
    commentsDrawerOpen = false;
    commentsDrawerTitle = '';
@@ -285,7 +292,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    showValidation = false;
 
    // ─── Knowledge & Evidence Panel ─────────────────────────────
-   agentPanelTab: 'CHAT' | 'KNOWLEDGE' = 'CHAT'; // Toggle between Chat and KB
+   agentPanelTab: 'CHAT' | 'KNOWLEDGE' | 'ISSUES' = 'CHAT'; // Toggle between Chat and KB/Issues
    selectedCitation: Citation | null = null; // Currently viewed citation
 
    // ─── Expose to template ─────────────────────────────────────
@@ -499,6 +506,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
                }
             }
             this.updateProgress();
+            this.recomputeRequiredStats();
             console.log('[DraftBuilder] Loaded', formData.length, 'fields from DB');
          },
          error: (err) => console.warn('[DraftBuilder] Could not load form data:', err.message)
@@ -514,20 +522,24 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    /** Fired by NpaFieldRendererComponent when a field value changes */
    onFieldEdited(field: FieldState): void {
       this.isDirty = true;
+      this.focusedFieldKey = field.key;
       // Clear validation error when user provides a value
       if (field.value && field.value.trim() !== '') {
          field.validationError = undefined;
       }
       this.updateProgress();
+      this.recomputeRequiredStats();
    }
 
    /** Fired by NpaFieldRendererComponent when a field is cleared */
    onFieldCleared(field: FieldState): void {
       this.updateProgress();
+      this.recomputeRequiredStats();
    }
 
    /** Fired by NpaFieldRendererComponent — delegates to the agent chat */
    askAgentAboutField(field: FieldState): void {
+      this.focusedFieldKey = field.key;
       const sectionId = field.nodeId?.split('.').slice(0, 2).join('.') || '';
       const owner = this.getSectionOwner(sectionId);
       this.activeAgentId = owner;
@@ -543,6 +555,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    onApplyFieldSuggestion(suggestion: FieldSuggestion): void {
       const field = this.fieldMap.get(suggestion.fieldKey);
       if (field) {
+         this.focusedFieldKey = field.key;
          const format = (suggestion as any)?.format || 'text';
          if (format === 'bullets' && field.type === 'bullet_list') {
             const items = this.parseBulletItems(suggestion.value);
@@ -566,6 +579,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          field.validationError = undefined;
          this.isDirty = true;
          this.updateProgress();
+         this.recomputeRequiredStats();
          // Persist immediately so "anything over draft" is DB-backed (comments + field edits).
          this.persistFormDataToDb('autosave');
          console.log(`[DraftBuilder] Applied suggestion for ${suggestion.fieldKey}`);
@@ -975,6 +989,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          }
       });
       this.showValidation = this.validationErrors.length > 0;
+      this.recomputeRequiredStats();
       return this.validationErrors.length === 0;
    }
 
@@ -985,6 +1000,68 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
 
    dismissValidation(): void {
       this.showValidation = false;
+   }
+
+   openIssuesPanel(): void {
+      this.agentPanelTab = 'ISSUES';
+      this.recomputeRequiredStats();
+   }
+
+   goToNextMissingRequired(): void {
+      const first = this.validationErrors?.[0];
+      if (!first) return;
+      this.jumpToField(first.field, first.section);
+   }
+
+   jumpToField(fieldKey: string, sectionId?: string): void {
+      if (sectionId) this.selectSection(sectionId);
+      this.focusedFieldKey = fieldKey;
+      // Let the DOM render the section content before scrolling.
+      setTimeout(() => {
+         const el = document.getElementById(`field_${fieldKey}`);
+         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 0);
+   }
+
+   private recomputeRequiredStats(): void {
+      const bySection: Record<string, number> = {};
+      let missing = 0;
+      let total = 0;
+      let filled = 0;
+
+      this.fieldMap.forEach((f) => {
+         if (!f.required) return;
+         const sectionId = f.nodeId?.split('.').slice(0, 2).join('.') || '';
+         if (!this.isSectionApplicable(sectionId)) return;
+
+         total++;
+         const hasValue = !!(f.value && String(f.value).trim());
+         if (hasValue) filled++;
+         if (!hasValue) {
+            missing++;
+            bySection[sectionId] = (bySection[sectionId] || 0) + 1;
+         }
+      });
+
+      // If validationErrors is populated, prefer it for section mapping (more exact).
+      if (this.validationErrors?.length) {
+         const by: Record<string, number> = {};
+         for (const e of this.validationErrors) {
+            by[e.section] = (by[e.section] || 0) + 1;
+         }
+         this.requiredMissingBySection = by;
+      } else {
+         this.requiredMissingBySection = bySection;
+      }
+
+      this.requiredTotal = total;
+      this.requiredFilled = filled;
+      this.requiredMissing = missing;
+   }
+
+   requiredProgressPercent(): number {
+      if (!this.requiredTotal) return 0;
+      return Math.round((this.requiredFilled / this.requiredTotal) * 100);
    }
 
    // ═══════════════════════════════════════════════════════════

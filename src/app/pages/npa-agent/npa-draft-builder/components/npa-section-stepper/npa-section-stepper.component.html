@@ -32,11 +32,17 @@
 
          <!-- Label & Progress -->
          <div class="flex-1 min-w-0">
-            <p class="text-[11px] font-semibold leading-tight truncate"
+            <div class="flex items-start justify-between gap-2">
+               <p class="text-[11px] font-semibold leading-tight truncate"
                [class.text-blue-700]="activeSectionId === section.id"
                [class.text-slate-700]="activeSectionId !== section.id">
                {{ section.label }}
-            </p>
+               </p>
+               <span *ngIf="missingRequired(section.id) > 0"
+                     class="flex-none inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 text-[9px] font-bold">
+                  {{ missingRequired(section.id) }} req
+               </span>
+            </div>
             <div class="flex items-center gap-1.5 mt-1">
                <div class="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                   <div class="h-full rounded-full transition-all duration-300"
