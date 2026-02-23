@@ -188,7 +188,8 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
          ? `[Context: Reviewing NPA sections ${group?.sections.join(', ')}]\n\n${sectionContext}\n\nUser question: ${userMessage}`
          : userMessage;
 
-      // Use DifyService for real agent call with streaming
+      // Use blocking mode (server collects SSE and returns JSON). This is far more reliable
+      // in dev/proxy environments than piping SSE streams end-to-end.
       chat.isStreaming = true;
       chat.streamText = '';
 
@@ -199,43 +200,50 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
          user_message: userMessage
       };
 
-      this.difyService.sendMessageStreamed(fullPrompt, inputs, agentKey).subscribe({
-         next: (event) => {
-            if (event.type === 'chunk') {
-               chat.streamText += event.text || '';
-               this.shouldScrollToBottom = true;
-               this.cdr.detectChanges();
-            }
-         },
-         error: (err) => {
-            console.warn(`[AgentChat] Agent ${agentKey} error:`, err.message);
+      this.difyService.sendMessage(fullPrompt, inputs, agentKey).subscribe({
+         next: (resp) => {
             chat.messages.push({
-               role: 'system',
-               content: `Agent ${this.getActiveGroup().shortLabel} is not connected. Create the "${this.getAgentDifyAppName()}" Chatflow app on Dify, then add the API key to server/.env as DIFY_KEY_${agentKey}.`,
+               role: 'agent',
+               content: resp.answer || '',
                timestamp: new Date()
             });
+
+            const rawSuggestions = (resp as any)?.metadata?.payload?.field_suggestions;
+            if (Array.isArray(rawSuggestions) && rawSuggestions.length) {
+               this.pendingSuggestions = rawSuggestions.map((s: any) => ({
+                  fieldKey: String(s.field_key || s.fieldKey || ''),
+                  label: s.label ? String(s.label) : undefined,
+                  value: String(s.suggested_value ?? s.value ?? ''),
+                  confidence: typeof s.confidence === 'number' ? s.confidence : undefined
+               })).filter((s: FieldSuggestion) => !!s.fieldKey);
+            } else {
+               this.pendingSuggestions = [];
+            }
+
             chat.isStreaming = false;
             chat.streamText = '';
+            chat.isConnected = true;
             this.shouldScrollToBottom = true;
             this.autoSaveSession(chat);
             this.cdr.detectChanges();
          },
-         complete: () => {
-            if (chat.streamText.trim()) {
-               // Parse @@NPA_META@@ field suggestions from response
-               const { cleanText, suggestions } = this.parseNpaMeta(chat.streamText);
-               chat.messages.push({
-                  role: 'agent',
-                  content: cleanText,
-                  timestamp: new Date()
-               });
-               if (suggestions.length > 0) {
-                  this.pendingSuggestions = suggestions;
-               }
-            }
+         error: (err) => {
+            const apiDetail =
+               err?.error?.metadata?.trace?.error_detail ||
+               err?.error?.metadata?.trace?.detail ||
+               err?.error?.detail ||
+               err?.error?.error ||
+               err?.message ||
+               'Unknown error';
+
+            console.warn(`[AgentChat] Agent ${agentKey} error:`, apiDetail);
+            chat.messages.push({
+               role: 'system',
+               content: `Agent request failed (HTTP ${err?.status || 'N/A'}). ${String(apiDetail)}`,
+               timestamp: new Date()
+            });
             chat.isStreaming = false;
             chat.streamText = '';
-            chat.isConnected = true;
             this.shouldScrollToBottom = true;
             this.autoSaveSession(chat);
             this.cdr.detectChanges();
