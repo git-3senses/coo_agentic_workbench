@@ -20,6 +20,7 @@ export interface FieldSuggestion {
    label?: string;
    value: string;
    confidence?: number;
+   format?: 'text' | 'bullets';
 }
 
 @Component({
@@ -53,6 +54,9 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
 
    /** Pending field suggestions parsed from last agent response */
    pendingSuggestions: FieldSuggestion[] = [];
+
+   /** If the user clicked the field AI button, we remember which field to apply the next answer to. */
+   private pendingFieldHelp: { fieldKey: string; label?: string } | null = null;
 
    agentConfigured = new Map<string, boolean>();
    isTestingAgent = false;
@@ -202,9 +206,10 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
 
       this.difyService.sendMessage(fullPrompt, inputs, agentKey).subscribe({
          next: (resp) => {
+            const answerText = String(resp.answer || '').trim();
             chat.messages.push({
                role: 'agent',
-               content: resp.answer || '',
+               content: answerText,
                timestamp: new Date()
             });
 
@@ -217,9 +222,21 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
                   confidence: typeof s.confidence === 'number' ? s.confidence : undefined
                })).filter((s: FieldSuggestion) => !!s.fieldKey);
             } else {
-               this.pendingSuggestions = [];
+               // Fallback: if the user clicked "Ask agent about this field", provide an apply-to-field action
+               // even when the agent did not return structured metadata.
+               if (this.pendingFieldHelp?.fieldKey && answerText) {
+                  this.pendingSuggestions = [{
+                     fieldKey: this.pendingFieldHelp.fieldKey,
+                     label: this.pendingFieldHelp.label,
+                     value: answerText,
+                     format: 'text'
+                  }];
+               } else {
+                  this.pendingSuggestions = [];
+               }
             }
 
+            this.pendingFieldHelp = null;
             chat.isStreaming = false;
             chat.streamText = '';
             chat.isConnected = true;
@@ -253,6 +270,7 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
 
    /** Auto-ask the agent about a specific field */
    askAboutField(field: FieldState): void {
+      this.pendingFieldHelp = { fieldKey: field.key, label: field.label };
       this.chatInput = `Help me fill the "${field.label}" field. What should the value be based on the product context?`;
       this.sendChatMessage();
    }
@@ -276,6 +294,10 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
       }
    }
 
+   onApplySuggestionAsBullets(suggestion: FieldSuggestion): void {
+      this.onApplySuggestion({ ...suggestion, format: 'bullets' });
+   }
+
    /** Apply all pending suggestions */
    applyAllSuggestions(): void {
       for (const s of this.pendingSuggestions) {
@@ -294,6 +316,17 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
          this.autoSaveSession(chat);
          this.cdr.detectChanges();
       }
+   }
+
+   isBulletField(fieldKey: string): boolean {
+      if (!fieldKey) return false;
+      for (const groups of this.sectionFieldGroups.values()) {
+         for (const g of groups) {
+            const f = g.fields?.find(ff => ff.key === fieldKey);
+            if (f) return f.type === 'bullet_list';
+         }
+      }
+      return false;
    }
 
    private autoSaveSession(chat: AgentChat): void {

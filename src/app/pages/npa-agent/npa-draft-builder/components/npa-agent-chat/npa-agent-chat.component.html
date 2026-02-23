@@ -106,11 +106,19 @@
             <div class="flex items-center justify-between">
                <span class="text-[11px] font-semibold text-slate-700">{{ suggestion.label || suggestion.fieldKey
                   }}</span>
-               <button (click)="onApplySuggestion(suggestion)"
-                  class="text-[9px] font-bold text-emerald-700 hover:bg-emerald-100 px-2 py-0.5 rounded transition-colors flex items-center gap-1">
-                  <lucide-icon name="check" class="w-2.5 h-2.5"></lucide-icon>
-                  Apply
-               </button>
+               <div class="flex items-center gap-1">
+                  <button *ngIf="isBulletField(suggestion.fieldKey)"
+                     (click)="onApplySuggestionAsBullets(suggestion)"
+                     class="text-[9px] font-bold text-emerald-700 hover:bg-emerald-100 px-2 py-0.5 rounded transition-colors flex items-center gap-1">
+                     <lucide-icon name="list" class="w-2.5 h-2.5"></lucide-icon>
+                     Bullets
+                  </button>
+                  <button (click)="onApplySuggestion(suggestion)"
+                     class="text-[9px] font-bold text-emerald-700 hover:bg-emerald-100 px-2 py-0.5 rounded transition-colors flex items-center gap-1">
+                     <lucide-icon name="check" class="w-2.5 h-2.5"></lucide-icon>
+                     Apply
+                  </button>
+               </div>
             </div>
             <p class="text-[11px] text-slate-600 leading-relaxed">{{ suggestion.value.substring(0, 200) }}{{
                suggestion.value.length > 200 ? '...' : '' }}</p>

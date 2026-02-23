@@ -543,16 +543,58 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    onApplyFieldSuggestion(suggestion: FieldSuggestion): void {
       const field = this.fieldMap.get(suggestion.fieldKey);
       if (field) {
-         field.value = suggestion.value;
+         const format = (suggestion as any)?.format || 'text';
+         if (format === 'bullets' && field.type === 'bullet_list') {
+            const items = this.parseBulletItems(suggestion.value);
+            field.bulletItems = items.length ? items : [''];
+            const joined = (field.bulletItems || []).filter(b => String(b || '').trim()).join('\n\u2022 ');
+            field.value = joined ? `\u2022 ${joined}` : '';
+         } else {
+            field.value = suggestion.value;
+            // Best-effort: keep bullet_list editor in sync if we received a bulleted response.
+            if (field.type === 'bullet_list') {
+               const items = this.parseBulletItems(suggestion.value);
+               if (items.length) {
+                  field.bulletItems = items;
+                  const joined = items.filter(b => String(b || '').trim()).join('\n\u2022 ');
+                  field.value = joined ? `\u2022 ${joined}` : field.value;
+               }
+            }
+         }
          field.lineage = 'ADAPTED';
          field.confidence = suggestion.confidence;
          field.validationError = undefined;
          this.isDirty = true;
          this.updateProgress();
+         // Persist immediately so "anything over draft" is DB-backed (comments + field edits).
+         this.persistFormDataToDb('autosave');
          console.log(`[DraftBuilder] Applied suggestion for ${suggestion.fieldKey}`);
       } else {
          console.warn(`[DraftBuilder] Unknown field key in suggestion: ${suggestion.fieldKey}`);
       }
+   }
+
+   private parseBulletItems(text: string): string[] {
+      const raw = String(text || '').trim();
+      if (!raw) return [];
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const items: string[] = [];
+      for (const line of lines) {
+         // Remove common bullet/number prefixes: "• ", "- ", "* ", "1. ", "1) "
+         const cleaned = line
+            .replace(/^([•*-]|\d+[\.\)])\s+/, '')
+            .replace(/^\u2022\s+/, '')
+            .trim();
+         if (!cleaned) continue;
+         items.push(cleaned);
+         if (items.length >= 60) break;
+      }
+      // If it's a single paragraph, allow splitting by semicolon as a last resort.
+      if (items.length <= 1 && raw.length > 120 && raw.includes(';')) {
+         const semi = raw.split(';').map(s => s.trim()).filter(Boolean);
+         if (semi.length > 1) return semi.slice(0, 60);
+      }
+      return items;
    }
 
    /** Fired by NpaFieldRendererComponent when a user clicks a KB Citation */
