@@ -151,8 +151,47 @@ router.post('/login', async (req, res) => {
 });
 
 // GET /api/auth/me — return current user payload from JWT
-router.get('/me', authMiddleware(), requireAuth(), (req, res) => {
-    res.json({ user: req.user });
+router.get('/me', authMiddleware(), requireAuth(), async (req, res) => {
+    const userId = req.user?.userId;
+    const email = req.user?.email;
+
+    try {
+        if (userId) {
+            const [rows] = await db.query('SELECT * FROM users WHERE id = ? AND is_active = TRUE', [userId]);
+            if (rows[0]) return res.json({ user: formatUser(rows[0]) });
+        }
+
+        if (email) {
+            const normalized = String(email).toLowerCase().trim();
+            const [rows] = await db.query('SELECT * FROM users WHERE email = ? AND is_active = TRUE', [normalized]);
+            if (rows[0]) return res.json({ user: formatUser(rows[0]) });
+        }
+    } catch (dbErr) {
+        console.warn('[AUTH] /me DB unavailable, using fallback:', dbErr.message);
+    }
+
+    // Fallback (DB unavailable or user not found): map from known demo users or JWT payload
+    const fallback =
+        (userId && FALLBACK_USERS.find(u => u.id === userId)) ||
+        (email && FALLBACK_USERS.find(u => u.email === String(email).toLowerCase().trim())) ||
+        null;
+
+    if (fallback) return res.json({ user: formatUser(fallback) });
+
+    // Last resort: return minimal user derived from token (keeps clients from crashing)
+    return res.json({
+        user: {
+            id: userId || 'unknown',
+            email: email || null,
+            employee_id: null,
+            full_name: req.user?.name || email || 'Unknown',
+            display_name: req.user?.name || null,
+            role: req.user?.role || 'UNKNOWN',
+            department: 'Unknown',
+            job_title: 'Unknown',
+            location: null,
+        },
+    });
 });
 
 // POST /api/auth/logout — stateless, client discards token
