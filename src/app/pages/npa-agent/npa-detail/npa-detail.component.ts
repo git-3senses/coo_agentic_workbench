@@ -500,12 +500,31 @@ export class NpaDetailComponent implements OnInit {
 
    // ─── Editor Management ────────────────────────────────────────────
 
+   isIdeationStage(): boolean {
+      return String(this.projectData?.current_stage || '').toUpperCase() === 'IDEATION';
+   }
+
+   continueIdeation(): void {
+      this.activeTab = 'CHAT';
+   }
+
    openEditor(): void {
       this.showDraftBuilder = true;
    }
 
    openDraftBuilder(): void {
       this.showDraftBuilder = true;
+   }
+
+   openDraftBuilderFromIdeation(): void {
+      if (!this.isIdeationStage()) {
+         this.openDraftBuilder();
+         return;
+      }
+      const proceed = confirm(
+         'This record is still in Prospect (Ideation). Recommended: complete Ideation readiness before drafting.\n\nOpen Draft Builder anyway?'
+      );
+      if (proceed) this.openDraftBuilder();
    }
 
    onDraftBuilderClosed(): void {

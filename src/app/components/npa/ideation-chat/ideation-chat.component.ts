@@ -390,14 +390,18 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
 
     startConversation() {
         this.difyService.reset();
-        // Push initial greeting via DifyService — starts with MASTER_COO
+        // Start with the provided defaultAgent (e.g. IDEATION for Prospect mode,
+        // NPA_ORCHESTRATOR for lifecycle chat), falling back to MASTER_COO.
+        const startAgent = this.defaultAgent || 'MASTER_COO';
+        this.difyService.setActiveAgent(startAgent);
+        this.currentAgent = this.AGENTS[startAgent] || this.AGENTS['MASTER_COO'];
         this.isThinking = true;
-        this.difyService.sendMessage('', {}, 'MASTER_COO').subscribe(res => {
+        this.difyService.sendMessage('', {}, startAgent).subscribe(res => {
             this.messages.push({
                 role: 'agent',
                 content: res.answer,
                 timestamp: new Date(),
-                agentIdentity: this.AGENTS['MASTER_COO']
+                agentIdentity: this.AGENTS[startAgent] || this.AGENTS['MASTER_COO']
             });
             this.isThinking = false;
             this.stopThinkingTimer();
@@ -512,7 +516,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.isThinking = true;
         this.sessionDirty = true;
         this.autoSaveSession();
-        const agentId = this.difyService.activeAgentId || 'IDEATION';
+        const agentId = this.difyService.activeAgentId || this.defaultAgent || 'IDEATION';
         this.thinkingMessage = `${this.currentAgent?.name || 'Agent'} is working`;
         this.startThinkingTimer(agentId);
 

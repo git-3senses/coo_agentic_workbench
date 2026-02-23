@@ -137,6 +137,7 @@ export class NpaPipelineTableComponent implements OnInit {
 
   private mapStage(backendStage: string): string {
     const map: any = {
+      'IDEATION': 'Prospect (Ideation)',
       'INITIATION': 'Discovery',
       'DISCOVERY': 'Discovery',
       'REVIEW': 'DCE Review',
