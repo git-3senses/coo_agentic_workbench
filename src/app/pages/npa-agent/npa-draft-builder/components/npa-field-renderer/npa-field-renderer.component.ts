@@ -146,6 +146,57 @@ export class NpaFieldRendererComponent {
       }
    }
 
+   // ─── Textarea Auto-Resize ───────────────────────────────────────
+
+   autoResize(event: Event): void {
+      const textarea = event.target as HTMLTextAreaElement;
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+   }
+
+   // ─── Table Grid ──────────────────────────────────────────────────
+
+   get tableRows(): any[][] {
+      if (!this.field.tableData || this.field.tableData.length === 0) {
+         // Initialize with 3 empty rows if columns defined
+         if (this.field.tableColumns && this.field.tableColumns.length > 0) {
+            this.field.tableData = [
+               this.field.tableColumns.map(() => ''),
+               this.field.tableColumns.map(() => ''),
+               this.field.tableColumns.map(() => '')
+            ];
+         }
+      }
+      return this.field.tableData || [];
+   }
+
+   addTableRow(): void {
+      if (!this.field.tableData) this.field.tableData = [];
+      const cols = this.field.tableColumns?.length || 3;
+      this.field.tableData.push(new Array(cols).fill(''));
+      this.syncTableToValue();
+   }
+
+   removeTableRow(rowIndex: number): void {
+      if (this.field.tableData && this.field.tableData.length > 1) {
+         this.field.tableData.splice(rowIndex, 1);
+         this.syncTableToValue();
+      }
+   }
+
+   updateTableCell(rowIndex: number, colIndex: number, value: string): void {
+      if (this.field.tableData) {
+         this.field.tableData[rowIndex][colIndex] = value;
+         this.syncTableToValue();
+      }
+   }
+
+   private syncTableToValue(): void {
+      // Serialize table data to JSON string for persistence
+      this.field.value = JSON.stringify(this.field.tableData);
+      this.fieldEdited.emit(this.field);
+   }
+
    // ─── Helpers ───────────────────────────────────────────────────
 
    isOptionSelected(option: string): boolean {

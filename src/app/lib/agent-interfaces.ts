@@ -1,6 +1,7 @@
 /**
- * Agent Interfaces — 13 Agents across 4 Tiers
+ * Agent Interfaces — 18 Agents across 4 Tiers
  * Source of truth: ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md
+ * + 5 Draft Builder Sign-Off Chat Agents (BIZ, TECH_OPS, FINANCE, RMG, LCS)
  */
 
 // ─── Agent Registry ──────────────────────────────────────────────
@@ -32,6 +33,13 @@ export const AGENT_REGISTRY: AgentDefinition[] = [
     { id: 'DILIGENCE', name: 'Conversational Diligence', tier: 3, icon: 'message-square', color: 'bg-cyan-50 text-cyan-600', difyType: 'chat', description: 'Q&A with KB citations and regulatory context' },
     { id: 'DOC_LIFECYCLE', name: 'Document Lifecycle', tier: 3, icon: 'scan-search', color: 'bg-teal-50 text-teal-600', difyType: 'workflow', description: 'Document validation, completeness, expiry tracking' },
     { id: 'MONITORING', name: 'Post-Launch Monitoring', tier: 3, icon: 'activity', color: 'bg-emerald-50 text-emerald-600', difyType: 'workflow', description: 'Performance metrics, breach detection, PIR scheduling' },
+
+    // Tier 3B — Draft Builder Sign-Off Chat Agents
+    { id: 'AG_NPA_BIZ', name: 'NPA Business Agent', tier: 3, icon: 'briefcase', color: 'bg-blue-50 text-blue-600', difyType: 'chat', description: 'Section I (Product Specs) + VII (Trading) — product description, market sizing, customer profiling' },
+    { id: 'AG_NPA_TECH_OPS', name: 'NPA Tech & Ops Agent', tier: 3, icon: 'settings', color: 'bg-indigo-50 text-indigo-600', difyType: 'chat', description: 'Section II (Operational & Technology) — operating model, system impact, BCM planning' },
+    { id: 'AG_NPA_FINANCE', name: 'NPA Finance Agent', tier: 3, icon: 'calculator', color: 'bg-emerald-50 text-emerald-600', difyType: 'chat', description: 'Section III (Pricing) + V (Data Management) — pricing methodology, model validation, tax' },
+    { id: 'AG_NPA_RMG', name: 'NPA Risk Management Agent', tier: 3, icon: 'shield-alert', color: 'bg-red-50 text-red-600', difyType: 'chat', description: 'Section IV (Risk Analysis) + VI (Other Risks) — market, credit, operational, liquidity risk' },
+    { id: 'AG_NPA_LCS', name: 'NPA Legal & Compliance Agent', tier: 3, icon: 'scale', color: 'bg-amber-50 text-amber-600', difyType: 'chat', description: 'Appendix 1-6 — legal opinions, compliance checklists, financial crime assessment' },
 
     // Tier 4 — Shared Utilities
     { id: 'KB_SEARCH', name: 'KB Search Agent', tier: 4, icon: 'search', color: 'bg-fuchsia-50 text-fuchsia-600', difyType: 'chat', description: 'Semantic/hybrid search over knowledge base' },

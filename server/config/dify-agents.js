@@ -4,7 +4,7 @@
  *
  * Source of truth: ENTERPRISE_AGENT_ARCHITECTURE_FREEZE.md §3 & §11
  *
- * 13 logical agents across 4 tiers, deployed as 11 Dify apps:
+ * 18 logical agents across 5 tiers, deployed as 16 Dify apps:
  *   - CF_COO_Orchestrator     (Chatflow)  → MASTER_COO
  *   - CF_NPA_Orchestrator     (Chatflow)  → NPA_ORCHESTRATOR
  *   - CF_NPA_Ideation         (Chatflow)  → IDEATION
@@ -16,6 +16,13 @@
  *   - WF_NPA_Doc_Lifecycle    (Workflow)  → DOC_LIFECYCLE
  *   - WF_NPA_Monitoring       (Workflow)  → MONITORING
  *   - WF_NPA_Notification     (Workflow)  → NOTIFICATION
+ *
+ * Draft Builder Chat Agents (5 Chatflow apps for NPA section sign-off):
+ *   - CF_NPA_BIZ              (Chatflow)  → AG_NPA_BIZ
+ *   - CF_NPA_TECH_OPS         (Chatflow)  → AG_NPA_TECH_OPS
+ *   - CF_NPA_FINANCE          (Chatflow)  → AG_NPA_FINANCE
+ *   - CF_NPA_RMG              (Chatflow)  → AG_NPA_RMG
+ *   - CF_NPA_LCS              (Chatflow)  → AG_NPA_LCS
  */
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
@@ -177,6 +184,74 @@ const DIFY_AGENTS = {
         tier: 4,
         icon: 'bell',
         color: 'bg-pink-50 text-pink-600'
+    },
+
+    // ─── Tier 3B — Draft Builder Sign-Off Chat Agents ──────────────
+    // 5 dedicated Chatflow apps for section-level NPA guidance & drafting
+
+    // Dify App: CF_NPA_BIZ (Chatflow) — Business/Proposing Unit
+    // Owns: Section I (Product Specs), Section VII (Trading Info)
+    // Knowledge: Product catalogs, PAC minutes, market analysis
+    AG_NPA_BIZ: {
+        key: process.env.DIFY_KEY_AG_NPA_BIZ || '',
+        type: 'chat',
+        difyApp: 'CF_NPA_BIZ',
+        name: 'NPA Business Agent',
+        tier: 3,
+        icon: 'briefcase',
+        color: 'bg-blue-50 text-blue-600'
+    },
+
+    // Dify App: CF_NPA_TECH_OPS (Chatflow) — Technology & Operations + ISS
+    // Owns: Section II (Operational & Technology)
+    // Knowledge: System architecture docs, BCP templates, DR runbooks
+    AG_NPA_TECH_OPS: {
+        key: process.env.DIFY_KEY_AG_NPA_TECH_OPS || '',
+        type: 'chat',
+        difyApp: 'CF_NPA_TECH_OPS',
+        name: 'NPA Tech & Ops Agent',
+        tier: 3,
+        icon: 'settings',
+        color: 'bg-indigo-50 text-indigo-600'
+    },
+
+    // Dify App: CF_NPA_FINANCE (Chatflow) — Group Finance
+    // Owns: Section III (Pricing), Section V (Data Management)
+    // Knowledge: Pricing models, SIMM docs, RDAR policies, PURE guidelines
+    AG_NPA_FINANCE: {
+        key: process.env.DIFY_KEY_AG_NPA_FINANCE || '',
+        type: 'chat',
+        difyApp: 'CF_NPA_FINANCE',
+        name: 'NPA Finance Agent',
+        tier: 3,
+        icon: 'calculator',
+        color: 'bg-emerald-50 text-emerald-600'
+    },
+
+    // Dify App: CF_NPA_RMG (Chatflow) — Risk Management Group
+    // Owns: Section IV (Risk Analysis), Section VI (Other Risks)
+    // Knowledge: MAS Notice 637, risk frameworks, capital calc methods, stress scenarios
+    AG_NPA_RMG: {
+        key: process.env.DIFY_KEY_AG_NPA_RMG || '',
+        type: 'chat',
+        difyApp: 'CF_NPA_RMG',
+        name: 'NPA Risk Management Agent',
+        tier: 3,
+        icon: 'shield-alert',
+        color: 'bg-red-50 text-red-600'
+    },
+
+    // Dify App: CF_NPA_LCS (Chatflow) — Legal, Compliance & Secretariat
+    // Owns: Appendix 1–6
+    // Knowledge: Banking Act, AML/CFT regs, IP law, PDPA, sanctions lists
+    AG_NPA_LCS: {
+        key: process.env.DIFY_KEY_AG_NPA_LCS || '',
+        type: 'chat',
+        difyApp: 'CF_NPA_LCS',
+        name: 'NPA Legal & Compliance Agent',
+        tier: 3,
+        icon: 'scale',
+        color: 'bg-amber-50 text-amber-600'
     }
 };
 

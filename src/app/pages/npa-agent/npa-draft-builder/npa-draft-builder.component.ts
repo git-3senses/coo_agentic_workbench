@@ -20,7 +20,7 @@ import { WorkflowStreamEvent, AutoFillField } from '../../../lib/agent-interface
 // Sub-components
 import { NpaFieldRendererComponent } from './components/npa-field-renderer/npa-field-renderer.component';
 import { NpaSectionStepperComponent } from './components/npa-section-stepper/npa-section-stepper.component';
-import { NpaAgentChatComponent } from './components/npa-agent-chat/npa-agent-chat.component';
+import { NpaAgentChatComponent, FieldSuggestion } from './components/npa-agent-chat/npa-agent-chat.component';
 
 // ────────────────────────────────────────────────────────────
 // Types (exported for child components to import)
@@ -76,6 +76,10 @@ export interface FieldState {
    attachable?: boolean;
    attachedFiles?: string[];
    referenceUrl?: string;
+   currencyCode?: string;
+   tableColumns?: string[];
+   tableData?: any[][];
+   validationError?: string;
 }
 
 export interface AgentChat {
@@ -314,7 +318,8 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
             dependsOn: entry.dependsOn,
             bulletItems: entry.fieldType === 'bullet_list' ? [''] : undefined,
             selectedOptions: (entry.fieldType === 'multiselect' || entry.fieldType === 'checkbox_group') ? [] : undefined,
-            yesNoValue: entry.fieldType === 'yesno' ? null : undefined
+            yesNoValue: entry.fieldType === 'yesno' ? null : undefined,
+            currencyCode: entry.fieldType === 'currency' ? 'SGD' : undefined
          };
          this.fieldMap.set(entry.key, fieldState);
       }
@@ -520,6 +525,10 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    /** Fired by NpaFieldRendererComponent when a field value changes */
    onFieldEdited(field: FieldState): void {
       this.isDirty = true;
+      // Clear validation error when user provides a value
+      if (field.value && field.value.trim() !== '') {
+         field.validationError = undefined;
+      }
       this.updateProgress();
    }
 
@@ -550,6 +559,22 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       console.log('[DraftBuilder] Auto-fill section requested for', this.activeSectionId);
    }
 
+   /** Apply a field suggestion from agent chat (@@NPA_META@@ parsed) */
+   onApplyFieldSuggestion(suggestion: FieldSuggestion): void {
+      const field = this.fieldMap.get(suggestion.fieldKey);
+      if (field) {
+         field.value = suggestion.value;
+         field.lineage = 'ADAPTED';
+         field.confidence = suggestion.confidence;
+         field.validationError = undefined;
+         this.isDirty = true;
+         this.updateProgress();
+         console.log(`[DraftBuilder] Applied suggestion for ${suggestion.fieldKey}`);
+      } else {
+         console.warn(`[DraftBuilder] Unknown field key in suggestion: ${suggestion.fieldKey}`);
+      }
+   }
+
    // ═══════════════════════════════════════════════════════════
    // Navigation
    // ═══════════════════════════════════════════════════════════
@@ -558,6 +583,11 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       this.activeSectionId = sectionId;
       if (!this.expandedSections.has(sectionId)) {
          this.expandedSections.add(sectionId);
+      }
+      // Auto-switch agent tab to match the new section's owner
+      const owner = this.getSectionOwner(sectionId);
+      if (owner !== this.activeAgentId) {
+         this.activeAgentId = owner;
       }
    }
 
@@ -672,11 +702,15 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
 
    validateDraft(): boolean {
       this.validationErrors = [];
+      // Clear previous validation errors from all fields
+      this.fieldMap.forEach(field => { field.validationError = undefined; });
+
       this.fieldMap.forEach((field, key) => {
          if (!field.required) return;
          if (!this.isSectionApplicable(field.nodeId?.split('.').slice(0, 2).join('.') || '')) return;
          if (!field.value || field.value.trim() === '') {
             const sectionId = field.nodeId?.split('.').slice(0, 2).join('.') || 'Unknown';
+            field.validationError = 'This field is required';
             this.validationErrors.push({ field: key, label: field.label, section: sectionId });
          }
       });

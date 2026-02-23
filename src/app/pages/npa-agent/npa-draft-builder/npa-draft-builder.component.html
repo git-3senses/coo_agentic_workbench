@@ -203,7 +203,8 @@
             [sectionFieldGroups]="sectionFieldGroups"
             (agentSelected)="selectAgent($event)"
             (autoFillRequested)="onAutoFillSection()"
-            (validateRequested)="validateDraft()">
+            (validateRequested)="validateDraft()"
+            (applySuggestion)="onApplyFieldSuggestion($event)">
          </app-npa-agent-chat>
       </div>
    </div>

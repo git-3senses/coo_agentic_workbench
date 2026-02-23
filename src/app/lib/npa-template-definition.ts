@@ -88,7 +88,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Purpose or Rationale for Proposal',
               numbering: 'a)',
               guidance: 'Describe the purpose or rationale for the proposal — what are the benefits to customers or BU/SU? Set out what problem it aims to solve. The summary should address the problem statement or articulate the value proposition.',
-              fieldKeys: ['business_rationale', 'problem_statement', 'value_proposition', 'customer_benefit', 'bu_benefit']
+              fieldKeys: ['business_rationale', 'problem_statement', 'value_proposition', 'customer_benefit', 'bu_benefit', 'competitive_landscape', 'market_opportunity']
             },
             {
               id: 'PC.I.1.b',
@@ -96,7 +96,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Scope and Parameters of Product/Service',
               numbering: 'b)',
               guidance: 'Describe the scope and parameters including: Role of PU (manufacturer, distributor, principal, agent); Product Features (currency denomination, funded vs unfunded, tenor, repricing info); Product Life Cycle.',
-              fieldKeys: ['product_name', 'product_type', 'underlying_asset', 'currency_denomination', 'tenor', 'funding_type', 'repricing_info', 'product_role', 'product_maturity', 'product_lifecycle', 'product_features']
+              fieldKeys: ['product_name', 'product_type', 'underlying_asset', 'currency_denomination', 'tenor', 'funding_type', 'repricing_info', 'product_role', 'product_maturity', 'product_lifecycle', 'product_features', 'product_currency_pair', 'product_benchmark']
             },
             {
               id: 'PC.I.1.c',
@@ -104,7 +104,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Expected Transaction Volume and Revenue per Annum',
               numbering: 'c)',
               guidance: 'Provide revenue estimate by year, gross and net of transfer pricing.',
-              fieldKeys: ['notional_amount', 'expected_volume', 'revenue_year1', 'revenue_year1_net', 'revenue_year2', 'revenue_year2_net', 'revenue_year3', 'revenue_year3_net']
+              fieldKeys: ['notional_amount', 'expected_volume', 'revenue_year1', 'revenue_year1_net', 'revenue_year2', 'revenue_year2_net', 'revenue_year3', 'revenue_year3_net', 'product_notional_ccy', 'transfer_pricing']
             },
             {
               id: 'PC.I.1.d',
@@ -112,7 +112,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Business Model',
               numbering: 'd)',
               guidance: 'Highlight how the product/service (including SPV/SPE if applicable) sources revenue for DBS. Include revenue streams, gross margin split, and target ROI.',
-              fieldKeys: ['target_roi', 'revenue_streams', 'gross_margin_split', 'cost_allocation']
+              fieldKeys: ['target_roi', 'revenue_streams', 'gross_margin_split', 'cost_allocation', 'break_even_timeline']
             },
             {
               id: 'PC.I.1.e',
@@ -131,8 +131,64 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
           type: 'topic',
           label: 'Target Customer',
           numbering: '2',
-          guidance: 'Describe the target customer segments, any regulatory restrictions or limitations, target customer profile (annual turnover, geographic scope), and customer suitability criteria.',
-          fieldKeys: ['customer_segments', 'customer_restrictions', 'customer_suitability', 'customer_min_turnover', 'customer_geographic']
+          children: [
+            {
+              id: 'PC.I.2.a',
+              type: 'sub_question',
+              label: 'Target Customer Segment',
+              numbering: 'a)',
+              guidance: 'Identify the target customer segments for this product.',
+              fieldKeys: ['customer_segments']
+            },
+            {
+              id: 'PC.I.2.b',
+              type: 'sub_question',
+              label: 'Regulatory Restrictions',
+              numbering: 'b)',
+              guidance: 'Describe any regulatory-driven restrictions on customer eligibility.',
+              fieldKeys: ['customer_restrictions']
+            },
+            {
+              id: 'PC.I.2.c',
+              type: 'sub_question',
+              label: 'Customer Suitability & Domicile',
+              numbering: 'c)',
+              guidance: 'Describe suitability criteria and domicile requirements for target customers.',
+              fieldKeys: ['customer_suitability', 'customer_accreditation']
+            },
+            {
+              id: 'PC.I.2.d',
+              type: 'sub_question',
+              label: 'Target Customer Profile',
+              numbering: 'd)',
+              guidance: 'Describe the target customer profile including minimum turnover and risk-based criteria.',
+              fieldKeys: ['customer_min_turnover']
+            },
+            {
+              id: 'PC.I.2.e',
+              type: 'sub_question',
+              label: 'Customer Objectives & Risk Profile',
+              numbering: 'e)',
+              guidance: 'Describe the target customers\u0027 investment objectives and risk appetite.',
+              fieldKeys: ['customer_objectives']
+            },
+            {
+              id: 'PC.I.2.f',
+              type: 'sub_question',
+              label: 'Target Markets / Locations',
+              numbering: 'f)',
+              guidance: 'Specify the geographic markets and locations where the product will be offered.',
+              fieldKeys: ['customer_geographic']
+            },
+            {
+              id: 'PC.I.2.g',
+              type: 'sub_question',
+              label: 'Key Risks Faced by Target Customers',
+              numbering: 'g)',
+              guidance: 'Describe the key risks that target customers face with this product.',
+              fieldKeys: ['customer_key_risks']
+            }
+          ]
         },
 
         // ── 3. Commercialization Approach ─────────────────
@@ -156,7 +212,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Sales Suitability',
               numbering: 'b)',
               guidance: 'Document the customer onboarding process and suitability assessment. Describe how qualified customers have access to the product/service.',
-              fieldKeys: ['sales_suitability', 'onboarding_process']
+              fieldKeys: ['sales_suitability', 'onboarding_process', 'kyc_requirements', 'complaints_handling']
             },
             {
               id: 'PC.I.3.c',
@@ -165,6 +221,22 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               numbering: 'c)',
               guidance: 'Describe the marketing and communication plan for the product/service.',
               fieldKeys: ['marketing_plan']
+            },
+            {
+              id: 'PC.I.3.d',
+              type: 'sub_question',
+              label: 'Sales Surveillance',
+              numbering: 'd)',
+              guidance: 'Describe the sales surveillance process to monitor sales practices and customer outcomes.',
+              fieldKeys: ['sales_surveillance']
+            },
+            {
+              id: 'PC.I.3.e',
+              type: 'sub_question',
+              label: 'Staff Training',
+              numbering: 'e)',
+              guidance: 'Describe staff training requirements for product knowledge, sales practices, and regulatory compliance.',
+              fieldKeys: ['staff_training']
             }
           ]
         },
@@ -222,7 +294,71 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Booking Process in Operations',
               numbering: 'b)',
               guidance: 'Provide details of end-to-end transaction flow — front-to-back settlement, accounting, valuation, including exception and manual handling.',
-              fieldKeys: ['booking_legal_form', 'booking_family', 'booking_typology', 'portfolio_allocation', 'confirmation_process', 'reconciliation', 'exception_handling', 'accounting_treatment', 'settlement_flow']
+              fieldKeys: ['booking_legal_form', 'booking_family', 'booking_typology', 'portfolio_allocation', 'confirmation_process', 'reconciliation', 'exception_handling', 'accounting_treatment', 'settlement_flow', 'stp_rate', 'nostro_accounts']
+            },
+            {
+              id: 'PC.II.1.c',
+              type: 'sub_question',
+              label: 'Operational Adequacy',
+              numbering: 'c)',
+              guidance: 'Confirm operational adequacy by checking each applicable item: staffing, process documentation, system readiness, controls, monitoring, escalation procedures, and audit trails.',
+              fieldKeys: ['ops_adequacy_checklist']
+            },
+            {
+              id: 'PC.II.1.d',
+              type: 'sub_question',
+              label: 'Operating Account Controls',
+              numbering: 'd)',
+              guidance: 'Describe the controls in place for operating accounts (GL alignment, deposit accounts, reconciliation controls).',
+              fieldKeys: ['operating_account_controls']
+            },
+            {
+              id: 'PC.II.1.e',
+              type: 'sub_question',
+              label: 'Limit Structure & Monitoring',
+              numbering: 'e)',
+              guidance: 'Describe the limit structure, limit monitoring process, and breach escalation procedures.',
+              fieldKeys: ['limit_structure', 'limit_monitoring']
+            },
+            {
+              id: 'PC.II.1.f',
+              type: 'sub_question',
+              label: 'Manual Process Fallback',
+              numbering: 'f)',
+              guidance: 'Are there any manual process fallbacks? If yes, describe the manual processes and planned automation timeline.',
+              fieldKeys: ['manual_fallback', 'manual_fallback_details']
+            },
+            {
+              id: 'PC.II.1.g',
+              type: 'sub_question',
+              label: 'Collateral Management',
+              numbering: 'g)',
+              guidance: 'Describe the collateral management framework: eligible collateral, haircuts, margining frequency, and dispute resolution.',
+              fieldKeys: ['collateral_eligibility', 'collateral_haircuts', 'margin_frequency', 'collateral_disputes']
+            },
+            {
+              id: 'PC.II.1.h',
+              type: 'sub_question',
+              label: 'Custody Account',
+              numbering: 'h)',
+              guidance: 'Is a custody account required? If yes, describe the custody arrangement and controls.',
+              fieldKeys: ['custody_required', 'custody_details']
+            },
+            {
+              id: 'PC.II.1.i',
+              type: 'sub_question',
+              label: 'Trade Repository / ESFR Reporting',
+              numbering: 'i)',
+              guidance: 'Describe trade repository obligations, ESFR reporting requirements, and data submission processes.',
+              fieldKeys: ['trade_repository_reporting']
+            },
+            {
+              id: 'PC.II.1.j',
+              type: 'sub_question',
+              label: 'SFEMC / Code of Conduct',
+              numbering: 'j)',
+              guidance: 'Describe relevant SFEMC references, code of conduct obligations, and industry best practices.',
+              fieldKeys: ['sfemc_references']
             }
           ]
         },
@@ -240,7 +376,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'System Requirements',
               numbering: 'a)',
               guidance: 'Does the proposal involve new changes to application systems, technology solutions, and/or IT infrastructure? If yes, describe the scope and integration.',
-              fieldKeys: ['new_system_changes', 'booking_system', 'tech_requirements', 'system_integration']
+              fieldKeys: ['new_system_changes', 'booking_system', 'tech_requirements', 'system_integration', 'trade_capture_system', 'risk_system', 'reporting_system']
             },
             {
               id: 'PC.II.2.b',
@@ -248,7 +384,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Front Office / Internet Facing System',
               numbering: 'b)',
               guidance: 'Describe the front office or internet-facing system for impact analysis. Include details of system changes.',
-              fieldKeys: ['valuation_model', 'fo_system_changes']
+              fieldKeys: ['valuation_model', 'fo_system_changes', 'mktdata_requirements']
             },
             {
               id: 'PC.II.2.c',
@@ -288,7 +424,10 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
           label: 'Business Continuity Management',
           numbering: '5',
           guidance: 'Describe BIA considerations, updated BCP requirements, and any additional continuity measures.',
-          fieldKeys: ['bia_considerations', 'bcp_requirements', 'continuity_measures']
+          fieldKeys: ['bia_considerations', 'bcp_requirements', 'continuity_measures',
+                      'bcm_critical_processes', 'bcm_recovery_strategy', 'bcm_alternate_site',
+                      'bcm_communication_plan', 'bcm_testing_frequency', 'bcm_vendor_dependencies',
+                      'bcm_staff_awareness', 'bcm_regulatory_compliance', 'bcm_incident_response']
         }
       ]
     },
@@ -308,7 +447,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
           label: 'Pricing Model Validation / Assurance',
           numbering: '1',
           guidance: 'Is there a requirement for pricing model validation? If yes, has pricing model assurance been done?',
-          fieldKeys: ['pricing_model_required', 'pricing_methodology', 'roae_analysis', 'pricing_assumptions', 'bespoke_adjustments']
+          fieldKeys: ['pricing_model_required', 'pricing_methodology', 'roae_analysis', 'pricing_assumptions', 'bespoke_adjustments', 'fva_adjustment', 'xva_treatment', 'day_count_convention']
         },
         {
           id: 'PC.III.2',
@@ -324,7 +463,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
           label: 'Standardised Initial Margin Model (SIMM) Treatment',
           numbering: '3',
           guidance: 'Describe the SIMM sensitivities and margin treatment for this product.',
-          fieldKeys: ['simm_treatment', 'simm_sensitivities']
+          fieldKeys: ['simm_treatment', 'simm_sensitivities', 'simm_backtesting']
         }
       ]
     },
@@ -360,7 +499,25 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Finance and Tax',
               numbering: '2',
               guidance: 'Describe the accounting treatment (Trading Book vs Banking Book, Fair Value, On/Off Balance Sheet) and tax considerations across jurisdictions.',
-              fieldKeys: ['tax_impact', 'accounting_book', 'fair_value_treatment', 'on_off_balance', 'tax_jurisdictions']
+              fieldKeys: ['tax_impact', 'accounting_book', 'fair_value_treatment', 'on_off_balance', 'tax_jurisdictions',
+                          'service_output_fees', 'service_fee_structure', 'service_fee_allocation',
+                          'reg_matching_ifrs', 'reg_matching_mas', 'reg_matching_gst', 'reg_matching_wht']
+            },
+            {
+              id: 'PC.IV.A.3',
+              type: 'sub_question',
+              label: 'Financial Crimes & Financial Security',
+              numbering: '3',
+              guidance: 'Address conduct considerations, market abuse regulation (MAR) assessment with MAS references, and MRA boundary tests.',
+              fieldKeys: ['fc_conduct_considerations', 'fc_mar_assessment', 'fc_mar_sub_items', 'fc_mra_boundary_test', 'fc_mra_details']
+            },
+            {
+              id: 'PC.IV.A.D',
+              type: 'sub_question',
+              label: 'Funding Liquidity Risk',
+              numbering: 'D',
+              guidance: 'Describe LCR/NSFR/EAFL metrics, liquidity coverage ratio, HQLA qualification, cashflow modeling, liquidity facilities, and limit implementation.',
+              fieldKeys: ['flr_lcr_nsfr_metrics', 'flr_hqla_qualification', 'flr_cashflow_modeling', 'flr_liquidity_facility', 'flr_limit_implementation']
             }
           ]
         },
@@ -378,7 +535,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Market Risk',
               numbering: '1',
               guidance: 'If applicable, complete the market risk factor table. Indicate the relevant pricing parameters, sensitivity reports, VaR capture, and stress capture for each risk factor.',
-              fieldKeys: ['market_risk', 'risk_classification', 'pricing_parameters']
+              fieldKeys: ['market_risk', 'risk_classification', 'pricing_parameters', 'model_risk']
             },
             {
               id: 'PC.IV.B.1.table',
@@ -439,7 +596,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Risk Mitigation',
               numbering: '2',
               guidance: 'Describe the risk mitigation measures, collateral frameworks, and how they have been stress-tested.',
-              fieldKeys: ['counterparty_default', 'collateral_framework', 'stress_test_results']
+              fieldKeys: ['counterparty_default', 'collateral_framework', 'stress_test_results', 'wrong_way_risk', 'netting_agreements', 'isda_master']
             },
             {
               id: 'PC.IV.C.3',
@@ -455,7 +612,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Collateral Requirements',
               numbering: '4',
               guidance: 'If the transaction is to be collateralized, describe the collateral management and monitoring process. Is the acceptable collateral risk-rated based on Core Credit Risk Policy?',
-              fieldKeys: ['custody_risk', 'collateral_risk_rated']
+              fieldKeys: ['custody_risk', 'collateral_risk_rated', 'csa_in_place']
             },
             {
               id: 'PC.IV.C.5',
@@ -463,7 +620,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
               label: 'Credit Risk Capital Calculation',
               numbering: '5',
               guidance: 'For portfolios under Standardized Approach, state PFE Standards. For portfolios under Internal Model Approach, describe EAD and regulatory capital.',
-              fieldKeys: ['counterparty_rating', 'pfe_standards', 'ead_calculation']
+              fieldKeys: ['counterparty_rating', 'pfe_standards', 'ead_calculation', 'cva_dva_impact']
             },
             {
               id: 'PC.IV.C.6',
@@ -491,7 +648,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
           label: 'Reputational Risk',
           numbering: 'D',
           guidance: 'Evaluate and provide an assessment of the reputational risk exposure. Does the new product involve changes that could negatively impact the Bank\'s reputation? Include ESG assessment.',
-          fieldKeys: ['reputational_risk', 'negative_impact', 'esg_assessment', 'esg_classification']
+          fieldKeys: ['reputational_risk', 'negative_impact', 'esg_assessment', 'esg_classification', 'country_risk']
         }
       ]
     },
@@ -511,7 +668,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
           label: 'Design for Data (D4D) and Data Management Requirements',
           numbering: '1',
           guidance: 'Describe D4D requirements including data governance, ownership, stewardship, quality monitoring, and GDPR/privacy compliance.',
-          fieldKeys: ['data_governance', 'data_ownership', 'data_stewardship', 'data_quality_monitoring', 'data_privacy', 'data_retention', 'gdpr_compliance']
+          fieldKeys: ['data_governance', 'data_ownership', 'data_stewardship', 'data_quality_monitoring', 'data_privacy', 'data_retention', 'gdpr_compliance', 'data_lineage', 'data_classification']
         },
         {
           id: 'PC.V.2',
@@ -527,7 +684,7 @@ export const NPA_PART_C_TEMPLATE: TemplateNode = {
           label: 'Risk Data Aggregation and Reporting Requirements',
           numbering: '3',
           guidance: 'Describe risk data aggregation capabilities and automated regulatory reporting.',
-          fieldKeys: ['reporting_requirements', 'automated_reporting']
+          fieldKeys: ['reporting_requirements', 'automated_reporting', 'rda_reporting_frequency']
         }
       ]
     },
@@ -586,6 +743,14 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
           { rowLabel: 'Risk Taking', fieldKey: 'risk_taking_entity' },
           { rowLabel: 'Processing', fieldKey: 'processing_entity' }
         ]
+      },
+      {
+        id: 'APP.1.additional',
+        type: 'topic',
+        label: 'Additional Entity Information',
+        numbering: '',
+        guidance: 'Specify additional entities involved in hedging and clearing.',
+        fieldKeys: ['hedge_entity', 'hedge_location', 'clearing_entity']
       }
     ]
   },
@@ -627,7 +792,40 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
     label: 'Financial Crime Risk Areas',
     numbering: 'Appendix 3',
     guidance: 'Please complete both Parts A and B of this section. Identify relevant financial crime risk areas (money laundering, terrorism financing, sanctions, fraud, bribery & corruption).',
-    fieldKeys: ['aml_assessment', 'terrorism_financing', 'sanctions_assessment', 'fraud_risk', 'bribery_corruption', 'fc_risk_rating', 'fc_mitigation_measures']
+    children: [
+      {
+        id: 'APP.3.1',
+        type: 'topic',
+        label: 'Risk Assessment',
+        numbering: '1',
+        guidance: 'Assess each financial crime risk area applicable to this product.',
+        fieldKeys: ['aml_assessment', 'terrorism_financing', 'sanctions_assessment', 'fraud_risk', 'bribery_corruption', 'fc_risk_rating', 'fc_mitigation_measures']
+      },
+      {
+        id: 'APP.3.2',
+        type: 'topic',
+        label: 'Policies & Controls',
+        numbering: '2',
+        guidance: 'Describe the policies, procedures, and controls in place to mitigate financial crime risks.',
+        fieldKeys: ['fc_policy_framework', 'fc_screening_controls', 'fc_transaction_monitoring', 'fc_suspicious_reporting', 'fc_record_keeping', 'fc_staff_training', 'fc_independent_testing']
+      },
+      {
+        id: 'APP.3.3',
+        type: 'topic',
+        label: 'Validation & Surveillance',
+        numbering: '3',
+        guidance: 'Describe the validation, surveillance, and reporting procedures.',
+        fieldKeys: ['fc_validation_process', 'fc_surveillance_tools', 'fc_regulatory_reporting']
+      },
+      {
+        id: 'APP.3.4',
+        type: 'topic',
+        label: 'Data Privacy',
+        numbering: '4',
+        guidance: 'Describe data privacy considerations relating to financial crime prevention.',
+        fieldKeys: ['fc_data_privacy_compliance', 'fc_data_sharing_agreements']
+      }
+    ]
   },
 
   // ═══════════════════════════════════════════════════════
@@ -639,7 +837,7 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
     label: 'Risk Data Aggregation and Reporting Requirements',
     numbering: 'Appendix 4',
     guidance: 'Describe risk data aggregation compliance with regulatory requirements relating to Risk Data Aggregation and Reporting.',
-    fieldKeys: ['rda_compliance', 'rda_data_sources', 'rda_aggregation_method']
+    fieldKeys: ['rda_compliance', 'rda_data_sources', 'rda_aggregation_method', 'rda_data_quality']
   },
 
   // ═══════════════════════════════════════════════════════
@@ -681,7 +879,7 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
         label: 'Valuation and Funding',
         numbering: '4',
         guidance: 'Describe valuation models and funding sources.',
-        fieldKeys: ['valuation_model', 'valuation_method', 'funding_source']
+        fieldKeys: ['app5_valuation_model', 'valuation_method', 'funding_source']
       },
       {
         id: 'APP.5.5',
@@ -689,7 +887,7 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
         label: 'Additional Finance Considerations',
         numbering: '5',
         guidance: 'Describe booking schema, lifecycle management, and cross-product integration.',
-        fieldKeys: ['booking_schema', 'lifecycle_management', 'cross_product_integration']
+        fieldKeys: ['booking_schema', 'lifecycle_management', 'cross_product_integration', 'margin_methodology', 'close_out_netting']
       },
       {
         id: 'APP.5.6',
@@ -705,7 +903,7 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
         label: 'Regulatory Considerations',
         numbering: '7',
         guidance: 'Describe the compliance framework, regulatory reporting, and monitoring.',
-        fieldKeys: ['app5_compliance_framework', 'app5_reg_monitoring']
+        fieldKeys: ['app5_compliance_framework', 'app5_reg_monitoring', 'trade_reporting', 'clearing_obligation']
       }
     ]
   },
@@ -719,7 +917,58 @@ export const NPA_APPENDICES_TEMPLATE: TemplateNode[] = [
     label: 'Use of Third-Party Hosted Communication or Media Channels/Platforms — Risk Assessment',
     numbering: 'Appendix 6',
     guidance: 'This appendix is only applicable if the PU intends to use a third-party hosted communication or media channel/platform. Complete the preliminary risk assessment and information security assessment.',
-    fieldKeys: ['third_party_platform', 'platform_name', 'platform_risk_assessment', 'info_security_assessment', 'data_residency']
+    children: [
+      {
+        id: 'APP.6.A',
+        type: 'topic',
+        label: 'Description of Use Case',
+        numbering: 'Part A',
+        guidance: 'Describe the intended use case for the third-party platform.',
+        fieldKeys: ['third_party_platform', 'platform_name', 'tp_use_case_description', 'tp_business_justification']
+      },
+      {
+        id: 'APP.6.B',
+        type: 'topic',
+        label: 'Preliminary Risk Assessment',
+        numbering: 'Part B',
+        guidance: 'Conduct a preliminary risk assessment covering operational, regulatory, and reputational risks.',
+        fieldKeys: ['platform_risk_assessment', 'tp_risk_rating', 'tp_risk_mitigants']
+      },
+      {
+        id: 'APP.6.C1',
+        type: 'topic',
+        label: 'Context Questions',
+        numbering: 'Part C.1',
+        guidance: 'Answer context questions about the platform usage, data flows, and integration.',
+        fieldKeys: ['tp_data_classification', 'tp_user_population', 'tp_integration_scope', 'tp_data_flow', 'tp_exit_strategy']
+      },
+      {
+        id: 'APP.6.C2',
+        type: 'topic',
+        label: 'Information Security Assessment',
+        numbering: 'Part C.2',
+        guidance: 'Assess information security posture of the third-party platform.',
+        fieldKeys: ['info_security_assessment', 'tp_encryption_standards', 'tp_access_controls', 'tp_audit_logging', 'tp_vulnerability_mgmt', 'tp_incident_response', 'tp_certifications']
+      },
+      {
+        id: 'APP.6.C3',
+        type: 'topic',
+        label: 'Cybersecurity & Communication Archives',
+        numbering: 'Part C.3',
+        guidance: 'Describe cybersecurity measures and communication archival requirements.',
+        fieldKeys: ['tp_cyber_assessment', 'tp_communication_archival', 'tp_retention_policy', 'tp_ediscovery']
+      },
+      {
+        id: 'APP.6.C4',
+        type: 'topic',
+        label: 'IP, Data Ownership & Privacy',
+        numbering: 'Part C.4',
+        guidance: 'Address intellectual property, data ownership, and data privacy requirements.',
+        fieldKeys: ['data_residency', 'tp_data_ownership', 'tp_ip_rights', 'tp_pdpa_compliance',
+                    'tp_cross_border_transfer', 'tp_data_deletion', 'tp_consent_management',
+                    'tp_breach_notification', 'tp_dpo_contact', 'tp_privacy_impact']
+      }
+    ]
   }
 ];
 
@@ -782,13 +1031,13 @@ export interface FieldRegistryEntry {
 }
 
 /**
- * Master Field Registry — classifies all ~250 field_keys by fill strategy.
+ * Master Field Registry — classifies all 339 field_keys by fill strategy.
  *
- * Distribution:
- *   RULE   ~55 fields — deterministic from DB/config
- *   COPY   ~40 fields — baseline from similar NPA
- *   LLM    ~95 fields — requires AI reasoning
- *   MANUAL ~60 fields — human-only
+ * Distribution (verified 2026-02-23):
+ *   RULE    63 fields — deterministic from DB/config
+ *   COPY    60 fields — baseline from similar NPA
+ *   LLM    149 fields — requires AI reasoning
+ *   MANUAL  67 fields — human-only
  */
 export const NPA_FIELD_REGISTRY: FieldRegistryEntry[] = [
 
@@ -1114,7 +1363,7 @@ export const NPA_FIELD_REGISTRY: FieldRegistryEntry[] = [
   { key: 'break_even_timeline',      label: 'Break-Even Timeline',                   strategy: 'LLM',   llmCategory: 'financial_projection', nodeId: 'PC.I.1.d', fieldType: 'text' },
   { key: 'competitive_landscape',    label: 'Competitive Landscape',                 strategy: 'LLM',   llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
   { key: 'market_opportunity',       label: 'Market Opportunity Assessment',         strategy: 'LLM',   llmCategory: 'product_description', nodeId: 'PC.I.1.a', fieldType: 'textarea' },
-  { key: 'customer_accreditation',   label: 'Customer Accreditation Requirements',   strategy: 'MANUAL', nodeId: 'PC.I.2', fieldType: 'textarea' },
+  { key: 'customer_accreditation',   label: 'Customer Accreditation Requirements',   strategy: 'MANUAL', nodeId: 'PC.I.2.c', fieldType: 'textarea' },
   { key: 'kyc_requirements',         label: 'KYC/CDD Requirements',                 strategy: 'COPY',  copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
   { key: 'complaints_handling',      label: 'Complaints Handling Process',           strategy: 'COPY',  copySection: 'product_specs', nodeId: 'PC.I.3.b', fieldType: 'textarea' },
 
@@ -1154,6 +1403,138 @@ export const NPA_FIELD_REGISTRY: FieldRegistryEntry[] = [
   { key: 'close_out_netting',        label: 'Close-Out Netting',                     strategy: 'LLM',   llmCategory: 'risk_analysis', nodeId: 'APP.5', fieldType: 'textarea' },
   { key: 'trade_reporting',          label: 'Trade Reporting Requirements',          strategy: 'RULE',  ruleSource: 'jurisdiction_table', nodeId: 'APP.5', fieldType: 'textarea' },
   { key: 'clearing_obligation',      label: 'Clearing Obligation',                   strategy: 'RULE',  ruleSource: 'jurisdiction_table', nodeId: 'APP.5', fieldType: 'yesno' },
+
+  // ═══════════════════════════════════════════════════════════════
+  // GAP-FILL FIELDS — Added 2026-02-23 per Phase 1 audit
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── Section I.2 — Target Customer (missing sub-questions e, g) ──
+  { key: 'customer_objectives',       label: 'Customer Objectives & Risk Profile',     strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'PC.I.2.e', fieldType: 'textarea' },
+  { key: 'customer_key_risks',        label: 'Key Risks Faced by Target Customers',    strategy: 'LLM',    llmCategory: 'risk_analysis',       nodeId: 'PC.I.2.g', fieldType: 'textarea' },
+
+  // ── Section I.3 — Commercialization (missing d, e) ──
+  { key: 'sales_surveillance',        label: 'Sales Surveillance Process',             strategy: 'COPY',   copySection: 'product_specs', nodeId: 'PC.I.3.d', fieldType: 'textarea' },
+  { key: 'staff_training',            label: 'Staff Training Requirements',            strategy: 'COPY',   copySection: 'product_specs', nodeId: 'PC.I.3.e', fieldType: 'textarea' },
+
+  // ── Section II.1.c — Operational Adequacy ──
+  { key: 'ops_adequacy_checklist',    label: 'Operational Adequacy Checklist',         strategy: 'MANUAL', nodeId: 'PC.II.1.c', fieldType: 'checkbox_group', options: ['Adequate staffing confirmed', 'Process documentation complete', 'Systems ready for go-live', 'Controls tested and effective', 'Monitoring dashboards configured', 'Escalation procedures documented', 'Audit trail requirements met'] },
+
+  // ── Section II.1.d — Operating Account Controls ──
+  { key: 'operating_account_controls', label: 'Operating Account Controls',            strategy: 'COPY',   copySection: 'operational', nodeId: 'PC.II.1.d', fieldType: 'textarea' },
+
+  // ── Section II.1.e — Limit Structure ──
+  { key: 'limit_structure',           label: 'Limit Structure',                        strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.II.1.e', fieldType: 'textarea' },
+  { key: 'limit_monitoring',          label: 'Limit Monitoring Process',               strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.1.e', fieldType: 'textarea' },
+
+  // ── Section II.1.f — Manual Fallback ──
+  { key: 'manual_fallback',           label: 'Manual Process Fallback Required?',      strategy: 'MANUAL', nodeId: 'PC.II.1.f', fieldType: 'yesno' },
+  { key: 'manual_fallback_details',   label: 'Manual Fallback Details',                strategy: 'MANUAL', nodeId: 'PC.II.1.f', fieldType: 'textarea', dependsOn: { field: 'manual_fallback', value: 'Yes' } },
+
+  // ── Section II.1.g — Collateral Management ──
+  { key: 'collateral_eligibility',    label: 'Eligible Collateral Types',              strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.1.g', fieldType: 'textarea' },
+  { key: 'collateral_haircuts',       label: 'Collateral Haircuts',                    strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.II.1.g', fieldType: 'textarea' },
+  { key: 'margin_frequency',          label: 'Margining Frequency',                    strategy: 'RULE',   ruleSource: 'product_config',  nodeId: 'PC.II.1.g', fieldType: 'dropdown', options: ['Daily', 'Weekly', 'Monthly', 'Ad-hoc', 'N/A'] },
+  { key: 'collateral_disputes',       label: 'Collateral Dispute Resolution',          strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.1.g', fieldType: 'textarea' },
+
+  // ── Section II.1.h — Custody Account ──
+  { key: 'custody_required',          label: 'Custody Account Required?',              strategy: 'MANUAL', nodeId: 'PC.II.1.h', fieldType: 'yesno' },
+  { key: 'custody_details',           label: 'Custody Arrangement Details',            strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.1.h', fieldType: 'textarea', dependsOn: { field: 'custody_required', value: 'Yes' } },
+
+  // ── Section II.1.i — Trade Repository ──
+  { key: 'trade_repository_reporting', label: 'Trade Repository / ESFR Reporting',     strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.II.1.i', fieldType: 'textarea' },
+
+  // ── Section II.1.j — SFEMC ──
+  { key: 'sfemc_references',          label: 'SFEMC / Code of Conduct References',    strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.II.1.j', fieldType: 'textarea' },
+
+  // ── Section II.5 — BCM expansion (9 additional fields) ──
+  { key: 'bcm_critical_processes',    label: 'Critical Business Processes',            strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_recovery_strategy',     label: 'Recovery Strategy',                      strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_alternate_site',        label: 'Alternate Site Arrangements',            strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_communication_plan',    label: 'Crisis Communication Plan',              strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_testing_frequency',     label: 'BCM Testing Frequency',                  strategy: 'RULE',   ruleSource: 'system_config',   nodeId: 'PC.II.5', fieldType: 'dropdown', options: ['Quarterly', 'Semi-annually', 'Annually', 'As Required'] },
+  { key: 'bcm_vendor_dependencies',   label: 'Vendor/Third-Party Dependencies',        strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_staff_awareness',       label: 'Staff Awareness & Training',             strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_regulatory_compliance', label: 'BCM Regulatory Compliance',              strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.II.5', fieldType: 'textarea' },
+  { key: 'bcm_incident_response',     label: 'Incident Response Plan',                 strategy: 'COPY',   copySection: 'operational',    nodeId: 'PC.II.5', fieldType: 'textarea' },
+
+  // ── Section III.3 — Backtesting (missing) ──
+  { key: 'simm_backtesting',          label: 'SIMM Backtesting Results',               strategy: 'LLM',    llmCategory: 'pricing',        nodeId: 'PC.III.3', fieldType: 'textarea' },
+
+  // ── Section IV.A.2 — Finance & Tax expansion ──
+  { key: 'service_output_fees',       label: 'Service Output Fees',                    strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'service_fee_structure',     label: 'Fee Structure Details',                  strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'service_fee_allocation',    label: 'Fee Allocation Methodology',             strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'reg_matching_ifrs',         label: 'IFRS Regulatory Matching',               strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'reg_matching_mas',          label: 'MAS Notice Regulatory Matching',         strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'reg_matching_gst',          label: 'GST Treatment',                          strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+  { key: 'reg_matching_wht',          label: 'Withholding Tax Treatment',              strategy: 'LLM',    llmCategory: 'financial_projection', nodeId: 'PC.IV.A.2', fieldType: 'textarea' },
+
+  // ── Section IV.A.3 — Financial Crimes & Financial Security (NEW) ──
+  { key: 'fc_conduct_considerations', label: 'Conduct Considerations',                 strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.3', fieldType: 'textarea' },
+  { key: 'fc_mar_assessment',         label: 'MAR Assessment',                         strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.3', fieldType: 'textarea' },
+  { key: 'fc_mar_sub_items',          label: 'MAR Sub-Items (MAS References)',         strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.3', fieldType: 'bullet_list' },
+  { key: 'fc_mra_boundary_test',      label: 'MRA Boundary Test Required?',            strategy: 'MANUAL', nodeId: 'PC.IV.A.3', fieldType: 'yesno' },
+  { key: 'fc_mra_details',            label: 'MRA Boundary Test Details',              strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'PC.IV.A.3', fieldType: 'textarea', dependsOn: { field: 'fc_mra_boundary_test', value: 'Yes' } },
+
+  // ── Section IV.A.D — Funding Liquidity Risk (NEW) ──
+  { key: 'flr_lcr_nsfr_metrics',      label: 'LCR/NSFR/EAFL Metrics',                 strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
+  { key: 'flr_hqla_qualification',    label: 'HQLA Qualification',                     strategy: 'MANUAL', nodeId: 'PC.IV.A.D', fieldType: 'yesno' },
+  { key: 'flr_cashflow_modeling',     label: 'Cashflow Modeling',                      strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
+  { key: 'flr_liquidity_facility',    label: 'Liquidity Facility Required?',           strategy: 'MANUAL', nodeId: 'PC.IV.A.D', fieldType: 'yesno' },
+  { key: 'flr_limit_implementation',  label: 'Limit Implementation Plan',              strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'PC.IV.A.D', fieldType: 'textarea' },
+
+  // ── Appendix 5 — Duplicate fix: app5_valuation_model ──
+  { key: 'app5_valuation_model',      label: 'Valuation Model (Trading)',              strategy: 'LLM',    llmCategory: 'pricing',        nodeId: 'APP.5.4', fieldType: 'textarea' },
+
+  // ── Section V.3 — Risk Data Aggregation (missing 1 field) ──
+  { key: 'rda_reporting_frequency',   label: 'RDAR Reporting Frequency',               strategy: 'RULE',   ruleSource: 'system_config',   nodeId: 'PC.V.3', fieldType: 'dropdown', options: ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Ad-hoc'] },
+
+  // ── Appendix 4 — RDAR (missing 1 field) ──
+  { key: 'rda_data_quality',          label: 'Data Quality Assessment',                strategy: 'LLM',    llmCategory: 'data_mgmt',      nodeId: 'APP.4', fieldType: 'textarea' },
+
+  // ── Appendix 3 — Financial Crime expansion (12 new fields) ──
+  { key: 'fc_policy_framework',       label: 'Financial Crime Policy Framework',       strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_screening_controls',     label: 'Screening Controls',                    strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_transaction_monitoring', label: 'Transaction Monitoring',                 strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_suspicious_reporting',   label: 'Suspicious Transaction Reporting',       strategy: 'MANUAL', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_record_keeping',         label: 'Record Keeping Requirements',            strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_staff_training',         label: 'Financial Crime Staff Training',         strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_independent_testing',    label: 'Independent Testing Program',            strategy: 'MANUAL', nodeId: 'APP.3.2', fieldType: 'textarea' },
+  { key: 'fc_validation_process',     label: 'Validation Process',                    strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.3', fieldType: 'textarea' },
+  { key: 'fc_surveillance_tools',     label: 'Surveillance Tools',                    strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.3.3', fieldType: 'textarea' },
+  { key: 'fc_regulatory_reporting',   label: 'Regulatory Reporting Obligations',      strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.3.3', fieldType: 'textarea' },
+  { key: 'fc_data_privacy_compliance', label: 'Data Privacy Compliance',              strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.3.4', fieldType: 'textarea' },
+  { key: 'fc_data_sharing_agreements', label: 'Data Sharing Agreements',              strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.3.4', fieldType: 'textarea' },
+
+  // ── Appendix 6 — Third-Party Platforms expansion (25 new fields) ──
+  { key: 'tp_use_case_description',   label: 'Use Case Description',                  strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'APP.6.A', fieldType: 'textarea' },
+  { key: 'tp_business_justification', label: 'Business Justification',                strategy: 'LLM',    llmCategory: 'product_description', nodeId: 'APP.6.A', fieldType: 'textarea' },
+  { key: 'tp_risk_rating',            label: 'Risk Rating',                           strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'APP.6.B', fieldType: 'dropdown', options: ['Low', 'Medium', 'High', 'Critical'] },
+  { key: 'tp_risk_mitigants',         label: 'Risk Mitigants',                        strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'APP.6.B', fieldType: 'textarea' },
+  { key: 'tp_data_classification',    label: 'Data Classification',                   strategy: 'MANUAL', nodeId: 'APP.6.C1', fieldType: 'dropdown', options: ['Public', 'Internal', 'Confidential', 'Restricted'] },
+  { key: 'tp_user_population',        label: 'User Population',                       strategy: 'MANUAL', nodeId: 'APP.6.C1', fieldType: 'textarea' },
+  { key: 'tp_integration_scope',      label: 'Integration Scope',                     strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'APP.6.C1', fieldType: 'textarea' },
+  { key: 'tp_data_flow',              label: 'Data Flow Description',                 strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'APP.6.C1', fieldType: 'textarea' },
+  { key: 'tp_exit_strategy',          label: 'Exit Strategy',                         strategy: 'LLM',    llmCategory: 'operational',    nodeId: 'APP.6.C1', fieldType: 'textarea' },
+  { key: 'tp_encryption_standards',   label: 'Encryption Standards',                  strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
+  { key: 'tp_access_controls',        label: 'Access Controls',                       strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
+  { key: 'tp_audit_logging',          label: 'Audit Logging',                         strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'yesno' },
+  { key: 'tp_vulnerability_mgmt',     label: 'Vulnerability Management',              strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'textarea' },
+  { key: 'tp_incident_response',      label: 'Incident Response Plan',                strategy: 'COPY',   copySection: 'operational',    nodeId: 'APP.6.C2', fieldType: 'textarea' },
+  { key: 'tp_certifications',         label: 'Security Certifications',               strategy: 'MANUAL', nodeId: 'APP.6.C2', fieldType: 'checkbox_group', options: ['SOC 2 Type II', 'ISO 27001', 'PCI DSS', 'CSA STAR', 'Other'] },
+  { key: 'tp_cyber_assessment',       label: 'Cybersecurity Assessment',              strategy: 'LLM',    llmCategory: 'risk_analysis',  nodeId: 'APP.6.C3', fieldType: 'textarea' },
+  { key: 'tp_communication_archival', label: 'Communication Archival',                strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'yesno' },
+  { key: 'tp_retention_policy',       label: 'Data Retention Policy',                 strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'textarea' },
+  { key: 'tp_ediscovery',             label: 'e-Discovery Capability',                strategy: 'MANUAL', nodeId: 'APP.6.C3', fieldType: 'yesno' },
+  { key: 'tp_data_ownership',         label: 'Data Ownership',                        strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_ip_rights',              label: 'IP Rights',                             strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_pdpa_compliance',        label: 'PDPA Compliance',                       strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_cross_border_transfer',  label: 'Cross-Border Data Transfer',            strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_data_deletion',          label: 'Data Deletion Process',                 strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_consent_management',     label: 'Consent Management',                    strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_breach_notification',    label: 'Breach Notification Process',           strategy: 'COPY',   copySection: 'legal',          nodeId: 'APP.6.C4', fieldType: 'textarea' },
+  { key: 'tp_dpo_contact',            label: 'Data Protection Officer Contact',       strategy: 'MANUAL', nodeId: 'APP.6.C4', fieldType: 'text' },
+  { key: 'tp_privacy_impact',         label: 'Privacy Impact Assessment',             strategy: 'LLM',    llmCategory: 'compliance',     nodeId: 'APP.6.C4', fieldType: 'textarea' },
 ];
 
 /**
