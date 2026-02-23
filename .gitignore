@@ -47,8 +47,10 @@ __pycache__/
 
 # Environment
 .env
+.env.*
 .env.local
 .env.production
+!.env.example
 
 # Docker
 docker/data/
