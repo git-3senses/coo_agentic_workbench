@@ -18,8 +18,19 @@
 const express = require('express');
 const axios = require('axios');
 const { DIFY_BASE_URL, getAgent, getAllAgents } = require('../config/dify-agents');
+const path = require('path');
+const AGENT_REGISTRY = require(path.resolve(__dirname, '..', '..', 'shared', 'agent-registry.json'));
 
 const router = express.Router();
+
+function getDifyUser(req, bodyUser) {
+    // Prefer authenticated user for isolation/auditability.
+    if (req.user?.userId) return String(req.user.userId);
+    // Back-compat for non-auth demo flows.
+    if (bodyUser && String(bodyUser).trim()) return String(bodyUser).trim();
+    // Last resort: keep per-client isolation without collapsing everyone into one "default-user".
+    return `anon:${req.ip || 'unknown'}`;
+}
 
 // ─── Valid AgentAction values (source: agent-interfaces.ts + Freeze doc §6) ───
 
@@ -50,7 +61,7 @@ const CHATFLOW_DEFAULT_INPUTS = {
         variable: '', session_id: '', current_project_id: '',
         current_stage: 'ideation', user_role: 'analyst',
         ideation_conversation_id: '', last_action: '',
-        user_id: 'user-123', user_message: ''
+        user_id: '', user_message: ''
     },
     // CF_NPA_Ideation — only 'orchestrator_message' (optional paragraph)
     IDEATION: {
@@ -62,6 +73,24 @@ const CHATFLOW_DEFAULT_INPUTS = {
 // ─── @@NPA_META@@ Envelope Parsing ───────────────────────────────────────────
 
 const META_REGEX = /@@NPA_META@@(\{[\s\S]*\})$/;
+
+function buildDifyAppAliases() {
+    const aliases = {};
+    for (const agent of AGENT_REGISTRY) {
+        if (!agent?.id) continue;
+        const id = String(agent.id);
+        const difyApp = agent.difyApp ? String(agent.difyApp) : null;
+        if (difyApp) aliases[difyApp] = id;
+        if (Array.isArray(agent.aliases)) {
+            for (const a of agent.aliases) {
+                if (a) aliases[String(a)] = id;
+            }
+        }
+    }
+    return aliases;
+}
+
+const DIFY_APP_ALIASES = buildDifyAppAliases();
 
 /**
  * Parse [NPA_ACTION]...[NPA_SESSION] markers from Agent app response.
@@ -460,7 +489,7 @@ async function readStreamError(err) {
  * Execute a blocking chat request: call Dify streaming, collect SSE, return result.
  * Returns { fullAnswer, convId, msgId, streamError }.
  */
-async function collectBlockingChat(agent, difyPayload, agentId) {
+async function collectBlockingChat(agent, difyPayload, agentId, signal) {
     const response = await axios.post(
         `${DIFY_BASE_URL}/chat-messages`,
         difyPayload,
@@ -470,6 +499,7 @@ async function collectBlockingChat(agent, difyPayload, agentId) {
                 'Content-Type': 'application/json'
             },
             responseType: 'stream',
+            signal,
             timeout: 120000 // 2 minutes — prevent indefinite hangs on Dify calls
         }
     );
@@ -516,23 +546,8 @@ function respondWithCollected(res, collected, agentId) {
  * a clean JSON response. This keeps Angular simple (just HTTP POST/JSON).
  */
 router.post('/chat', async (req, res) => {
-    const { agent_id: rawAgentId, query, inputs = {}, conversation_id, user = 'default-user', response_mode = 'blocking' } = req.body;
+    const { agent_id: rawAgentId, query, inputs = {}, conversation_id, user: bodyUser, response_mode = 'blocking' } = req.body;
 
-    // Dify LLMs sometimes output Dify app names instead of internal agent_ids.
-    // Normalize them server-side as a safety net (frontend also normalizes).
-    const DIFY_APP_ALIASES = {
-        'CF_NPA_Query_Assistant': 'DILIGENCE',
-        'CF_NPA_Ideation': 'IDEATION',
-        'CF_NPA_Orchestrator': 'NPA_ORCHESTRATOR',
-        'CF_COO_Orchestrator': 'MASTER_COO',
-        'WF_NPA_Classifier': 'CLASSIFIER',
-        'WF_NPA_Risk': 'RISK',
-        'WF_NPA_Governance': 'GOVERNANCE',
-        'WF_NPA_Template_Autofill': 'AUTOFILL',
-        'WF_NPA_Doc_Lifecycle': 'DOC_LIFECYCLE',
-        'WF_NPA_Post_Launch': 'MONITORING',
-        'WF_NPA_SLA_Monitor': 'SLA_MONITOR',
-    };
     const agent_id = DIFY_APP_ALIASES[rawAgentId] || rawAgentId;
 
     console.log(`[CHAT] Incoming: agent=${agent_id}${rawAgentId !== agent_id ? ` (alias: ${rawAgentId})` : ''}, query="${(query || '').slice(0, 50)}", conv=${conversation_id || 'NEW'}, mode=${response_mode}`);
@@ -543,6 +558,7 @@ router.post('/chat', async (req, res) => {
 
     // Default empty query to greeting — Dify Agent apps need non-empty query
     const safeQuery = query && query.trim() ? query : 'Hello';
+    const difyUser = getDifyUser(req, bodyUser);
 
     let agent;
     try {
@@ -563,7 +579,7 @@ router.post('/chat', async (req, res) => {
     const universalDefaults = {
         variable: '', session_id: '', current_project_id: '',
         current_stage: 'draft_builder', user_role: 'analyst', last_action: '',
-        ideation_conversation_id: '', user_id: 'user-123', user_message: '',
+        ideation_conversation_id: '', user_id: difyUser, user_message: '',
         orchestrator_message: '', npa_data: ''
     };
 
@@ -576,12 +592,16 @@ router.post('/chat', async (req, res) => {
     }
 
     const safeInputs = { ...defaults, ...inputs };
+    // If the downstream app declares user_id, enforce per-user identity.
+    if (Object.prototype.hasOwnProperty.call(safeInputs, 'user_id')) {
+        safeInputs.user_id = difyUser;
+    }
 
     // Always use streaming for Dify Agent apps (they don't support blocking)
     const difyPayload = {
         query: safeQuery,
         inputs: safeInputs,
-        user,
+        user: difyUser,
         response_mode: 'streaming',
         ...(conversation_id && { conversation_id })
     };
@@ -597,6 +617,13 @@ router.post('/chat', async (req, res) => {
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
 
+            const controller = new AbortController();
+            const abortUpstream = () => {
+                if (!controller.signal.aborted) controller.abort();
+            };
+            req.on('close', abortUpstream);
+            res.on('close', abortUpstream);
+
             const response = await axios.post(
                 `${DIFY_BASE_URL}/chat-messages`,
                 difyPayload,
@@ -606,6 +633,7 @@ router.post('/chat', async (req, res) => {
                         'Content-Type': 'application/json'
                     },
                     responseType: 'stream',
+                    signal: controller.signal,
                     timeout: 120000 // 2 minutes
                 }
             );
@@ -627,6 +655,13 @@ router.post('/chat', async (req, res) => {
             const MAX_RETRIES = 1;
             let lastCollected = null;
 
+            const controller = new AbortController();
+            const abortUpstream = () => {
+                if (!controller.signal.aborted) controller.abort();
+            };
+            req.on('close', abortUpstream);
+            res.on('close', abortUpstream);
+
             for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
                 const isRetry = attempt > 0;
                 let payload = difyPayload;
@@ -641,7 +676,7 @@ router.post('/chat', async (req, res) => {
                 }
 
                 try {
-                    lastCollected = await collectBlockingChat(agent, payload, agent_id);
+                    lastCollected = await collectBlockingChat(agent, payload, agent_id, controller.signal);
                 } catch (retryErr) {
                     // Network error during retry — continue to next attempt
                     console.error(`[${agent_id}] Attempt ${attempt} network error: ${retryErr.message}`);
@@ -710,7 +745,7 @@ router.post('/chat', async (req, res) => {
  * Extracts structured outputs and wraps in metadata envelope.
  */
 router.post('/workflow', async (req, res) => {
-    const { agent_id, inputs = {}, user = 'default-user', response_mode = 'blocking' } = req.body;
+    const { agent_id, inputs = {}, user: bodyUser, response_mode = 'blocking' } = req.body;
 
     if (!agent_id) {
         return res.status(400).json({ error: 'agent_id is required' });
@@ -741,14 +776,19 @@ router.post('/workflow', async (req, res) => {
     // Dify text-input fields require string values. Convert all input values to strings
     // to prevent "must be a string" errors for booleans, numbers, etc.
     Object.keys(safeInputs).forEach(k => {
-        if (safeInputs[k] !== null && safeInputs[k] !== undefined && typeof safeInputs[k] !== 'string') {
-            safeInputs[k] = String(safeInputs[k]);
+        const v = safeInputs[k];
+        if (v === null || v === undefined || typeof v === 'string') return;
+        if (typeof v === 'object') {
+            safeInputs[k] = JSON.stringify(v);
+        } else {
+            safeInputs[k] = String(v);
         }
     });
 
+    const difyUser = getDifyUser(req, bodyUser);
     const difyPayload = {
         inputs: safeInputs,
-        user,
+        user: difyUser,
         response_mode
     };
 
@@ -758,6 +798,13 @@ router.post('/workflow', async (req, res) => {
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
 
+            const controller = new AbortController();
+            const abortUpstream = () => {
+                if (!controller.signal.aborted) controller.abort();
+            };
+            req.on('close', abortUpstream);
+            res.on('close', abortUpstream);
+
             const response = await axios.post(
                 `${DIFY_BASE_URL}/workflows/run`,
                 difyPayload,
@@ -766,7 +813,8 @@ router.post('/workflow', async (req, res) => {
                         'Authorization': `Bearer ${agent.key}`,
                         'Content-Type': 'application/json'
                     },
-                    responseType: 'stream'
+                    responseType: 'stream',
+                    signal: controller.signal
                 }
             );
 
@@ -788,6 +836,13 @@ router.post('/workflow', async (req, res) => {
             const WF_MAX_RETRIES = 2;
             let lastResult = null;
 
+            const controller = new AbortController();
+            const abortUpstream = () => {
+                if (!controller.signal.aborted) controller.abort();
+            };
+            req.on('close', abortUpstream);
+            res.on('close', abortUpstream);
+
             for (let attempt = 0; attempt <= WF_MAX_RETRIES; attempt++) {
                 if (attempt > 0) {
                     console.warn(`[${agent_id}] Workflow retry ${attempt}/${WF_MAX_RETRIES}`);
@@ -807,6 +862,7 @@ router.post('/workflow', async (req, res) => {
                                 'Content-Type': 'application/json'
                             },
                             responseType: 'stream',
+                            signal: controller.signal,
                             timeout: 600000 // 10 minutes for network-level timeout (AUTOFILL takes ~8 min)
                         }
                     );
@@ -911,7 +967,7 @@ router.get('/conversations/:conversationId', async (req, res) => {
             {
                 params: {
                     conversation_id: req.params.conversationId,
-                    user: req.query.user || 'default-user',
+                    user: getDifyUser(req, req.query.user),
                     limit: req.query.limit || 20
                 },
                 headers: {

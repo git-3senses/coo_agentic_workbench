@@ -9,12 +9,47 @@ from registry import ToolDefinition, ToolResult, registry
 from db import execute, query
 
 
+def _normalize_field_type(value) -> str:
+    if not value:
+        return ""
+    v = str(value).strip().lower()
+    v = v.replace("_", "-")
+    # Canonicalize to UI-supported vocabulary where possible
+    if v in ("select", "radio"):
+        return "dropdown"
+    if v in ("multi-select", "multi_select"):
+        return "multiselect"
+    if v in ("multiselect",):
+        return "multiselect"
+    if v in ("dropdown",):
+        return "dropdown"
+    if v in ("checkbox-group", "checkboxgroup"):
+        return "checkbox_group"
+    if v in ("yes/no", "yes-no", "yesno", "yes_no"):
+        return "yesno"
+    return v
+
+
+OPTION_FIELD_TYPES = {
+    "dropdown",
+    "multiselect",
+    "checkbox_group",
+    "yesno",
+    # legacy/variants
+    "select",
+    "multi-select",
+    "radio",
+    "checkbox-group",
+    "yes/no",
+}
+
+
 # ─── Tool 1: autofill_get_template_fields ─────────────────────────
 
 GET_TEMPLATE_FIELDS_SCHEMA = {
     "type": "object",
     "properties": {
-        "template_id": {"type": "string", "description": "Template ID to retrieve. Valid values: FULL_NPA_V1 (30 fields, 8 sections) or STD_NPA_V2 (72 fields, 10 sections). Defaults to STD_NPA_V2 if not provided"},
+        "template_id": {"type": "string", "description": "Template ID to retrieve. Valid values: FULL_NPA_V1 or STD_NPA_V2. Defaults to STD_NPA_V2 if not provided"},
         "section_id": {"type": "string", "description": "Filter to a specific section (e.g. SEC_PROD, SEC_RISK, SEC_BASIC)"},
     },
 }
@@ -40,7 +75,9 @@ async def autofill_get_template_fields_handler(inp: dict) -> ToolResult:
             [section["id"]],
         )
         for field in fields:
-            if field.get("field_type") in ("select", "multi-select"):
+            ft = _normalize_field_type(field.get("field_type"))
+            field["field_type"] = ft
+            if ft in OPTION_FIELD_TYPES:
                 options = await query(
                     "SELECT value, label, order_index FROM ref_field_options WHERE field_id = %s ORDER BY order_index",
                     [field["id"]],
@@ -217,7 +254,7 @@ async def autofill_get_form_data_handler(inp: dict) -> ToolResult:
 GET_FIELD_OPTIONS_SCHEMA = {
     "type": "object",
     "properties": {
-        "field_id": {"type": "string", "description": "Field ID to get options for (select/multi-select fields)"},
+        "field_id": {"type": "string", "description": "Field ID to get options for (dropdown/multiselect/etc.)"},
     },
     "required": ["field_id"],
 }

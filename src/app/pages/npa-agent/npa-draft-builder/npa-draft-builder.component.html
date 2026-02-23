@@ -156,7 +156,8 @@
                         <div *ngIf="shouldShowField(field)"
                            class="px-5 py-4 hover:bg-slate-50/50 transition-colors group/field">
                            <app-npa-field-renderer [field]="field" (fieldEdited)="onFieldEdited($event)"
-                              (fieldCleared)="onFieldCleared($event)" (askAgent)="askAgentAboutField($event)">
+                              (fieldCleared)="onFieldCleared($event)" (askAgent)="askAgentAboutField($event)"
+                              (citationClick)="onCitationClick($event)">
                            </app-npa-field-renderer>
                         </div>
                      </ng-container>
@@ -183,13 +184,100 @@
       </div>
 
       <!-- ─────────────────────────────────────────────────────── -->
-      <!-- RIGHT COLUMN: Agent Chat Panel (w-80)                   -->
+      <!-- RIGHT COLUMN: Agent Chat / Knowledge Panel (w-80)       -->
       <!-- ─────────────────────────────────────────────────────── -->
       <div class="w-80 flex-none bg-white border-l border-slate-200 flex flex-col overflow-hidden">
-         <app-npa-agent-chat [signOffGroups]="signOffGroups" [activeAgentId]="activeAgentId" [agentChats]="agentChats"
-            [sectionFieldGroups]="sectionFieldGroups" (agentSelected)="selectAgent($event)"
-            (validateRequested)="validateDraft()" (applySuggestion)="onApplyFieldSuggestion($event)">
+
+         <!-- Tabbed Header for Right Panel -->
+         <div class="flex-none flex items-center p-1.5 bg-slate-50 border-b border-slate-200">
+            <button (click)="agentPanelTab = 'CHAT'"
+               class="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-xs font-semibold transition-colors"
+               [class.bg-white]="agentPanelTab === 'CHAT'" [class.shadow-sm]="agentPanelTab === 'CHAT'"
+               [class.text-slate-800]="agentPanelTab === 'CHAT'" [class.text-slate-400]="agentPanelTab !== 'CHAT'"
+               [class.hover:text-slate-600]="agentPanelTab !== 'CHAT'">
+               <lucide-icon name="message-square" class="w-3.5 h-3.5"></lucide-icon>
+               Agent Chat
+            </button>
+            <button (click)="agentPanelTab = 'KNOWLEDGE'"
+               class="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-xs font-semibold transition-colors"
+               [class.bg-white]="agentPanelTab === 'KNOWLEDGE'" [class.shadow-sm]="agentPanelTab === 'KNOWLEDGE'"
+               [class.text-blue-700]="agentPanelTab === 'KNOWLEDGE'" [class.border]="agentPanelTab === 'KNOWLEDGE'"
+               [class.border-blue-100]="agentPanelTab === 'KNOWLEDGE'"
+               [class.text-slate-400]="agentPanelTab !== 'KNOWLEDGE'"
+               [class.hover:text-slate-600]="agentPanelTab !== 'KNOWLEDGE'">
+               <lucide-icon name="book-open" class="w-3.5 h-3.5"></lucide-icon>
+               Evidence
+            </button>
+         </div>
+
+         <!-- VIEW 1: Agent Chat -->
+         <app-npa-agent-chat *ngIf="agentPanelTab === 'CHAT'" [signOffGroups]="signOffGroups"
+            [activeAgentId]="activeAgentId" [agentChats]="agentChats" [sectionFieldGroups]="sectionFieldGroups"
+            (agentSelected)="selectAgent($event)" (validateRequested)="validateDraft()"
+            (applySuggestion)="onApplyFieldSuggestion($event)" class="flex-1 flex flex-col min-h-0">
          </app-npa-agent-chat>
+
+         <!-- VIEW 2: Knowledge Base & Evidence Panel -->
+         <div *ngIf="agentPanelTab === 'KNOWLEDGE'" class="flex-1 flex flex-col min-h-0 bg-slate-50/30 relative">
+
+            <!-- Citation Details -->
+            <div *ngIf="selectedCitation" class="flex-1 flex flex-col min-h-0">
+               <div class="px-4 py-3 bg-blue-50/80 border-b border-blue-100/50 flex items-start gap-3 flex-none">
+                  <div
+                     class="p-1.5 bg-blue-100 text-blue-600 rounded mt-0.5 border border-blue-200 shadow-sm flex-none">
+                     <lucide-icon name="book-open" class="w-4 h-4"></lucide-icon>
+                  </div>
+                  <div>
+                     <h3 class="text-xs font-bold text-slate-800 mb-0.5 leading-tight">{{ selectedCitation.sourceName }}
+                     </h3>
+                     <span
+                        class="text-[9px] font-mono text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                        {{ selectedCitation.sourceId }}
+                     </span>
+                  </div>
+               </div>
+
+               <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+                  <div class="px-3 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                     <div
+                        class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 flex items-center gap-1.5">
+                        <lucide-icon name="align-left" class="w-3 h-3"></lucide-icon>
+                        Cited Passage
+                     </div>
+                     <!-- Render Markdown snippet safely (Assuming a pipe or standard rendering, using a blockquote here for now) -->
+                     <blockquote
+                        class="text-[11px] leading-relaxed text-slate-700 italic border-l-2 border-amber-300 pl-3 py-0.5 my-1">
+                        {{ selectedCitation.snippet }}
+                     </blockquote>
+                  </div>
+
+                  <div *ngIf="selectedCitation.url"
+                     class="p-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+                     <span class="text-[11px] font-medium text-slate-600">Full Origin Document</span>
+                     <a [href]="selectedCitation.url" target="_blank" rel="noopener noreferrer"
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-blue-50 text-blue-600 text-[10px] font-bold rounded transition-colors group">
+                        Open
+                        <lucide-icon name="external-link" class="w-3 h-3 group-hover:text-blue-700"></lucide-icon>
+                     </a>
+                  </div>
+
+               </div>
+            </div>
+
+            <!-- Empty State -->
+            <div *ngIf="!selectedCitation"
+               class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+               <div
+                  class="w-12 h-12 bg-white border border-slate-200 rounded-xl flex items-center justify-center mb-3 shadow-sm">
+                  <lucide-icon name="library" class="w-6 h-6 text-slate-300"></lucide-icon>
+               </div>
+               <h4 class="text-[11px] font-bold text-slate-700 mb-1">No Evidence Selected</h4>
+               <p class="text-[10px] text-slate-400 leading-relaxed max-w-[200px]">Click on the "Sources & Evidence"
+                  links in the field tooltips to view the exact policy or historical document used by the agent.</p>
+            </div>
+         </div>
+
       </div>
    </div>
 </div>

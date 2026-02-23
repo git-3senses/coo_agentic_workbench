@@ -5,7 +5,7 @@ REST API + MCP SSE: http://localhost:3002
   - /health, /tools, /openapi.json  (REST endpoints)
   - /mcp/sse, /mcp/messages         (MCP SSE transport)
 
-MCP SSE is mounted inside the FastAPI app so Railway (single-port)
+MCP SSE is mounted alongside the FastAPI app so a single-port deployment
 can serve both protocols on the same public domain.
 """
 import asyncio
@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 # Load environment: try local .env first, then project root .env
 _dir = os.path.dirname(__file__)
-load_dotenv(os.path.join(_dir, ".env"))  # local (Docker / Railway)
+load_dotenv(os.path.join(_dir, ".env"))  # local (Docker / hosted env)
 load_dotenv(os.path.join(_dir, "..", "..", ".env"))  # project root (dev)
 
 # Ensure this directory is on the path

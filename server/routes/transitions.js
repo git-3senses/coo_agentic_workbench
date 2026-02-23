@@ -2,6 +2,19 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { checkProhibitedGate, checkPacGate, enforceComplianceGates } = require('./approvals');
+const { requireAuth } = require('../middleware/auth');
+const { rbac } = require('../middleware/rbac');
+
+function getActorName(req, bodyActorName, fallback) {
+    if (req.user?.name) return String(req.user.name);
+    if (req.user?.email) return String(req.user.email);
+    if (req.user?.userId) return String(req.user.userId);
+    if (bodyActorName && String(bodyActorName).trim()) return String(bodyActorName).trim();
+    return fallback || 'Unknown';
+}
+
+// RBAC baseline: transitions are authenticated.
+router.use(requireAuth());
 
 // ============================================================
 // SPRINT 1: SERVER-SIDE STATE MACHINE (GAP-013)
@@ -44,9 +57,9 @@ async function fetchNpa(projectId) {
 //    Guards: title/description required, PAC gate for NTG,
 //            prohibited gate
 // ============================================================
-router.post('/:id/submit', async (req, res) => {
+router.post('/:id/submit', rbac('MAKER', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'Maker');
     const conn = await db.getConnection();
 
     try {
@@ -110,9 +123,10 @@ router.post('/:id/submit', async (req, res) => {
 //    Side effect: Dynamically assigns SOP sign-off parties
 //    from ref_signoff_routing_rules (GAP-004)
 // ============================================================
-router.post('/:id/checker-approve', async (req, res) => {
+router.post('/:id/checker-approve', rbac('CHECKER', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name, comments } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'Checker');
+    const { comments } = req.body;
     const conn = await db.getConnection();
 
     try {
@@ -330,9 +344,10 @@ async function assignSignoffParties(conn, npa) {
 //    PENDING_CHECKER → RETURNED_TO_MAKER
 //    Reason required
 // ============================================================
-router.post('/:id/checker-return', async (req, res) => {
+router.post('/:id/checker-return', rbac('CHECKER', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name, reason } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'Checker');
+    const { reason } = req.body;
 
     if (!reason) {
         return res.status(400).json({ error: 'Reason is required for returning to maker.' });
@@ -400,9 +415,10 @@ router.post('/:id/checker-return', async (req, res) => {
 //    RETURNED_TO_MAKER → PENDING_CHECKER
 //    Maker fixes issues and resubmits
 // ============================================================
-router.post('/:id/resubmit', async (req, res) => {
+router.post('/:id/resubmit', rbac('MAKER', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name, changes_made } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'Maker');
+    const { changes_made } = req.body;
     const conn = await db.getConnection();
 
     try {
@@ -466,9 +482,10 @@ router.post('/:id/resubmit', async (req, res) => {
 //    SOP party requests changes. Includes circuit breaker
 //    (GAP-005): 3 loop-backs → auto-escalate
 // ============================================================
-router.post('/:id/request-rework', async (req, res) => {
+router.post('/:id/request-rework', rbac('APPROVER', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name, party, reason } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'Approver');
+    const { party, reason } = req.body;
 
     if (!party || !reason) {
         return res.status(400).json({ error: 'Party and reason are required for rework request.' });
@@ -606,9 +623,10 @@ router.post('/:id/request-rework', async (req, res) => {
 //    Guard: all mandatory signoffs must be APPROVED or
 //           APPROVED_CONDITIONAL
 // ============================================================
-router.post('/:id/final-approve', async (req, res) => {
+router.post('/:id/final-approve', rbac('COO', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name, comments } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'COO');
+    const { comments } = req.body;
     const conn = await db.getConnection();
 
     try {
@@ -700,9 +718,10 @@ router.post('/:id/final-approve', async (req, res) => {
 //    any (except terminal) → REJECTED
 //    Reason required
 // ============================================================
-router.post('/:id/reject', async (req, res) => {
+router.post('/:id/reject', rbac('COO', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name, reason } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'COO');
+    const { reason } = req.body;
 
     if (!reason) {
         return res.status(400).json({ error: 'Reason is required for rejection.' });
@@ -757,9 +776,10 @@ router.post('/:id/reject', async (req, res) => {
 
 // 8. POST /api/transitions/:id/withdraw
 //    DRAFT|RETURNED_TO_MAKER → WITHDRAWN
-router.post('/:id/withdraw', async (req, res) => {
+router.post('/:id/withdraw', rbac('MAKER', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name, reason } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'Maker');
+    const { reason } = req.body;
     const conn = await db.getConnection();
 
     try {
@@ -807,9 +827,9 @@ router.post('/:id/withdraw', async (req, res) => {
 // 9. POST /api/transitions/:id/launch
 //    APPROVED → LAUNCHED
 //    Sets launched_at, pir_due_date, pir_status
-router.post('/:id/launch', async (req, res) => {
+router.post('/:id/launch', rbac('COO', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'COO');
     const conn = await db.getConnection();
 
     try {
@@ -898,9 +918,10 @@ async function checkAllSignoffsComplete(projectId) {
 //   POST /api/transitions/:id/extend-validity
 //   Extends validity_expiry by N months with SOP consent
 // ============================================================
-router.post('/:id/extend-validity', async (req, res) => {
+router.post('/:id/extend-validity', rbac('COO', 'ADMIN'), async (req, res) => {
     const projectId = req.params.id;
-    const { actor_name, months, reason } = req.body;
+    const actor_name = getActorName(req, req.body?.actor_name, 'COO');
+    const { months, reason } = req.body;
 
     if (!months || months < 1 || months > 24) {
         return res.status(400).json({ error: 'months must be between 1 and 24' });

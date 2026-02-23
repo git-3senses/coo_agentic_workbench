@@ -97,8 +97,14 @@ export const routes: Routes = [
             { path: 'agents/:agentId', component: PlaceholderComponent },
 
             // Knowledge
-            { path: 'knowledge/base', component: PlaceholderComponent },
-            { path: 'knowledge/evidence', component: PlaceholderComponent },
+            {
+                path: 'knowledge/base',
+                loadComponent: () => import('./pages/knowledge-base/knowledge-base').then(m => m.KnowledgeBaseComponent)
+            },
+            {
+                path: 'knowledge/evidence',
+                loadComponent: () => import('./pages/evidence-library/evidence-library').then(m => m.EvidenceLibraryComponent)
+            },
 
             // Reporting
             { path: 'reporting/dashboards', component: PlaceholderComponent },

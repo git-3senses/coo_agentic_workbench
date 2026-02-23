@@ -19,12 +19,21 @@ export type NpaFieldType =
    | 'currency'          // Currency-formatted number input
    | 'header';           // Section header (non-editable display label)
 
+export interface Citation {
+   sourceId: string;       // e.g., 'kb_gfm_sop_v2'
+   sourceName: string;     // e.g., 'GFM NPA SOP v2.3'
+   sectionAnchor?: string; // e.g., '#cross-border-mandate'
+   snippet?: string;       // The exact text from the source
+   url?: string;           // Optional external link if applicable
+}
+
 export interface LineageMetadata {
    sourceDocId?: string;       // e.g., 'TSG1917'
    sourceSnippet?: string;     // The exact text from the source
    adaptationLogic?: string;   // Reasoning for adaptation
    confidenceScore?: number;   // 0-100
    agentTip?: string;          // Helpful prompt for Manual fields
+   citations?: Citation[];     // Array of KB citations supporting AI rationale
 }
 
 export interface NpaField {

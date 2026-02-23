@@ -69,6 +69,18 @@ export class NpaTemplateEditorComponent implements OnInit, OnDestroy {
    // All template nodes indexed by id (for completion lookups)
    private nodeIndex = new Map<string, TemplateNode>();
 
+   trackByNavId(_index: number, item: { id: string }): string {
+      return item.id;
+   }
+
+   trackByNodeId(_index: number, node: { id: string }): string {
+      return node.id;
+   }
+
+   trackByFieldKey(_index: number, key: string): string {
+      return key;
+   }
+
    ngOnInit() {
       // Build field-to-section map early (uses static FIELD_REGISTRY_MAP, no DB dependency)
       this.buildFieldToSectionMap();

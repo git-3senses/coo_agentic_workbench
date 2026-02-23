@@ -14,7 +14,7 @@ import {
    FIELD_REGISTRY_MAP,
    FieldRegistryEntry
 } from '../../../lib/npa-template-definition';
-import { FieldLineage, NpaFieldType } from '../../../lib/npa-interfaces';
+import { FieldLineage, LineageMetadata, NpaFieldType, Citation } from '../../../lib/npa-interfaces';
 import { WorkflowStreamEvent } from '../../../lib/agent-interfaces';
 
 // Sub-components
@@ -57,6 +57,7 @@ export interface FieldState {
    label: string;
    value: string;
    lineage: FieldLineage;
+   lineageMetadata?: LineageMetadata;
    strategy: string;
    confidence?: number;
    source?: string;
@@ -217,6 +218,10 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    // ─── Validation ──────────────────────────────────────────────
    validationErrors: { field: string; label: string; section: string }[] = [];
    showValidation = false;
+
+   // ─── Knowledge & Evidence Panel ─────────────────────────────
+   agentPanelTab: 'CHAT' | 'KNOWLEDGE' = 'CHAT'; // Toggle between Chat and KB
+   selectedCitation: Citation | null = null; // Currently viewed citation
 
    // ─── Expose to template ─────────────────────────────────────
    Math = Math;
@@ -478,6 +483,13 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       } else {
          console.warn(`[DraftBuilder] Unknown field key in suggestion: ${suggestion.fieldKey}`);
       }
+   }
+
+   /** Fired by NpaFieldRendererComponent when a user clicks a KB Citation */
+   onCitationClick(citation: Citation): void {
+      this.selectedCitation = citation;
+      this.agentPanelTab = 'KNOWLEDGE'; // Switch right panel tab to Knowledge
+      console.log(`[DraftBuilder] Viewing citation: ${citation.sourceName}`);
    }
 
    // ═══════════════════════════════════════════════════════════

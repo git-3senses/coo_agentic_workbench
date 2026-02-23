@@ -21,7 +21,8 @@ const AutofillFieldSchema = z.object({
 
 // ── Batch persist request ──
 const PersistBatchSchema = z.object({
-   filled_fields: z.array(AutofillFieldSchema).min(1).max(200),
+   // Template is currently 339 fields; allow a full-template persist in one request.
+   filled_fields: z.array(AutofillFieldSchema).min(1).max(400),
 });
 
 // ── Prefill response shape (for documentation / client validation) ──

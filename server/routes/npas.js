@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const db = require('../db');
 const { getNpaProfiles } = require('./seed-npas');
 const { validatePersistMiddleware } = require('../validation/autofill-schema');
+const { bulkUpsertNpaFormData } = require('../utils/bulk-upsert');
 
 // GET /api/npas — List all NPAs (with optional filters)
 router.get('/', async (req, res) => {
@@ -10,12 +12,29 @@ router.get('/', async (req, res) => {
         const { status, stage, type, track } = req.query;
         let sql = `
             SELECT p.*,
-                   GROUP_CONCAT(DISTINCT j.jurisdiction_code) as jurisdictions,
-                   (SELECT COUNT(*) FROM npa_signoffs s WHERE s.project_id = p.id AND s.status = 'APPROVED') as approved_signoffs,
-                   (SELECT COUNT(*) FROM npa_signoffs s WHERE s.project_id = p.id) as total_signoffs,
-                   (SELECT COUNT(*) FROM npa_breach_alerts b WHERE b.project_id = p.id AND b.status != 'RESOLVED') as active_breaches
+                   j.jurisdictions,
+                   COALESCE(so.approved_signoffs, 0) as approved_signoffs,
+                   COALESCE(so.total_signoffs, 0) as total_signoffs,
+                   COALESCE(br.active_breaches, 0) as active_breaches
             FROM npa_projects p
-            LEFT JOIN npa_jurisdictions j ON p.id = j.project_id
+            LEFT JOIN (
+                SELECT project_id, GROUP_CONCAT(DISTINCT jurisdiction_code) as jurisdictions
+                FROM npa_jurisdictions
+                GROUP BY project_id
+            ) j ON j.project_id = p.id
+            LEFT JOIN (
+                SELECT project_id,
+                       SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_signoffs,
+                       COUNT(*) as total_signoffs
+                FROM npa_signoffs
+                GROUP BY project_id
+            ) so ON so.project_id = p.id
+            LEFT JOIN (
+                SELECT project_id, COUNT(*) as active_breaches
+                FROM npa_breach_alerts
+                WHERE status != 'RESOLVED'
+                GROUP BY project_id
+            ) br ON br.project_id = p.id
         `;
         const conditions = [];
         const params = [];
@@ -28,7 +47,7 @@ router.get('/', async (req, res) => {
         if (conditions.length > 0) {
             sql += ' WHERE ' + conditions.join(' AND ');
         }
-        sql += ' GROUP BY p.id ORDER BY p.created_at DESC';
+        sql += ' ORDER BY p.created_at DESC';
 
         const [rows] = await db.query(sql, params);
         const projects = rows.map(row => ({
@@ -48,19 +67,35 @@ router.get('/:id', async (req, res) => {
         const [project] = await db.query('SELECT * FROM npa_projects WHERE id = ?', [id]);
         if (project.length === 0) return res.status(404).json({ error: 'NPA not found' });
 
-        const [jurisdictions] = await db.query('SELECT jurisdiction_code FROM npa_jurisdictions WHERE project_id = ?', [id]);
-        const [assessments] = await db.query('SELECT * FROM npa_intake_assessments WHERE project_id = ?', [id]);
-        const [scorecard] = await db.query('SELECT * FROM npa_classification_scorecards WHERE project_id = ? ORDER BY created_at DESC LIMIT 1', [id]);
-        const [signoffs] = await db.query('SELECT * FROM npa_signoffs WHERE project_id = ? ORDER BY created_at', [id]);
-        const [loopbacks] = await db.query('SELECT * FROM npa_loop_backs WHERE project_id = ? ORDER BY loop_back_number', [id]);
-        const [comments] = await db.query('SELECT * FROM npa_comments WHERE project_id = ? ORDER BY created_at', [id]);
-        const [formData] = await db.query('SELECT * FROM npa_form_data WHERE project_id = ?', [id]);
-        const [documents] = await db.query('SELECT * FROM npa_documents WHERE project_id = ? ORDER BY uploaded_at DESC', [id]);
-        const [workflowStates] = await db.query('SELECT * FROM npa_workflow_states WHERE project_id = ? ORDER BY FIELD(stage_id, "INITIATION","REVIEW","SIGN_OFF","LAUNCH","MONITORING")', [id]);
-        const [breaches] = await db.query('SELECT * FROM npa_breach_alerts WHERE project_id = ? ORDER BY triggered_at DESC', [id]);
-        const [metrics] = await db.query('SELECT * FROM npa_performance_metrics WHERE project_id = ? ORDER BY snapshot_date DESC LIMIT 1', [id]);
-        const [approvals] = await db.query('SELECT * FROM npa_approvals WHERE project_id = ? ORDER BY created_at', [id]);
-        const [postConditions] = await db.query('SELECT * FROM npa_post_launch_conditions WHERE project_id = ?', [id]);
+        const [
+            jurisdictions,
+            assessments,
+            scorecard,
+            signoffs,
+            loopbacks,
+            comments,
+            formData,
+            documents,
+            workflowStates,
+            breaches,
+            metrics,
+            approvals,
+            postConditions
+        ] = await Promise.all([
+            db.query('SELECT jurisdiction_code FROM npa_jurisdictions WHERE project_id = ?', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_intake_assessments WHERE project_id = ?', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_classification_scorecards WHERE project_id = ? ORDER BY created_at DESC LIMIT 1', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_signoffs WHERE project_id = ? ORDER BY created_at', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_loop_backs WHERE project_id = ? ORDER BY loop_back_number', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_comments WHERE project_id = ? ORDER BY created_at', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_form_data WHERE project_id = ?', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_documents WHERE project_id = ? ORDER BY uploaded_at DESC', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_workflow_states WHERE project_id = ? ORDER BY FIELD(stage_id, "INITIATION","REVIEW","SIGN_OFF","LAUNCH","MONITORING")', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_breach_alerts WHERE project_id = ? ORDER BY triggered_at DESC', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_performance_metrics WHERE project_id = ? ORDER BY snapshot_date DESC LIMIT 1', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_approvals WHERE project_id = ? ORDER BY created_at', [id]).then(([r]) => r),
+            db.query('SELECT * FROM npa_post_launch_conditions WHERE project_id = ?', [id]).then(([r]) => r),
+        ]);
 
         res.json({
             ...project[0],
@@ -334,31 +369,19 @@ router.post('/:id/prefill/persist', validatePersistMiddleware, async (req, res) 
         try {
             await conn.beginTransaction();
 
-            for (const field of filled_fields) {
-                if (!field.field_key || !field.value) continue;
+            const rows = (filled_fields || []).map((field) => ({
+                field_key: field.field_key,
+                value: field.value,
+                lineage: field.lineage || 'AUTO',
+                confidence: field.confidence || null,
+                metadata: {
+                    source: field.source || 'prefill',
+                    strategy: field.strategy || 'RULE',
+                    prefilled_at: new Date().toISOString()
+                }
+            }));
 
-                // Upsert into npa_form_data
-                await conn.query(`
-                    INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score, metadata)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        field_value = VALUES(field_value),
-                        lineage = VALUES(lineage),
-                        confidence_score = VALUES(confidence_score),
-                        metadata = VALUES(metadata)
-                `, [
-                    id,
-                    field.field_key,
-                    field.value,
-                    field.lineage || 'AUTO',
-                    field.confidence || null,
-                    JSON.stringify({
-                        source: field.source || 'prefill',
-                        strategy: field.strategy || 'RULE',
-                        prefilled_at: new Date().toISOString()
-                    })
-                ]);
-            }
+            await bulkUpsertNpaFormData(conn, id, rows, { batchSize: 400, skipFalsyValue: true });
 
             await conn.commit();
 
@@ -383,6 +406,26 @@ router.post('/:id/prefill/persist', validatePersistMiddleware, async (req, res) 
 router.get('/:id/form-sections', async (req, res) => {
     try {
         const id = req.params.id;
+        const normalizeFieldType = (t) => {
+            const raw = String(t || '').toLowerCase().trim();
+            if (!raw) return 'text';
+            if (raw === 'select' || raw === 'radio') return 'dropdown';
+            if (raw === 'multi-select' || raw === 'multi_select') return 'multiselect';
+            if (raw === 'checkboxgroup' || raw === 'checkbox-group') return 'checkbox_group';
+            if (raw === 'yes/no' || raw === 'yes_no' || raw === 'yes-no') return 'yesno';
+            return raw;
+        };
+        const optionFieldTypes = new Set([
+            'dropdown',
+            'multiselect',
+            'checkbox_group',
+            'yesno',
+            'select',
+            'multi-select',
+            'radio',
+            'checkbox-group',
+            'yes/no',
+        ]);
         const [sections] = await db.query(`
             SELECT s.id, s.title, s.description, s.order_index
             FROM ref_npa_sections s
@@ -391,28 +434,69 @@ router.get('/:id/form-sections', async (req, res) => {
         `);
 
         const [fields] = await db.query(`
-            SELECT f.field_key, f.label, f.field_type, f.is_required, f.tooltip, f.section_id, f.order_index,
+            SELECT f.id as field_id, f.field_key, f.label, f.field_type, f.is_required, f.tooltip, f.section_id, f.order_index,
                    fd.field_value, fd.lineage, fd.confidence_score, fd.metadata
             FROM ref_npa_fields f
+            JOIN ref_npa_sections s ON s.id = f.section_id AND s.template_id = 'STD_NPA_V2'
             LEFT JOIN npa_form_data fd ON f.field_key = fd.field_key AND fd.project_id = ?
             ORDER BY f.order_index
         `, [id]);
 
+        const optionFieldIds = fields
+            .filter(f => optionFieldTypes.has(normalizeFieldType(f.field_type)))
+            .map(f => f.field_id)
+            .filter(Boolean);
+
+        const optionsByFieldId = new Map();
+        if (optionFieldIds.length > 0) {
+            const [options] = await db.query(
+                `SELECT field_id, value, label, order_index
+                 FROM ref_field_options
+                 WHERE field_id IN (?)
+                 ORDER BY field_id, order_index`,
+                [optionFieldIds]
+            );
+            for (const opt of options) {
+                if (!optionsByFieldId.has(opt.field_id)) optionsByFieldId.set(opt.field_id, []);
+                optionsByFieldId.get(opt.field_id).push({
+                    value: opt.value,
+                    label: opt.label,
+                    order_index: opt.order_index
+                });
+            }
+        }
+
         const result = sections.map(section => ({
-            ...section,
+            section_id: section.id,
+            title: section.title,
+            description: section.description,
+            order_index: section.order_index,
             fields: fields
                 .filter(f => f.section_id === section.id)
-                .map(f => ({
-                    key: f.field_key,
-                    label: f.label,
-                    type: f.field_type,
-                    required: !!f.is_required,
-                    tooltip: f.tooltip,
-                    value: f.field_value || '',
-                    lineage: f.lineage || 'MANUAL',
-                    confidenceScore: f.confidence_score,
-                    metadata: f.metadata ? JSON.parse(f.metadata) : null
-                }))
+                .map(f => {
+                    const normalizedType = normalizeFieldType(f.field_type);
+                    return {
+                        field_id: f.field_id,
+                        field_key: f.field_key,
+                        label: f.label,
+                        field_type: normalizedType,
+                        is_required: !!f.is_required,
+                        tooltip: f.tooltip,
+                        value: f.field_value || '',
+                        lineage: f.lineage || 'MANUAL',
+                        confidence_score: f.confidence_score,
+                        metadata: (() => {
+                            if (!f.metadata) return null;
+                            try { return JSON.parse(f.metadata); } catch { return null; }
+                        })(),
+                        options: optionsByFieldId.get(f.field_id) || [],
+                        // Backwards-compatible aliases for older UI codepaths:
+                        key: f.field_key,
+                        type: normalizedType,
+                        required: !!f.is_required,
+                        confidenceScore: f.confidence_score,
+                    };
+                })
         }));
 
         res.json(result);
@@ -422,13 +506,12 @@ router.get('/:id/form-sections', async (req, res) => {
 });
 
 // DELETE /api/npas/seed-demo — Clear ALL NPA data (wipe slate for fresh seeding)
-router.delete('/seed-demo', async (req, res) => {
-    console.log('[NPA SEED-CLEAR] Wiping all NPA data...');
-    const conn = await db.getConnection();
-    try {
-        await conn.query(`SET sql_mode = ''`);
-        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-        await conn.beginTransaction();
+	router.delete('/seed-demo', async (req, res) => {
+	    console.log('[NPA SEED-CLEAR] Wiping all NPA data...');
+	    const conn = await db.getConnection();
+	    try {
+	        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+	        await conn.beginTransaction();
 
         const tables = [
             'npa_loop_backs', 'npa_post_launch_conditions', 'npa_performance_metrics',
@@ -456,17 +539,16 @@ router.delete('/seed-demo', async (req, res) => {
 
 // POST /api/npas/seed-demo — Create 8 diverse NPAs covering all NPA types, product categories, risk levels
 // Aligned with KB_NPA_Templates.md — modeled after real TSG examples (TSG1917, TSG2042, TSG2339, TSG2055)
-router.post('/seed-demo', async (req, res) => {
+	router.post('/seed-demo', async (req, res) => {
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     console.log('[NPA SEED-DEMO] Creating 8 diverse NPAs...');
     const profiles = getNpaProfiles(now);
     const conn = await db.getConnection();
     const results = [];
 
-    try {
-        await conn.query(`SET sql_mode = ''`);
-        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-        await conn.beginTransaction();
+	    try {
+	        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+	        await conn.beginTransaction();
 
         // ── Insert any missing field_keys into ref_npa_fields so FK is satisfied ──
         const allFieldKeys = new Set();
@@ -816,11 +898,15 @@ router.post('/seed-demo', async (req, res) => {
             ]);
 
             // ── 2. npa_form_data ──
-            for (const fd of (p.formData || [])) {
-                await conn.query(
-                    `INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score, metadata) VALUES (?, ?, ?, ?, ?, ?)`,
-                    [id, fd[0], fd[1], fd[2], fd[3], fd[4] || null]
-                );
+            if (Array.isArray(p.formData) && p.formData.length > 0) {
+                const formRows = p.formData.map((fd) => ({
+                    field_key: fd[0],
+                    value: fd[1],
+                    lineage: fd[2],
+                    confidence_score: fd[3],
+                    metadata: fd[4] || null,
+                }));
+                await bulkUpsertNpaFormData(conn, id, formRows, { batchSize: 400 });
             }
 
             // ── 3. npa_jurisdictions ──
@@ -946,25 +1032,9 @@ router.put('/:id', async (req, res) => {
                 );
             }
 
-            // 2. Update form data (field-by-field)
+            // 2. Update form data (bulk upsert)
             if (formData && Array.isArray(formData)) {
-                for (const field of formData) {
-                    const key = field.field_key || field.key;
-                    const val = field.field_value || field.value;
-                    const lineage = field.lineage || 'MANUAL';
-                    const confidence = field.confidence_score !== undefined ? field.confidence_score : (field.confidence || null);
-                    const metadata = field.metadata ? (typeof field.metadata === 'string' ? field.metadata : JSON.stringify(field.metadata)) : null;
-
-                    await conn.query(`
-                        INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score, metadata)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        ON DUPLICATE KEY UPDATE
-                            field_value = VALUES(field_value),
-                            lineage = VALUES(lineage),
-                            confidence_score = VALUES(confidence_score),
-                            metadata = VALUES(metadata)
-                    `, [id, key, val, lineage, confidence, metadata]);
-                }
+                await bulkUpsertNpaFormData(conn, id, formData, { batchSize: 400 });
             }
 
             await conn.commit();
@@ -983,18 +1053,17 @@ router.put('/:id', async (req, res) => {
 });
 
 // POST /api/npas — Create new NPA
-router.post('/', async (req, res) => {
-    console.log('[NPA CREATE] Received:', JSON.stringify(req.body));
-    const { title, description, submitted_by, npa_type } = req.body;
-    const id = 'NPA-2026-' + String(Date.now()).slice(-3);
-    try {
-        const conn = await db.getConnection();
-        try {
-            await conn.query(`SET sql_mode = ''`);
-            await conn.query(
-                `INSERT INTO npa_projects (id, title, description, submitted_by, npa_type, current_stage, status, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, 'INITIATION', 'On Track', NOW(), NOW())`,
-                [id, title, description, submitted_by || 'system', npa_type || 'STANDARD']
+	router.post('/', async (req, res) => {
+	    console.log('[NPA CREATE] Received:', JSON.stringify(req.body));
+	    const { title, description, submitted_by, npa_type } = req.body;
+	    const id = `NPA-${crypto.randomUUID().replace(/-/g, '')}`;
+	    try {
+	        const conn = await db.getConnection();
+	        try {
+	            await conn.query(
+	                `INSERT INTO npa_projects (id, title, description, submitted_by, npa_type, current_stage, status, created_at, updated_at)
+	                 VALUES (?, ?, ?, ?, ?, 'INITIATION', 'On Track', NOW(), NOW())`,
+	                [id, title, description, submitted_by || 'system', npa_type || 'STANDARD']
             );
             console.log('[NPA CREATE] Success:', id);
             res.json({ id, status: 'CREATED' });

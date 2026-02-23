@@ -14,16 +14,48 @@ import aiomysql
 _pool: aiomysql.Pool | None = None
 
 
+def _bool_env(name: str, default: bool = False) -> bool:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+def _build_ssl_ctx() -> ssl.SSLContext | None:
+    """
+    Build an SSLContext for MySQL connections.
+
+    Env vars:
+      - DB_SSL_MODE: disable|require|verify  (default: require in production, disable otherwise)
+      - DB_SSL_INSECURE: true to disable hostname/cert verification (default: false)
+      - DB_SSL_CA_FILE: path to CA bundle (optional)
+    """
+    env = (os.getenv("ENV") or "").strip().lower()
+    default_mode = "require" if env == "production" else "disable"
+    mode = (os.getenv("DB_SSL_MODE") or default_mode).strip().lower()
+
+    if mode in ("disable", "off", "false", "0", "none"):
+        return None
+
+    ca_file = os.getenv("DB_SSL_CA_FILE")
+    ssl_ctx = ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
+
+    insecure = _bool_env("DB_SSL_INSECURE", False)
+    if insecure:
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+
+    if mode not in ("require", "verify"):
+        raise ValueError(f"Unsupported DB_SSL_MODE: {mode}")
+
+    return ssl_ctx
+
+
 async def get_pool() -> aiomysql.Pool:
     """Return the shared connection pool, creating it on first call."""
     global _pool
     if _pool is None:
-        # For cloud deployments (Railway), use SSL with permissive cert checks
-        ssl_ctx = None
-        if os.getenv("ENV") == "production":
-            ssl_ctx = ssl.create_default_context()
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode = ssl.CERT_NONE
+        ssl_ctx = _build_ssl_ctx()
 
         _pool = await aiomysql.create_pool(
             host=os.getenv("DB_HOST", "localhost"),

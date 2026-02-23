@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '2mb' }));
 
 // ─── Request timeout: abort any API request that takes longer than 30s ───────
 // Dify workflow/chat routes are exempt — they use server-side SSE streaming

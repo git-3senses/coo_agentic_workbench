@@ -72,15 +72,25 @@ async function pingAgent(agentId) {
         const latency = Date.now() - startTime;
         state.latency_ms = latency;
 
-        if (res.ok || res.status === 404) {
-            // 404 is acceptable — means Dify is responding but endpoint may vary
+        if (res.ok) {
             state.status = latency > 5000 ? 'DEGRADED' : 'HEALTHY';
             state.last_success = state.last_check;
             state.consecutive_failures = 0;
             state.success_count++;
+        } else if (res.status === 404) {
+            // Wrong base URL/path: should not be treated as healthy.
+            state.status = 'NOT_FOUND';
+            state.last_failure = state.last_check;
+            state.failure_count++;
+            state.consecutive_failures++;
         } else if (res.status === 401) {
             // Auth failure — agent key is invalid
             state.status = 'AUTH_FAILED';
+            state.failure_count++;
+            state.consecutive_failures++;
+        } else if (res.status === 429) {
+            state.status = 'RATE_LIMITED';
+            state.last_failure = state.last_check;
             state.failure_count++;
             state.consecutive_failures++;
         } else {

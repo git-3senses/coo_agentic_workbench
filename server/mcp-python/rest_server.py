@@ -12,7 +12,7 @@ ARCHITECTURE FIX (2026-02-16):
   Now we use a raw ASGI path router that splits traffic at the ASGI level:
     /mcp/*  → MCP SSE app (no FastAPI middleware)
     /*      → FastAPI REST app (with CORS middleware)
-  Both share the same port (Railway single-port constraint).
+  Both share the same port (single-port deployment constraint).
 """
 import os
 import sys
@@ -33,7 +33,10 @@ import tools  # noqa: E402, F401
 # Import the MCP server instance (already has all 71 tools registered)
 from main import mcp_server  # noqa: E402
 
-# Render sets PORT=10000, Railway uses REST_PORT=3002
+# DB health
+from db import health_check  # noqa: E402
+
+# Some hosting providers set PORT automatically; otherwise REST_PORT is used.
 REST_PORT = int(os.getenv("PORT", os.getenv("REST_PORT", "3002")))
 
 # ─── FastAPI REST app (with CORS middleware) ─────────────────────
@@ -181,9 +184,11 @@ async def execute_tool(tool_name: str, request: Request):
 
 @rest_app.get("/health")
 async def health():
+    db_ok = await health_check()
     return {
         "status": "ok",
         "server": "REST API for Dify",
+        "dbOk": db_ok,
         "tools": registry.count(),
         "categories": registry.get_categories(),
         "openApiSpec": f"{os.getenv('PUBLIC_URL', f'http://localhost:{REST_PORT}')}/openapi.json",

@@ -82,7 +82,7 @@
 
          <!-- Section nav — same template tree for both Doc and Form views -->
          <nav class="flex-1 py-1 overflow-y-auto">
-            <a *ngFor="let navItem of templateNavSections" href="javascript:void(0)"
+            <a *ngFor="let navItem of templateNavSections; trackBy: trackByNavId" href="javascript:void(0)"
                (click)="scrollToSection(navItem.id)"
                class="group flex items-center gap-2 px-3 py-2 text-[12px] transition-all border-l-2 mx-1 rounded-r-sm"
                [class.border-blue-500]="activeSection === navItem.id" [class.bg-blue-50]="activeSection === navItem.id"
@@ -135,7 +135,7 @@
                </div>
 
                <!-- Render Part C sections -->
-               <ng-container *ngFor="let sectionNode of templateTree.children">
+               <ng-container *ngFor="let sectionNode of templateTree.children; trackBy: trackByNodeId">
                   <ng-container
                      *ngTemplateOutlet="nodeRenderer; context: { $implicit: sectionNode, depth: 0 }"></ng-container>
                </ng-container>
@@ -146,7 +146,7 @@
                </div>
 
                <!-- Render Appendices -->
-               <ng-container *ngFor="let appNode of appendicesTree">
+               <ng-container *ngFor="let appNode of appendicesTree; trackBy: trackByNodeId">
                   <ng-container
                      *ngTemplateOutlet="nodeRenderer; context: { $implicit: appNode, depth: 0 }"></ng-container>
                </ng-container>
@@ -179,7 +179,7 @@
                         </div>
                         <!-- Render field values for section-level fieldKeys -->
                         <ng-container *ngIf="node.fieldKeys?.length">
-                           <ng-container *ngFor="let fk of node.fieldKeys">
+                           <ng-container *ngFor="let fk of node.fieldKeys; trackBy: trackByFieldKey">
                               <ng-container *ngIf="getFieldForKey(fk) as field">
                                  <ng-container
                                     *ngTemplateOutlet="fieldBlock; context: { $implicit: field }"></ng-container>
@@ -187,7 +187,7 @@
                            </ng-container>
                         </ng-container>
                         <!-- Recurse into children -->
-                        <ng-container *ngFor="let child of node.children">
+                        <ng-container *ngFor="let child of node.children; trackBy: trackByNodeId">
                            <ng-container
                               *ngTemplateOutlet="nodeRenderer; context: { $implicit: child, depth: depth + 1 }"></ng-container>
                         </ng-container>
@@ -208,14 +208,14 @@
                   </div>
                   <!-- Field values -->
                   <ng-container *ngIf="node.fieldKeys?.length">
-                     <ng-container *ngFor="let fk of node.fieldKeys">
+                     <ng-container *ngFor="let fk of node.fieldKeys; trackBy: trackByFieldKey">
                         <ng-container *ngIf="getFieldForKey(fk) as field">
                            <ng-container *ngTemplateOutlet="fieldBlock; context: { $implicit: field }"></ng-container>
                         </ng-container>
                      </ng-container>
                   </ng-container>
                   <!-- Recurse into children -->
-                  <ng-container *ngFor="let child of node.children">
+                  <ng-container *ngFor="let child of node.children; trackBy: trackByNodeId">
                      <ng-container
                         *ngTemplateOutlet="nodeRenderer; context: { $implicit: child, depth: depth + 1 }"></ng-container>
                   </ng-container>

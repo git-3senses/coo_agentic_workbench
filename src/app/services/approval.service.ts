@@ -107,7 +107,18 @@ export class ApprovalService {
     /**
      * POST sign-off decision
      */
-    makeDecision(npaId: string, party: string, decision: { decision: string; comments?: string; conditions_imposed?: string }): Observable<any> {
+    makeDecision(
+        npaId: string,
+        party: string,
+        decision: {
+            decision: string;
+            comments?: string;
+            conditions_imposed?: string;
+            approver_user_id?: string;
+            approver_name?: string;
+            actor_name?: string;
+        }
+    ): Observable<any> {
         return this.http.post(`${this.apiUrl}/npas/${npaId}/signoffs/${encodeURIComponent(party)}/decide`, decision);
     }
 
@@ -157,7 +168,17 @@ export class ApprovalService {
     // SPRINT 4: Conditional Approval (GAP-015)
     // ============================================================
 
-    approveConditional(npaId: string, party: string, payload: { actor_name: string; conditions: Array<{ condition_text: string; due_date?: string }> }): Observable<any> {
+    approveConditional(
+        npaId: string,
+        party: string,
+        payload: {
+            actor_name: string;
+            comments?: string;
+            approver_user_id?: string;
+            approver_name?: string;
+            conditions: Array<{ condition_text: string; due_date?: string }>;
+        }
+    ): Observable<any> {
         return this.http.post(`${this.apiUrl}/npas/${npaId}/signoffs/${encodeURIComponent(party)}/approve-conditional`, payload);
     }
 

@@ -5,6 +5,7 @@ import { SharedIconsModule } from '../../../../../shared/icons/shared-icons.modu
 import { NpaLineageBadgeComponent } from '../../../../../shared/components/npa-lineage-badge/npa-lineage-badge.component';
 import { NpaStrategyBadgeComponent } from '../../../../../shared/components/npa-strategy-badge/npa-strategy-badge.component';
 import { FieldState } from '../../npa-draft-builder.component';
+import { Citation } from '../../../../../lib/npa-interfaces';
 
 @Component({
    selector: 'app-npa-field-renderer',
@@ -26,8 +27,13 @@ export class NpaFieldRendererComponent {
    @Output() fieldCleared = new EventEmitter<FieldState>();
    @Output() askAgent = new EventEmitter<FieldState>();
    @Output() fileSelected = new EventEmitter<{ field: FieldState; event: Event }>();
+   @Output() citationClick = new EventEmitter<Citation>(); // Emit when user clicks a KB citation
 
    // ─── Field Editing ──────────────────────────────────────────
+
+   onCitationClick(citation: Citation): void {
+      this.citationClick.emit(citation);
+   }
 
    startEditing(): void {
       this.field.isEditing = true;

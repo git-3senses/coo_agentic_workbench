@@ -1,6 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { requireAuth } = require('../middleware/auth');
+const { rbac } = require('../middleware/rbac');
+
+function _isPlaceholderIdentity(val) {
+    if (!val) return true;
+    const s = String(val).trim().toLowerCase();
+    if (!s) return true;
+    return s === 'current_user' || s === 'user-123' || s === 'default-user' || s === 'anonymous';
+}
+
+function getApproverIdentity(req, body, fallbackParty) {
+    if (req.user?.userId) {
+        return {
+            approverUserId: String(req.user.userId),
+            approverName: String(req.user.name || req.user.email || fallbackParty || 'Unknown'),
+        };
+    }
+
+    const bodyUserId = body?.approver_user_id;
+    const bodyName = body?.approver_name || body?.actor_name;
+
+    return {
+        approverUserId: _isPlaceholderIdentity(bodyUserId) ? null : String(bodyUserId),
+        approverName: _isPlaceholderIdentity(bodyName) ? String(fallbackParty || 'Unknown') : String(bodyName),
+    };
+}
 
 // ============================================================
 // SPRINT 0: COMPLIANCE GUARDS (GAP-001, GAP-002)
@@ -71,6 +97,9 @@ async function enforceComplianceGates(projectId) {
     return { blocked: false };
 }
 
+// RBAC baseline: approvals endpoints are authenticated.
+router.use(requireAuth());
+
 // GET /api/approvals — All pending approval items (for approval dashboard)
 router.get('/', async (req, res) => {
     try {
@@ -78,10 +107,18 @@ router.get('/', async (req, res) => {
             SELECT p.id, p.title, p.description, p.submitted_by, p.risk_level,
                    p.npa_type, p.current_stage, p.status, p.created_at,
                    p.notional_amount, p.currency, p.approval_track,
-                   (SELECT COUNT(*) FROM npa_signoffs s WHERE s.project_id = p.id AND s.status IN ('PENDING','UNDER_REVIEW','CLARIFICATION_NEEDED')) as pending_signoffs,
-                   (SELECT COUNT(*) FROM npa_signoffs s WHERE s.project_id = p.id AND s.status = 'APPROVED') as completed_signoffs,
-                   (SELECT COUNT(*) FROM npa_signoffs s WHERE s.project_id = p.id) as total_signoffs
+                   COALESCE(so.pending_signoffs, 0) as pending_signoffs,
+                   COALESCE(so.completed_signoffs, 0) as completed_signoffs,
+                   COALESCE(so.total_signoffs, 0) as total_signoffs
             FROM npa_projects p
+            LEFT JOIN (
+                SELECT project_id,
+                       SUM(status IN ('PENDING','UNDER_REVIEW','CLARIFICATION_NEEDED')) as pending_signoffs,
+                       SUM(status = 'APPROVED') as completed_signoffs,
+                       COUNT(*) as total_signoffs
+                FROM npa_signoffs
+                GROUP BY project_id
+            ) so ON so.project_id = p.id
             WHERE p.current_stage IN ('PENDING_CHECKER', 'PENDING_SIGN_OFFS', 'PENDING_FINAL_APPROVAL', 'DCE_REVIEW', 'RISK_ASSESSMENT', 'RETURNED_TO_MAKER', 'ESCALATED')
               AND p.status != 'Stopped'
             ORDER BY p.created_at DESC
@@ -148,8 +185,8 @@ router.post('/npas/:id/comments', async (req, res) => {
 
 // POST /api/approvals/npas/:id/signoffs/:party/decide — Make sign-off decision
 // SPRINT 0: Now enforces compliance gates before allowing any sign-off decision
-router.post('/npas/:id/signoffs/:party/decide', async (req, res) => {
-    const { decision, comments, approver_user_id, approver_name } = req.body;
+router.post('/npas/:id/signoffs/:party/decide', rbac('APPROVER', 'COO', 'ADMIN'), async (req, res) => {
+    const { decision, comments } = req.body;
     try {
         // Sprint 0: Enforce compliance gates before any approval action
         const gateResult = await enforceComplianceGates(req.params.id);
@@ -161,11 +198,13 @@ router.post('/npas/:id/signoffs/:party/decide', async (req, res) => {
             });
         }
 
+        const { approverUserId, approverName } = getApproverIdentity(req, req.body, req.params.party);
+
         await db.query(
             `UPDATE npa_signoffs
              SET status = ?, decision_date = NOW(), comments = ?, approver_user_id = ?, approver_name = ?
              WHERE project_id = ? AND party = ?`,
-            [decision, comments, approver_user_id, approver_name, req.params.id, req.params.party]
+            [decision, comments, approverUserId, approverName, req.params.id, req.params.party]
         );
 
         // Sprint 1: Auto-advance to PENDING_FINAL_APPROVAL when all parties approved
@@ -189,8 +228,8 @@ router.post('/npas/:id/signoffs/:party/decide', async (req, res) => {
 // ============================================================
 
 // POST /api/approvals/npas/:id/signoffs/:party/approve-conditional
-router.post('/npas/:id/signoffs/:party/approve-conditional', async (req, res) => {
-    const { approver_name, approver_user_id, comments, conditions } = req.body;
+router.post('/npas/:id/signoffs/:party/approve-conditional', rbac('APPROVER', 'COO', 'ADMIN'), async (req, res) => {
+    const { comments, conditions } = req.body;
     try {
         if (!Array.isArray(conditions) || conditions.length === 0) {
             return res.status(400).json({ error: 'At least one condition is required for conditional approval.' });
@@ -202,13 +241,15 @@ router.post('/npas/:id/signoffs/:party/approve-conditional', async (req, res) =>
             return res.status(403).json({ error: gateResult.reason, gate: 'COMPLIANCE_BLOCK', details: gateResult });
         }
 
+        const { approverUserId, approverName } = getApproverIdentity(req, req.body, req.params.party);
+
         // Update signoff to APPROVED_CONDITIONAL
         await db.query(
             `UPDATE npa_signoffs
              SET status = 'APPROVED_CONDITIONAL', decision_date = NOW(), comments = ?,
                  approver_user_id = ?, approver_name = ?
              WHERE project_id = ? AND party = ?`,
-            [comments || 'Approved with conditions', approver_user_id, approver_name, req.params.id, req.params.party]
+            [comments || 'Approved with conditions', approverUserId, approverName, req.params.id, req.params.party]
         );
 
         // Save conditions to npa_post_launch_conditions
@@ -228,7 +269,7 @@ router.post('/npas/:id/signoffs/:party/approve-conditional', async (req, res) =>
         await db.query(
             `INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action)
              VALUES (?, ?, 'CONDITIONAL_APPROVAL', ?, 0)`,
-            [req.params.id, approver_name || req.params.party, JSON.stringify({
+            [req.params.id, approverName || req.params.party, JSON.stringify({
                 party: req.params.party, condition_count: conditions.length, comments
             })]
         );
@@ -257,7 +298,7 @@ router.get('/npas/:id/conditions', async (req, res) => {
 });
 
 // PUT /api/approvals/npas/:id/conditions/:condId — Update condition status
-router.put('/npas/:id/conditions/:condId', async (req, res) => {
+router.put('/npas/:id/conditions/:condId', rbac('APPROVER', 'COO', 'ADMIN'), async (req, res) => {
     const { status } = req.body;
     try {
         const validStatuses = ['PENDING', 'MET', 'WAIVED', 'OVERDUE'];

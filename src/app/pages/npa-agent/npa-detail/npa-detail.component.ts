@@ -22,6 +22,9 @@ import { catchError, of, timer, forkJoin, Observable, EMPTY, Subject } from 'rxj
 import { concatMap, tap, finalize } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import { FIELD_REGISTRY_MAP } from '../../../lib/npa-template-definition';
+import { AuthService } from '../../../services/auth.service';
+import { UserService } from '../../../services/user.service';
+import { ApprovalService } from '../../../services/approval.service';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
@@ -124,6 +127,55 @@ export class NpaDetailComponent implements OnInit {
    private npaService = inject(NpaService);
    private http = inject(HttpClient);
    private riskCheckService = inject(RiskCheckService);
+   private auth = inject(AuthService);
+   private userService = inject(UserService);
+   private approvalService = inject(ApprovalService);
+
+   private getApproverIdentity(): { approver_user_id?: string; approver_name?: string } {
+      const authUser = this.auth.currentUser;
+      if (authUser?.id) {
+         return {
+            approver_user_id: authUser.id,
+            approver_name: authUser.display_name || authUser.full_name || authUser.email,
+         };
+      }
+      const user = this.userService.currentUser();
+      if (user?.id) {
+         return { approver_user_id: user.id, approver_name: user.name || user.email };
+      }
+      return {};
+   }
+
+   private getSignoffPartyForCurrentUser(): string | null {
+      const authUser = this.auth.currentUser;
+      const role = authUser?.role || this.userService.currentUser().role;
+
+      if (role === 'APPROVER') {
+         const dept = authUser?.department;
+         if (!dept) return null;
+         const map: Record<string, string> = {
+            'RMG-Credit': 'RMG-Credit',
+            'RMG-Market': 'RMG-Market',
+            'Finance': 'Group Finance',
+            'Group Tax': 'Group Tax',
+            'Legal & Compliance': 'Legal & Compliance',
+            'Operations': 'T&O-Ops',
+            'Technology': 'T&O-Tech',
+            'MLR': 'Legal & Compliance',
+         };
+         return map[dept] || null;
+      }
+
+      if (role === 'APPROVER_RISK') return 'RMG-Credit';
+      if (role === 'APPROVER_MARKET') return 'RMG-Market';
+      if (role === 'APPROVER_FINANCE') return 'Group Finance';
+      if (role === 'APPROVER_TAX') return 'Group Tax';
+      if (role === 'APPROVER_LEGAL') return 'Legal & Compliance';
+      if (role === 'APPROVER_OPS') return 'T&O-Ops';
+      if (role === 'APPROVER_TECH') return 'T&O-Tech';
+
+      return null;
+   }
 
    // ─── Lifecycle ────────────────────────────────────────────────────
 
@@ -212,20 +264,54 @@ export class NpaDetailComponent implements OnInit {
       const confirmed = confirm('Are you sure you want to approve and sign off on this NPA?');
       if (!confirmed) return;
 
-      this.http.post('/api/approvals', {
-         npa_id: this.projectId,
-         action: 'APPROVE',
-         approver_user_id: 'current_user', // TODO: get from auth service
-         comments: 'Approved via COO Workbench'
+      const authRole = this.auth.currentUser?.role;
+      const role = authRole || this.userService.currentUser().role;
+      const identity = this.getApproverIdentity();
+
+      if (role === 'MAKER') {
+         const actorName = identity.approver_name || this.projectData?.submitted_by || 'Maker';
+         const stage = this.projectData?.current_stage;
+         const call$ = stage === 'RETURNED_TO_MAKER'
+            ? this.approvalService.resubmitNpa(this.projectId, actorName)
+            : this.approvalService.submitNpa(this.projectId, actorName);
+         call$.subscribe({
+            next: () => alert('NPA submitted.'),
+            error: (err) => alert(err.error?.error || 'Submit failed')
+         });
+         return;
+      }
+
+      if (role === 'CHECKER') {
+         const actorName = identity.approver_name || 'Checker';
+         this.approvalService.checkerApprove(this.projectId, actorName, 'Approved via detail view').subscribe({
+            next: () => alert('Checker approval recorded.'),
+            error: (err) => alert(err.error?.error || 'Checker approval failed')
+         });
+         return;
+      }
+
+      if (role === 'COO') {
+         const actorName = identity.approver_name || 'COO';
+         this.approvalService.finalApprove(this.projectId, actorName, 'Final approved via detail view').subscribe({
+            next: () => alert('Final approval recorded.'),
+            error: (err) => alert(err.error?.error || 'Final approval failed')
+         });
+         return;
+      }
+
+      const party = this.getSignoffPartyForCurrentUser();
+      if (!party) {
+         alert('No sign-off party mapped for your role. Please select an approver role in the top bar.');
+         return;
+      }
+
+      this.approvalService.makeDecision(this.projectId, party, {
+         decision: 'APPROVED',
+         comments: 'Approved via detail view',
+         ...identity
       }).subscribe({
-         next: () => {
-            console.log('[Approve] NPA approved successfully');
-            alert('NPA approved and signed off.');
-         },
-         error: (err) => {
-            console.error('[Approve] Failed:', err);
-            alert('Failed to approve. Please try again.');
-         }
+         next: () => alert('Sign-off recorded.'),
+         error: (err) => alert(err.error?.error || 'Sign-off failed')
       });
    }
 
@@ -234,20 +320,41 @@ export class NpaDetailComponent implements OnInit {
       const reason = prompt('Please provide a reason for rejection:');
       if (!reason) return;
 
-      this.http.post('/api/approvals', {
-         npa_id: this.projectId,
-         action: 'REJECT',
-         approver_user_id: 'current_user',
-         comments: reason
+      const authRole = this.auth.currentUser?.role;
+      const role = authRole || this.userService.currentUser().role;
+      const identity = this.getApproverIdentity();
+
+      if (role === 'CHECKER') {
+         const actorName = identity.approver_name || 'Checker';
+         this.approvalService.checkerReturn(this.projectId, actorName, reason).subscribe({
+            next: () => alert('Returned to maker.'),
+            error: (err) => alert(err.error?.error || 'Return failed')
+         });
+         return;
+      }
+
+      if (role === 'COO') {
+         const actorName = identity.approver_name || 'COO';
+         this.approvalService.rejectNpa(this.projectId, actorName, reason).subscribe({
+            next: () => alert('NPA rejected.'),
+            error: (err) => alert(err.error?.error || 'Rejection failed')
+         });
+         return;
+      }
+
+      const party = this.getSignoffPartyForCurrentUser();
+      if (!party) {
+         alert('No sign-off party mapped for your role. Please select an approver role in the top bar.');
+         return;
+      }
+
+      this.approvalService.makeDecision(this.projectId, party, {
+         decision: 'REJECTED',
+         comments: reason,
+         ...identity
       }).subscribe({
-         next: () => {
-            console.log('[Reject] NPA rejected');
-            alert('NPA rejected.');
-         },
-         error: (err) => {
-            console.error('[Reject] Failed:', err);
-            alert('Failed to reject. Please try again.');
-         }
+         next: () => alert('Rejection recorded.'),
+         error: (err) => alert(err.error?.error || 'Rejection failed')
       });
    }
 

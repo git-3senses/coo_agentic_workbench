@@ -11,6 +11,8 @@ import {
     WorkflowStreamEvent,
     AGENT_REGISTRY
 } from '../../lib/agent-interfaces';
+import { AuthService } from '../auth.service';
+import AGENT_REGISTRY_JSON from '../../../../shared/agent-registry.json';
 
 export interface DifyAgentResponse {
     answer: string;
@@ -64,7 +66,30 @@ export class DifyService {
     // Emits when the active agent changes (components subscribe to update UI)
     private activeAgentChanged$ = new Subject<{ fromAgent: string; toAgent: string; reason: string }>();
 
-    constructor(private http: HttpClient, private ngZone: NgZone) { }
+    constructor(private http: HttpClient, private ngZone: NgZone, private auth: AuthService) { }
+
+    private static readonly difyAppAliasToAgentId: Record<string, string> = (() => {
+        const out: Record<string, string> = {};
+        for (const a of (AGENT_REGISTRY_JSON as any[])) {
+            if (!a?.id) continue;
+            const id = String(a.id);
+            if (a.difyApp) out[String(a.difyApp)] = id;
+            if (Array.isArray(a.aliases)) {
+                for (const alias of a.aliases) {
+                    if (alias) out[String(alias)] = id;
+                }
+            }
+        }
+        return out;
+    })();
+
+    private get difyUser(): string {
+        return this.auth.currentUser?.id || 'anonymous';
+    }
+
+    private get authHeader(): string | null {
+        return this.auth.token ? `Bearer ${this.auth.token}` : null;
+    }
 
     // ─── Public Getters ──────────────────────────────────────────
 
@@ -168,19 +193,7 @@ export class DifyService {
 
         // Dify LLMs sometimes output Dify app names (e.g. "CF_NPA_Query_Assistant")
         // instead of internal agent_ids (e.g. "DILIGENCE"). Normalize them.
-        const difyAppToAgentId: Record<string, string> = {
-            'CF_NPA_Query_Assistant': 'DILIGENCE',
-            'CF_NPA_Ideation': 'IDEATION',
-            'CF_NPA_Orchestrator': 'NPA_ORCHESTRATOR',
-            'CF_COO_Orchestrator': 'MASTER_COO',
-            'WF_NPA_Classifier': 'CLASSIFIER',
-            'WF_NPA_Risk': 'RISK',
-            'WF_NPA_Governance': 'GOVERNANCE',
-            'WF_NPA_Doc_Lifecycle': 'DOC_LIFECYCLE',
-            'WF_NPA_Post_Launch': 'MONITORING',
-            'WF_NPA_SLA_Monitor': 'SLA_MONITOR',
-        };
-        const normalizeAgent = (id: string) => difyAppToAgentId[id] || id;
+        const normalizeAgent = (id: string) => DifyService.difyAppAliasToAgentId[id] || id;
 
         // DELEGATE_AGENT: Explicit delegation to a specific agent
         if (action === 'DELEGATE_AGENT' && payload?.target_agent) {
@@ -258,7 +271,7 @@ export class DifyService {
             query,
             inputs: userContext,
             conversation_id: conversationId,
-            user: 'user-123',
+            user: this.difyUser,
             response_mode: 'blocking'
         }).pipe(
             // No client-side retries — Express proxy already handles retries server-side.
@@ -306,13 +319,16 @@ export class DifyService {
             query,
             inputs: userContext,
             conversation_id: conversationId,
-            user: 'user-123',
+            user: this.difyUser,
             response_mode: 'streaming'
         });
 
         fetch('/api/dify/chat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(this.authHeader ? { Authorization: this.authHeader } : {})
+            },
             body
         }).then(response => {
             const reader = response.body?.getReader();
@@ -374,13 +390,16 @@ export class DifyService {
             const doFetch = (attempt: number): void => {
                 fetch('/api/dify/chat', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(this.authHeader ? { Authorization: this.authHeader } : {})
+                    },
                     body: JSON.stringify({
                         agent_id: targetAgent,
                         query,
                         inputs: userContext,
                         conversation_id: conversationId,
-                        user: 'user-123',
+                        user: this.difyUser,
                         response_mode: 'streaming'
                     }),
                     signal: abortController.signal
@@ -401,6 +420,25 @@ export class DifyService {
                     if (!reader) { subscriber.error(new Error('No stream')); return; }
                     const decoder = new TextDecoder();
                     let buffer = '';
+                    const eventQueue: StreamEvent[] = [];
+                    let flushScheduled = false;
+                    const scheduleFlush = () => {
+                        if (flushScheduled) return;
+                        flushScheduled = true;
+                        const schedule = (cb: () => void) => {
+                            if (typeof requestAnimationFrame === 'function') requestAnimationFrame(cb);
+                            else setTimeout(cb, 16);
+                        };
+                        schedule(() => {
+                            flushScheduled = false;
+                            if (eventQueue.length === 0) return;
+                            const toEmit = eventQueue.splice(0, eventQueue.length);
+                            this.ngZone.run(() => {
+                                for (const evt of toEmit) subscriber.next(evt);
+                            });
+                            if (eventQueue.length > 0) scheduleFlush();
+                        });
+                    };
 
                     const read = (): void => {
                         reader.read().then(({ done, value }) => {
@@ -413,32 +451,28 @@ export class DifyService {
                             const lines = buffer.split('\n');
                             buffer = lines.pop() || ''; // keep partial last line
 
-                            // Run inside NgZone so Angular change detection picks up
-                            // the incremental content mutations on the streaming message
-                            this.ngZone.run(() => {
-                                for (const line of lines) {
-                                    if (!line.startsWith('data:')) continue;
-                                    const jsonStr = line.slice(5).trim();
-                                    if (!jsonStr) continue;
-                                    try {
-                                        const evt = JSON.parse(jsonStr);
-                                        if (evt.event === 'agent_message' || evt.event === 'message') {
-                                            const chunk = evt.answer || '';
-                                            fullAnswer += chunk;
-                                            subscriber.next({ type: 'chunk', text: chunk });
-                                        } else if (evt.event === 'agent_thought') {
-                                            const thought = evt.thought || '';
-                                            if (thought) subscriber.next({ type: 'thought', thought });
-                                        } else if (evt.event === 'message_end') {
-                                            convId = evt.conversation_id || convId;
-                                            msgId = evt.message_id || msgId;
-                                        }
-                                        // Capture IDs from any event
-                                        if (evt.conversation_id) convId = evt.conversation_id;
-                                        if (evt.message_id) msgId = evt.message_id;
-                                    } catch { /* skip malformed SSE lines */ }
-                                }
-                            });
+                            for (const line of lines) {
+                                if (!line.startsWith('data:')) continue;
+                                const jsonStr = line.slice(5).trim();
+                                if (!jsonStr) continue;
+                                try {
+                                    const evt = JSON.parse(jsonStr);
+                                    if (evt.event === 'agent_message' || evt.event === 'message') {
+                                        const chunk = evt.answer || '';
+                                        fullAnswer += chunk;
+                                        if (chunk) eventQueue.push({ type: 'chunk', text: chunk });
+                                    } else if (evt.event === 'agent_thought') {
+                                        const thought = evt.thought || '';
+                                        if (thought) eventQueue.push({ type: 'thought', thought });
+                                    } else if (evt.event === 'message_end') {
+                                        convId = evt.conversation_id || convId;
+                                        msgId = evt.message_id || msgId;
+                                    }
+                                    if (evt.conversation_id) convId = evt.conversation_id;
+                                    if (evt.message_id) msgId = evt.message_id;
+                                } catch { /* skip malformed SSE lines */ }
+                            }
+                            if (eventQueue.length > 0) scheduleFlush();
                             read();
                         }).catch(err => {
                             if (err.name !== 'AbortError') {
@@ -644,7 +678,7 @@ export class DifyService {
         return this.http.post<DifyWorkflowResponse>('/api/dify/workflow', {
             agent_id: agentId,
             inputs,
-            user: 'user-123',
+            user: this.difyUser,
             response_mode: 'blocking'
         }).pipe(
             // Retry on transient errors: status 0 (socket hang up / abort),

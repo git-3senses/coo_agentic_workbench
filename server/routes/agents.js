@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db');
 const { validatePersistBatch } = require('../validation/autofill-schema');
+const { bulkUpsertNpaFormData } = require('../utils/bulk-upsert');
 
 // ─── Chat Session CRUD ─────────────────────────────────────────────────────
 
@@ -85,13 +86,17 @@ router.post('/sessions', async (req, res) => {
         const { id: clientId, title, preview, agent_identity, domain_agent_json, user_id, project_id } = req.body;
         // Use client-provided ID if available, otherwise generate one
         const id = clientId || `cs_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+        const sessionUserId =
+            (req.user?.userId ? String(req.user.userId) : null)
+            || (user_id && String(user_id).trim() ? String(user_id).trim() : null)
+            || `anon:${req.ip || 'unknown'}`;
 
         await db.query(
             `INSERT INTO agent_sessions (id, title, preview, agent_identity, domain_agent_json, user_id, project_id)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [id, title || 'New Chat', preview || null, agent_identity || null,
                 domain_agent_json ? JSON.stringify(domain_agent_json) : null,
-                user_id || 'default_user', project_id || null]
+                sessionUserId, project_id || null]
         );
 
         const [rows] = await db.query('SELECT * FROM agent_sessions WHERE id = ?', [id]);
@@ -540,32 +545,27 @@ router.post('/npas/:id/persist/autofill', async (req, res) => {
 
         let saved = 0;
         try {
-            for (const field of fields) {
-                const lineage = field.lineage || 'AUTO';
+            const rows = fields.map((field) => {
                 const confidence = typeof field.confidence === 'number'
                     ? Math.min(100, Math.max(0, field.confidence))
                     : null;
-                const metadata = JSON.stringify({
-                    source: field.source || 'autofill_agent',
-                    strategy: field.strategy || 'LLM',
-                    document_section: field.document_section,
-                    persisted_at: new Date().toISOString()
-                });
+                return {
+                    field_key: field.field_key,
+                    value: field.value,
+                    lineage: field.lineage || 'AUTO',
+                    confidence_score: confidence,
+                    metadata: {
+                        source: field.source || 'autofill_agent',
+                        strategy: field.strategy || 'LLM',
+                        document_section: field.document_section,
+                        persisted_at: new Date().toISOString()
+                    }
+                };
+            });
 
-                // UPSERT using INSERT ... ON DUPLICATE KEY UPDATE
-                await (useTransaction ? conn : db).query(
-                    `INSERT INTO npa_form_data (project_id, field_key, field_value, lineage, confidence_score, metadata)
-                     VALUES (?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE
-                        field_value = VALUES(field_value),
-                        lineage = VALUES(lineage),
-                        confidence_score = VALUES(confidence_score),
-                        metadata = VALUES(metadata),
-                        updated_at = NOW()`,
-                    [req.params.id, field.field_key, String(field.value), lineage, confidence, metadata]
-                );
-                saved++;
-            }
+            const targetConn = useTransaction ? conn : db;
+            const result = await bulkUpsertNpaFormData(targetConn, req.params.id, rows, { batchSize: 400 });
+            saved = result.rows;
 
             if (useTransaction) await conn.commit();
         } catch (innerErr) {

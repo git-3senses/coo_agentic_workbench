@@ -26,10 +26,10 @@ COPY tools/ ./tools/
 RUN chown -R appuser:appuser /app
 USER appuser
 
-# Expose port (REST + MCP SSE unified) — Render sets PORT=10000
+# Expose port (REST + MCP SSE unified). Most hosts will set $PORT; default is 10000.
 EXPOSE 10000
 
-# Health check against REST API — uses PORT env var (defaults to 10000 for Render)
+# Health check against REST API — uses PORT env var (defaults to 10000)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD python3 -c "import os,urllib.request; urllib.request.urlopen(f'http://localhost:{os.getenv(\"PORT\",\"10000\")}/health')" || exit 1
 
