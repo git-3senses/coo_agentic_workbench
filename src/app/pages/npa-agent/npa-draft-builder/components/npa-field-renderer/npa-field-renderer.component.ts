@@ -22,10 +22,12 @@ import { Citation } from '../../../../../lib/npa-interfaces';
 })
 export class NpaFieldRendererComponent {
    @Input() field!: FieldState;
+   @Input() readOnly = false;
 
    @Output() fieldEdited = new EventEmitter<FieldState>();
    @Output() fieldCleared = new EventEmitter<FieldState>();
    @Output() askAgent = new EventEmitter<FieldState>();
+   @Output() commentClicked = new EventEmitter<FieldState>();
    @Output() fileSelected = new EventEmitter<{ field: FieldState; event: Event }>();
    @Output() citationClick = new EventEmitter<Citation>(); // Emit when user clicks a KB citation
 
@@ -57,6 +59,10 @@ export class NpaFieldRendererComponent {
 
    onAskAgent(): void {
       this.askAgent.emit(this.field);
+   }
+
+   onCommentClick(): void {
+      this.commentClicked.emit(this.field);
    }
 
    // ─── Bullet List ──────────────────────────────────────────────

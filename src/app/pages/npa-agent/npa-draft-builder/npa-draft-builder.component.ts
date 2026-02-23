@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { SharedIconsModule } from '../../../shared/icons/shared-icons.module';
 import { HttpClient } from '@angular/common/http';
 import { Subject, Subscription } from 'rxjs';
+import { AuthService } from '../../../services/auth.service';
 import {
    NPA_PART_C_TEMPLATE,
    NPA_APPENDICES_TEMPLATE,
@@ -100,6 +101,32 @@ export interface ChatMessage {
 }
 
 // ────────────────────────────────────────────────────────────
+// Comments (UI-only placeholder; persistence comes later)
+// ────────────────────────────────────────────────────────────
+
+interface CommentReply {
+   id: string;
+   author: string;
+   when: string;
+   text: string;
+}
+
+interface CommentItem {
+   id: string;
+   author: string;
+   when: string;
+   text: string;
+   replies: CommentReply[];
+}
+
+interface CommentThread {
+   key: string;
+   title: string;
+   ref: string;
+   comments: CommentItem[];
+}
+
+// ────────────────────────────────────────────────────────────
 // Sign-Off Group Definitions
 // ────────────────────────────────────────────────────────────
 
@@ -182,8 +209,22 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
 
    private http = inject(HttpClient);
    private cdr = inject(ChangeDetectorRef);
+   private authService = inject(AuthService);
 
    @ViewChild('agentChat') agentChatComponent?: NpaAgentChatComponent;
+
+   /** Read-only UI mode for non Maker/Checker personas */
+   isReadOnly = false;
+
+   // Comments drawer state (non-breaking placeholder)
+   commentsDrawerOpen = false;
+   commentsDrawerTitle = '';
+   commentsDrawerRef = '';
+   commentDraft = '';
+   replyToCommentId: string | null = null;
+   replyDraft = '';
+   activeThread: CommentThread | null = null;
+   private threads = new Map<string, CommentThread>();
 
    // ─── Stepper State ──────────────────────────────────────────
    stepperSections: StepperSection[] = [];
@@ -233,6 +274,9 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    // ═══════════════════════════════════════════════════════════
 
    ngOnInit(): void {
+      const role = String(this.authService.currentUser?.role || '').toUpperCase();
+      this.isReadOnly = !(role === 'MAKER' || role === 'CHECKER');
+
       if (this.inputData?.npaType) {
          this.npaClassification = this.inputData.npaType;
       }
@@ -522,6 +566,119 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       if (idx > 0) {
          this.selectSection(this.stepperSections[idx - 1].id);
       }
+   }
+
+   // ────────────────────────────────────────────────────────────
+   // Comments Drawer (UI placeholder)
+   // ────────────────────────────────────────────────────────────
+
+   private nowLabel(): string {
+      return new Date().toLocaleString();
+   }
+
+   private makeId(prefix: string): string {
+      const rand = (globalThis as any)?.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      return `${prefix}-${rand}`;
+   }
+
+   private ensureThread(key: string, title: string, ref: string): CommentThread {
+      const existing = this.threads.get(key);
+      if (existing) return existing;
+      const created: CommentThread = { key, title, ref, comments: [] };
+      this.threads.set(key, created);
+      return created;
+   }
+
+   draftCommentCount(): number {
+      const npaId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      const key = `draft:${String(npaId || 'unknown')}`;
+      return this.threads.get(key)?.comments?.length || 0;
+   }
+
+   openCommentsForDraft(): void {
+      const npaId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      const title = 'Draft Comments';
+      const ref = npaId ? `Draft: ${npaId}` : 'Draft';
+      const key = `draft:${String(npaId || 'unknown')}`;
+      this.activeThread = this.ensureThread(key, title, ref);
+      this.commentsDrawerTitle = title;
+      this.commentsDrawerRef = ref;
+      this.commentDraft = '';
+      this.replyToCommentId = null;
+      this.replyDraft = '';
+      this.commentsDrawerOpen = true;
+   }
+
+   openCommentsForField(field: FieldState): void {
+      const refKey = field.key || field.nodeId || field.label || 'field';
+      const title = `${field.label || 'Field'} — Comments`;
+      const ref = `Field: ${field.label || ''} · ${refKey}`;
+      const key = `field:${String(refKey)}`;
+      this.activeThread = this.ensureThread(key, title, ref);
+      this.commentsDrawerTitle = title;
+      this.commentsDrawerRef = ref;
+      this.commentDraft = '';
+      this.replyToCommentId = null;
+      this.replyDraft = '';
+      this.commentsDrawerOpen = true;
+   }
+
+   closeCommentsDrawer(): void {
+      this.commentsDrawerOpen = false;
+      this.commentDraft = '';
+      this.replyToCommentId = null;
+      this.replyDraft = '';
+      this.activeThread = null;
+   }
+
+   postComment(): void {
+      if (!this.activeThread) return;
+      const text = String(this.commentDraft || '').trim();
+      if (!text) return;
+      const author = this.authService.currentUser?.display_name || this.authService.currentUser?.full_name || 'User';
+      this.activeThread.comments.push({
+         id: this.makeId('c'),
+         author,
+         when: this.nowLabel(),
+         text,
+         replies: []
+      });
+      this.commentDraft = '';
+   }
+
+   startReply(commentId: string): void {
+      this.replyToCommentId = commentId;
+      this.replyDraft = '';
+   }
+
+   cancelReply(): void {
+      this.replyToCommentId = null;
+      this.replyDraft = '';
+   }
+
+   postReply(): void {
+      if (!this.activeThread || !this.replyToCommentId) return;
+      const text = String(this.replyDraft || '').trim();
+      if (!text) return;
+      const target = this.activeThread.comments.find(c => c.id === this.replyToCommentId);
+      if (!target) return;
+      const author = this.authService.currentUser?.display_name || this.authService.currentUser?.full_name || 'User';
+      target.replies.push({
+         id: this.makeId('r'),
+         author,
+         when: this.nowLabel(),
+         text
+      });
+      this.replyToCommentId = null;
+      this.replyDraft = '';
+   }
+
+   trackByCommentId(_i: number, c: CommentItem): string {
+      return c.id;
+   }
+
+   trackByReplyId(_i: number, r: CommentReply): string {
+      return r.id;
    }
 
    // ═══════════════════════════════════════════════════════════

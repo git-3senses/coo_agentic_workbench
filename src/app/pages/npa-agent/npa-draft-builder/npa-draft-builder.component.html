@@ -50,6 +50,17 @@
             <lucide-icon name="save" class="w-3.5 h-3.5"></lucide-icon>
             Save Draft
          </button>
+
+         <!-- Comments (draft-level, available for all personas) -->
+         <button (click)="openCommentsForDraft()"
+            class="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors border border-slate-200 hover:border-slate-300 flex items-center gap-1.5">
+            <lucide-icon name="message-square" class="w-3.5 h-3.5"></lucide-icon>
+            Comments
+            <span *ngIf="draftCommentCount() > 0"
+               class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+               {{ draftCommentCount() }}
+            </span>
+         </button>
       </div>
    </div>
 
@@ -157,7 +168,9 @@
                            class="px-5 py-4 hover:bg-slate-50/50 transition-colors group/field">
                            <app-npa-field-renderer [field]="field" (fieldEdited)="onFieldEdited($event)"
                               (fieldCleared)="onFieldCleared($event)" (askAgent)="askAgentAboutField($event)"
-                              (citationClick)="onCitationClick($event)">
+                              (citationClick)="onCitationClick($event)"
+                              [readOnly]="isReadOnly"
+                              (commentClicked)="openCommentsForField($event)">
                            </app-npa-field-renderer>
                         </div>
                      </ng-container>
@@ -279,6 +292,96 @@
             </div>
          </div>
 
+      </div>
+   </div>
+
+   <!-- Comments Drawer (overlay) -->
+   <div *ngIf="commentsDrawerOpen" class="fixed inset-0 z-[220]">
+      <div class="absolute inset-0 bg-slate-900/40" (click)="closeCommentsDrawer()"></div>
+      <div class="absolute right-0 top-0 h-full w-full max-w-xl bg-white border-l border-slate-200 shadow-2xl flex flex-col">
+         <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+               <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Comments</div>
+               <div class="text-sm font-bold text-slate-900 truncate">
+                  {{ commentsDrawerTitle }}
+               </div>
+               <div *ngIf="commentsDrawerRef" class="mt-1 text-[10px] text-slate-400 font-mono truncate">
+                  {{ commentsDrawerRef }}
+               </div>
+            </div>
+            <button (click)="closeCommentsDrawer()"
+               class="p-2 rounded-lg hover:bg-slate-100 text-slate-600 flex-none">
+               <lucide-icon name="x" class="w-5 h-5"></lucide-icon>
+            </button>
+         </div>
+
+         <div class="flex-1 min-h-0 overflow-y-auto p-5 space-y-3 npa-scrollbar">
+            <div *ngFor="let c of (activeThread?.comments || []); trackBy: trackByCommentId"
+               class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+               <div class="flex items-center justify-between gap-3">
+                  <div class="text-xs font-semibold text-slate-800 truncate">{{ c.author }}</div>
+                  <div class="text-[10px] text-slate-400 font-mono">{{ c.when }}</div>
+               </div>
+               <div class="mt-2 text-[12px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {{ c.text }}
+               </div>
+
+               <div *ngIf="c.replies?.length" class="mt-3 space-y-2">
+                  <div *ngFor="let r of c.replies; trackBy: trackByReplyId" class="pl-3 border-l border-slate-200">
+                     <div class="flex items-center justify-between gap-3">
+                        <div class="text-[11px] font-semibold text-slate-700 truncate">{{ r.author }}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">{{ r.when }}</div>
+                     </div>
+                     <div class="mt-1 text-[12px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        {{ r.text }}
+                     </div>
+                  </div>
+               </div>
+
+               <div class="mt-3 flex items-center justify-end gap-2">
+                  <button (click)="startReply(c.id)"
+                     class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors">
+                     Reply
+                  </button>
+               </div>
+
+               <div *ngIf="replyToCommentId === c.id" class="mt-3">
+                  <textarea [(ngModel)]="replyDraft"
+                     rows="2"
+                     placeholder="Write a reply…"
+                     class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 resize-none"></textarea>
+                  <div class="mt-2 flex items-center justify-end gap-2">
+                     <button (click)="cancelReply()"
+                        class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors">
+                        Cancel
+                     </button>
+                     <button (click)="postReply()"
+                        class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors">
+                        Post Reply
+                     </button>
+                  </div>
+               </div>
+            </div>
+
+            <div class="px-4 py-3 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-[11px] text-slate-500">
+               Versions placeholder: each field change will create a version entry (diff/restore) later.
+            </div>
+         </div>
+
+         <div class="px-5 py-4 border-t border-slate-100 bg-white">
+            <label class="block text-xs font-semibold text-slate-600 mb-2">Add a comment</label>
+            <textarea [(ngModel)]="commentDraft"
+               rows="2"
+               placeholder="Write a comment…"
+               class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 resize-none"></textarea>
+            <div class="mt-3 flex items-center justify-end gap-2">
+               <button (click)="postComment()"
+                  class="px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors flex items-center gap-1.5">
+                  <lucide-icon name="send" class="w-3.5 h-3.5"></lucide-icon>
+                  Post
+               </button>
+            </div>
+         </div>
       </div>
    </div>
 </div>
