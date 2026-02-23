@@ -129,7 +129,7 @@
 
    <!-- ═══ TEXTAREA ═══ -->
 	   <textarea *ngIf="field.type === 'textarea' || field.type === 'flowchart'"
-	             #autoTextarea
+	             #autosize
 	             [(ngModel)]="field.value"
 	             (focus)="startEditing()"
 	             (blur)="finishEditing()"
@@ -248,8 +248,10 @@
       </div>
       <!-- Conditional detail text for Yes answers -->
 	      <textarea *ngIf="field.yesNoValue === true"
+	                #autosize
 	                [(ngModel)]="field.conditionalText"
 	                (blur)="updateConditionalText(field.conditionalText || '')"
+	                (input)="autoResize($event)"
 	                placeholder="If Yes, please provide details..."
 	                rows="4"
 	                class="w-full min-h-[104px] px-3 py-2 text-sm rounded-lg border border-amber-200 bg-amber-50/30 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-500/20 resize-none">
@@ -350,9 +352,11 @@
       </button>
       <!-- Fallback for table_grid without columns defined -->
 	      <textarea *ngIf="!field.tableColumns || field.tableColumns.length === 0"
+	                #autosize
 	                [(ngModel)]="field.value"
 	                (focus)="startEditing()"
 	                (blur)="finishEditing()"
+	                (input)="autoResize($event)"
 	                placeholder="Enter table data..."
 	                rows="4"
 	                class="w-full min-h-[104px] px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 resize-y font-mono">
@@ -378,9 +382,10 @@
 
    <!-- ═══ REPEATABLE SECTION ═══ -->
 	   <div *ngIf="field.type === 'repeatable'" class="space-y-2">
-	      <textarea [(ngModel)]="field.value"
+	      <textarea #autosize [(ngModel)]="field.value"
 	                (focus)="startEditing()"
 	                (blur)="finishEditing()"
+	                (input)="autoResize($event)"
 	                [placeholder]="field.placeholder || 'Enter details for each item...'"
 	                rows="4"
 	                class="w-full min-h-[104px] px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 resize-y">
@@ -393,9 +398,11 @@
 
    <!-- ═══ CONDITIONAL ═══ -->
 	   <textarea *ngIf="field.type === 'conditional'"
+	             #autosize
 	             [(ngModel)]="field.value"
 	             (focus)="startEditing()"
 	             (blur)="finishEditing()"
+	             (input)="autoResize($event)"
 	             [placeholder]="field.placeholder || 'Provide details...'"
 	             rows="4"
 	             class="w-full min-h-[104px] px-3 py-2 text-sm rounded-lg border border-amber-200 bg-amber-50/20 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-500/20 resize-none">

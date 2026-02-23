@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, DoCheck, ElementRef, EventEmitter, Input, Output, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SharedIconsModule } from '../../../../../shared/icons/shared-icons.module';
@@ -20,7 +20,7 @@ import { Citation } from '../../../../../lib/npa-interfaces';
    templateUrl: './npa-field-renderer.component.html',
    styleUrls: ['./npa-field-renderer.component.css']
 })
-export class NpaFieldRendererComponent {
+export class NpaFieldRendererComponent implements DoCheck {
    @Input() field!: FieldState;
    @Input() readOnly = false;
 
@@ -30,6 +30,11 @@ export class NpaFieldRendererComponent {
    @Output() commentClicked = new EventEmitter<FieldState>();
    @Output() fileSelected = new EventEmitter<{ field: FieldState; event: Event }>();
    @Output() citationClick = new EventEmitter<Citation>(); // Emit when user clicks a KB citation
+
+   @ViewChildren('autosize') autosizeTextareas!: QueryList<ElementRef<HTMLTextAreaElement>>;
+
+   private lastObservedValue = '';
+   private resizeScheduled = false;
 
    // ─── Field Editing ──────────────────────────────────────────
 
@@ -55,6 +60,7 @@ export class NpaFieldRendererComponent {
       this.field.confidence = undefined;
       this.field.source = undefined;
       this.fieldCleared.emit(this.field);
+      this.scheduleAutosize();
    }
 
    onAskAgent(): void {
@@ -164,6 +170,35 @@ export class NpaFieldRendererComponent {
       const textarea = event.target as HTMLTextAreaElement;
       textarea.style.height = 'auto';
       textarea.style.height = textarea.scrollHeight + 'px';
+   }
+
+   ngDoCheck(): void {
+      // Field values are often mutated in-place from the parent (same object reference),
+      // so Angular won't trigger OnChanges. Detect and resize textareas when content changes.
+      const current = String(this.field?.value || '');
+      if (current !== this.lastObservedValue) {
+         this.lastObservedValue = current;
+         this.scheduleAutosize();
+      }
+   }
+
+   private scheduleAutosize(): void {
+      if (this.resizeScheduled) return;
+      this.resizeScheduled = true;
+      setTimeout(() => {
+         this.resizeScheduled = false;
+         this.resizeAllTextareas();
+      }, 0);
+   }
+
+   private resizeAllTextareas(): void {
+      if (!this.autosizeTextareas) return;
+      for (const ref of this.autosizeTextareas.toArray()) {
+         const el = ref?.nativeElement;
+         if (!el) continue;
+         el.style.height = 'auto';
+         el.style.height = el.scrollHeight + 'px';
+      }
    }
 
    // ─── Table Grid ──────────────────────────────────────────────────
