@@ -53,8 +53,9 @@ def main() -> None:
     if not _check_db():
         print("[INIT] Database connection failed after 5 attempts.")
         print("[INIT]    Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME env vars.")
-        sys.exit(1)
-    print("[INIT] Database connected\n")
+        print("[INIT]    WARNING: Server is starting without database access. Tools requiring DB will fail.")
+    else:
+        print("[INIT] Database connected\n")
 
     # 2. Start the unified server (REST API + MCP SSE mounted together)
     from rest_server import start_rest_server

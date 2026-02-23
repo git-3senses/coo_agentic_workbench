@@ -40,7 +40,8 @@ def _build_ssl_ctx() -> ssl.SSLContext | None:
     ca_file = os.getenv("DB_SSL_CA_FILE")
     ssl_ctx = ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
 
-    insecure = _bool_env("DB_SSL_INSECURE", False)
+    # Default to True because Railway's MySQL proxy uses a self-signed / mismatched cert
+    insecure = _bool_env("DB_SSL_INSECURE", True)
     if insecure:
         ssl_ctx.check_hostname = False
         ssl_ctx.verify_mode = ssl.CERT_NONE
@@ -112,7 +113,8 @@ async def health_check() -> bool:
     try:
         await query("SELECT 1")
         return True
-    except Exception:
+    except Exception as e:
+        print(f"[DB HEALTH_CHECK ERROR] {e}")
         return False
 
 
