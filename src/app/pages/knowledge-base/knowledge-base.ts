@@ -2,17 +2,20 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-knowledge-base',
   standalone: true,
-  imports: [CommonModule, SharedIconsModule],
+  imports: [CommonModule, FormsModule, SharedIconsModule],
   templateUrl: './knowledge-base.html',
   styleUrl: './knowledge-base.css'
 })
 export class KnowledgeBaseComponent implements OnInit {
   activeTab: 'ALL' | 'UNIVERSAL' | 'AGENT' | 'WORKFLOW' = 'ALL';
   private http = inject(HttpClient);
+  private router = inject(Router);
 
   // Fallback (used when DB/API is unavailable)
   private fallbackUniversalDocs = [
@@ -61,6 +64,22 @@ export class KnowledgeBaseComponent implements OnInit {
   workflowDocs: any[] = [...this.fallbackWorkflowDocs];
   isLoading = true;
 
+  // ─── Upload modal state ─────────────────────────────────────
+  showUploadModal = false;
+  uploadError: string | null = null;
+  uploadForm = {
+    title: '',
+    description: '',
+    ui_category: 'UNIVERSAL' as 'UNIVERSAL' | 'AGENT' | 'WORKFLOW',
+    doc_type: 'REGULATORY',
+    agent_target: '',
+    icon_name: 'file-text',
+    display_date: '',
+    visibility: 'INTERNAL' as 'INTERNAL' | 'PUBLIC',
+    source_url: ''
+  };
+  uploadFile: File | null = null;
+
   ngOnInit() {
     this.fetchData();
   }
@@ -92,6 +111,74 @@ export class KnowledgeBaseComponent implements OnInit {
       error: (err) => {
         console.warn('[KnowledgeBase] Failed to fetch data from DB; using fallback.', err);
         this.isLoading = false;
+      }
+    });
+  }
+
+  openDoc(doc: any) {
+    // Prefer doc_id (stable public identifier); `id` is often an auto-increment PK.
+    const id = doc?.doc_id || doc?.docId || doc?.id;
+    if (!id) return;
+    this.router.navigate(['/knowledge/base', id]);
+  }
+
+  openUploadModal() {
+    this.showUploadModal = true;
+    this.uploadError = null;
+    this.uploadFile = null;
+    this.uploadForm = {
+      title: '',
+      description: '',
+      ui_category: 'UNIVERSAL',
+      doc_type: 'REGULATORY',
+      agent_target: '',
+      icon_name: 'file-text',
+      display_date: '',
+      visibility: 'INTERNAL',
+      source_url: ''
+    };
+  }
+
+  closeUploadModal() {
+    this.showUploadModal = false;
+    this.uploadError = null;
+    this.uploadFile = null;
+  }
+
+  onUploadFileSelected(ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    this.uploadFile = input.files?.[0] || null;
+  }
+
+  submitUpload() {
+    this.uploadError = null;
+    if (!this.uploadFile) {
+      this.uploadError = 'Please choose a PDF file.';
+      return;
+    }
+
+    const inferredTitle = this.uploadFile.name.replace(/\.pdf$/i, '');
+    const form = new FormData();
+    form.append('file', this.uploadFile);
+    form.append('title', (this.uploadForm.title || inferredTitle).trim());
+    form.append('description', (this.uploadForm.description || '').trim());
+    form.append('ui_category', this.uploadForm.ui_category);
+    form.append('doc_type', this.uploadForm.doc_type);
+    form.append('agent_target', (this.uploadForm.agent_target || '').trim());
+    form.append('icon_name', (this.uploadForm.icon_name || 'file-text').trim());
+    form.append('display_date', (this.uploadForm.display_date || '').trim());
+    form.append('visibility', this.uploadForm.visibility);
+    if ((this.uploadForm.source_url || '').trim()) form.append('source_url', this.uploadForm.source_url.trim());
+
+    this.http.post<any>('/api/kb/upload', form).subscribe({
+      next: (res) => {
+        this.closeUploadModal();
+        this.fetchData();
+        if (res?.doc_id) this.router.navigate(['/knowledge/base', res.doc_id]);
+      },
+      error: (err) => {
+        const msg = err?.error?.error || err?.message || 'Upload failed';
+        this.uploadError = String(msg);
       }
     });
   }

@@ -52,8 +52,16 @@ __pycache__/
 .env.production
 !.env.example
 
+# Local KB assets (keep manifest/README in git)
+Context/KB Official PDFs/*
+!Context/KB Official PDFs/manifest.tsv
+!Context/KB Official PDFs/README.md
+
 # Docker
 docker/data/
+
+# Uploads (local storage for KB/NPA documents)
+uploads/
 
 # Claude Code
 .claude/

@@ -25,11 +25,12 @@
  *   - CF_NPA_LCS              (Chatflow)  → AG_NPA_LCS
  */
 
-require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 const path = require('path');
+const { loadEnv } = require('../utils/load-env');
+loadEnv();
 const AGENT_REGISTRY = require(path.resolve(__dirname, '..', '..', 'shared', 'agent-registry.json'));
 
-const DIFY_BASE_URL = process.env.DIFY_BASE_URL || 'http://localhost/v1';
+const DIFY_BASE_URL = process.env.DIFY_BASE_URL || 'https://api.dify.ai/v1';
 
 const DIFY_AGENTS = {};
 for (const agent of AGENT_REGISTRY) {

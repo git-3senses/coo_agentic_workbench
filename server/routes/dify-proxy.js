@@ -287,6 +287,7 @@ function collectSSEStream(stream) {
         let messageId = null;
         let buffer = '';
         let streamError = null; // Capture Dify-level errors but don't abort immediately
+        const debug = process.env.DIFY_DEBUG === '1';
 
         stream.on('data', (chunk) => {
             buffer += chunk.toString();
@@ -317,7 +318,9 @@ function collectSSEStream(stream) {
                             message: evt.message || 'Dify stream error',
                             status: evt.status || 500
                         };
-                        console.warn(`[SSE] Dify error event: ${evt.code} — ${evt.message}`);
+                        if (debug) {
+                            console.warn(`[SSE] Dify error event: ${evt.code} — ${evt.message}`);
+                        }
                     }
 
                     // Capture IDs from any event that has them
@@ -506,7 +509,9 @@ async function collectBlockingChat(agent, difyPayload, agentId, signal) {
 
     const { fullAnswer, conversationId: convId, messageId: msgId, streamError } = await collectSSEStream(response.data);
 
-    console.log(`[${agentId}] Collected answer (${fullAnswer.length} chars), conv=${convId}${streamError ? `, streamError: ${streamError.message}` : ''}`);
+    if (process.env.DIFY_DEBUG === '1') {
+        console.log(`[${agentId}] Collected answer (${fullAnswer.length} chars), conv=${convId}${streamError ? `, streamError: ${streamError.code}: ${streamError.message}` : ''}`);
+    }
 
     return { fullAnswer, convId, msgId, streamError };
 }
@@ -652,7 +657,7 @@ router.post('/chat', async (req, res) => {
             // when the LLM calls session_create. Since whether Dify calls the tool is
             // non-deterministic, retrying often succeeds. We retry up to MAX_RETRIES
             // times, alternating between fresh conversation and original conversation_id.
-            const MAX_RETRIES = 1;
+            const MAX_RETRIES = Number(process.env.DIFY_CHAT_MAX_RETRIES || 1);
             let lastCollected = null;
 
             const controller = new AbortController();
@@ -714,7 +719,10 @@ router.post('/chat', async (req, res) => {
                     trace: {
                         error: 'TOOL_ERROR_EXHAUSTED',
                         detail: lastCollected?.streamError?.message || 'All retry attempts failed',
-                        retries: MAX_RETRIES
+                        dify_code: lastCollected?.streamError?.code || null,
+                        dify_status: lastCollected?.streamError?.status || null,
+                        retries: MAX_RETRIES,
+                        hint: 'Set DIFY_DEBUG=1 to log SSE error events and collection details'
                     }
                 }
             });

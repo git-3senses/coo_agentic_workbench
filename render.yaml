@@ -44,6 +44,8 @@ services:
         value: https://api.dify.ai/v1
       - key: DIFY_KEY_MASTER_COO
         sync: false
+      - key: DIFY_KEY_NPA_ORCHESTRATOR
+        sync: false
       - key: DIFY_KEY_IDEATION
         sync: false
       - key: DIFY_KEY_CLASSIFIER
@@ -55,6 +57,23 @@ services:
       - key: DIFY_KEY_GOVERNANCE
         sync: false
       - key: DIFY_KEY_DILIGENCE
+        sync: false
+      - key: DIFY_KEY_DOC_LIFECYCLE
+        sync: false
+      - key: DIFY_KEY_MONITORING
+        sync: false
+      - key: DIFY_KEY_NOTIFICATION
+        sync: false
+      # Draft Builder Sign-off Agents (5)
+      - key: DIFY_KEY_AG_NPA_BIZ
+        sync: false
+      - key: DIFY_KEY_AG_NPA_TECH_OPS
+        sync: false
+      - key: DIFY_KEY_AG_NPA_FINANCE
+        sync: false
+      - key: DIFY_KEY_AG_NPA_RMG
+        sync: false
+      - key: DIFY_KEY_AG_NPA_LCS
         sync: false
 
   # ── Service 2: MCP Tools Server (Python) ──────────────────────────────────

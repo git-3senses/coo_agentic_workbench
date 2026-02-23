@@ -22,13 +22,29 @@
          <p class="text-[9px] text-slate-500">Sections: {{ getActiveGroup().sections.join(', ') }}</p>
       </div>
    </div>
-   <!-- Connection Status -->
-   <div class="w-1.5 h-1.5 rounded-full" [class.bg-emerald-400]="getActiveAgentChat()?.isConnected"
-      [class.bg-slate-300]="!getActiveAgentChat()?.isConnected"></div>
-   <span class="text-[9px] font-medium" [class.text-emerald-600]="getActiveAgentChat()?.isConnected"
-      [class.text-slate-400]="!getActiveAgentChat()?.isConnected">
-      {{ getActiveAgentChat()?.isConnected ? 'Connected' : 'Ready' }}
-   </span>
+
+   <div class="flex items-center gap-2">
+      <!-- Config / Connection Status -->
+      <div class="w-1.5 h-1.5 rounded-full"
+         [class.bg-emerald-400]="isActiveAgentConfigured()"
+         [class.bg-amber-400]="!isActiveAgentConfigured() && getActiveAgentChat()?.isConnected"
+         [class.bg-slate-300]="!isActiveAgentConfigured() && !getActiveAgentChat()?.isConnected"></div>
+      <span class="text-[9px] font-medium"
+         [class.text-emerald-600]="isActiveAgentConfigured()"
+         [class.text-slate-400]="!isActiveAgentConfigured()">
+         {{ isActiveAgentConfigured() ? 'Configured' : 'Unconfigured' }}
+      </span>
+      <button (click)="testActiveAgent()" [disabled]="isTestingAgent"
+         class="text-[9px] font-semibold px-2 py-1 rounded-md border border-slate-200 bg-white/70 hover:bg-white transition-colors disabled:opacity-50">
+         <lucide-icon name="activity" class="w-3 h-3 inline mr-1"></lucide-icon>
+         Test
+      </button>
+      <button (click)="refreshAgentStatus()"
+         class="text-[9px] font-semibold px-2 py-1 rounded-md border border-slate-200 bg-white/70 hover:bg-white transition-colors">
+         <lucide-icon name="refresh-cw" class="w-3 h-3 inline mr-1"></lucide-icon>
+         Refresh
+      </button>
+   </div>
 </div>
 
 <!-- Chat Messages -->

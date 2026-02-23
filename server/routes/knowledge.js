@@ -19,7 +19,9 @@ router.get('/', async (req, res) => {
                 display_date,
                 agent_target,
                 icon_name,
-                last_synced
+                last_synced,
+                source_url,
+                file_path
             FROM kb_documents
             WHERE ui_category IS NOT NULL
         `;
@@ -31,8 +33,21 @@ router.get('/', async (req, res) => {
 
         sql += ' ORDER BY ui_category, COALESCE(updated_at, last_synced) DESC, title';
 
-        const [rows] = await db.query(sql, params);
-        res.json(rows);
+        try {
+            const [rows] = await db.query(sql, params);
+            return res.json(rows);
+        } catch (qErr) {
+            const msg = String(qErr?.message || '');
+            // Back-compat: if migration 011 not yet applied, omit file/link columns
+            if (msg.includes('Unknown column') || msg.includes('ER_BAD_FIELD_ERROR')) {
+                const legacySql = sql
+                    .replace(',\n                source_url,\n                file_path', '')
+                    .replace(',\n                source_url,\n                file_path', '');
+                const [rows] = await db.query(legacySql, params);
+                return res.json(rows);
+            }
+            throw qErr;
+        }
     } catch (err) {
         console.error('[KNOWLEDGE] Fetch error:', err.message);
         res.status(500).json({ error: 'Failed to fetch knowledge documents.' });
@@ -40,4 +55,3 @@ router.get('/', async (req, res) => {
 });
 
 module.exports = router;
-

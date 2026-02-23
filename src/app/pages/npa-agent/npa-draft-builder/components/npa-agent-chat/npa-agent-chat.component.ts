@@ -1,9 +1,10 @@
-import { Component, EventEmitter, Input, Output, inject, ChangeDetectorRef, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, ChangeDetectorRef, ElementRef, ViewChild, AfterViewChecked, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SharedIconsModule } from '../../../../../shared/icons/shared-icons.module';
 import { DifyService } from '../../../../../services/dify/dify.service';
 import { ChatSessionService } from '../../../../../services/chat-session.service';
+import { HttpClient } from '@angular/common/http';
 import {
    SignOffGroup,
    SignOffGroupId,
@@ -28,11 +29,12 @@ export interface FieldSuggestion {
    templateUrl: './npa-agent-chat.component.html',
    styleUrls: ['./npa-agent-chat.component.css']
 })
-export class NpaAgentChatComponent implements AfterViewChecked {
+export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
    @Input() signOffGroups: SignOffGroup[] = SIGN_OFF_GROUPS;
    @Input() activeAgentId: SignOffGroupId = 'BIZ';
    @Input() agentChats = new Map<SignOffGroupId, AgentChat>();
    @Input() sectionFieldGroups = new Map<string, { topic: string; numbering: string; guidance?: string; fields: FieldState[] }[]>();
+   @Input() inputData: any = null;
 
    @Output() agentSelected = new EventEmitter<SignOffGroupId>();
    @Output() messageSent = new EventEmitter<{ agentId: SignOffGroupId; message: string; context: string }>();
@@ -44,6 +46,7 @@ export class NpaAgentChatComponent implements AfterViewChecked {
    private cdr = inject(ChangeDetectorRef);
    private difyService = inject(DifyService);
    private chatSessionService = inject(ChatSessionService);
+   private http = inject(HttpClient);
    private shouldScrollToBottom = false;
 
    chatInput = '';
@@ -51,6 +54,8 @@ export class NpaAgentChatComponent implements AfterViewChecked {
    /** Pending field suggestions parsed from last agent response */
    pendingSuggestions: FieldSuggestion[] = [];
 
+   agentConfigured = new Map<string, boolean>();
+   isTestingAgent = false;
 
    /** Maps Draft Builder sign-off groups to Dify agent registry keys */
    private readonly agentIdMap: Record<SignOffGroupId, string> = {
@@ -60,6 +65,10 @@ export class NpaAgentChatComponent implements AfterViewChecked {
       RMG: 'AG_NPA_RMG',
       LCS: 'AG_NPA_LCS'
    };
+
+   ngOnInit(): void {
+      this.refreshAgentStatus();
+   }
 
    ngAfterViewChecked(): void {
       if (this.shouldScrollToBottom) {
@@ -80,6 +89,78 @@ export class NpaAgentChatComponent implements AfterViewChecked {
 
    getActiveAgentChat(): AgentChat | undefined {
       return this.agentChats.get(this.activeAgentId);
+   }
+
+   isActiveAgentConfigured(): boolean {
+      const agentKey = this.agentIdMap[this.activeAgentId];
+      return this.agentConfigured.get(agentKey) === true;
+   }
+
+   refreshAgentStatus(): void {
+      this.http.get<{ agents: any[] }>('/api/dify/agents/status').subscribe({
+         next: (res: any) => {
+            const agents: any[] = Array.isArray(res?.agents) ? res.agents : Array.isArray(res) ? res : [];
+            const map = new Map<string, boolean>();
+            for (const a of agents) {
+               if (!a?.id) continue;
+               map.set(String(a.id), !!a.configured);
+            }
+            this.agentConfigured = map;
+            this.cdr.detectChanges();
+         },
+         error: () => {
+            // Non-fatal: keep unknown status
+         }
+      });
+   }
+
+   testActiveAgent(): void {
+      const chat = this.agentChats.get(this.activeAgentId);
+      if (!chat || this.isTestingAgent) return;
+
+      const agentKey = this.agentIdMap[this.activeAgentId];
+      chat.messages.push({
+         role: 'system',
+         content: `Testing connection for ${this.getActiveGroup().shortLabel} agent...`,
+         timestamp: new Date()
+      });
+      this.shouldScrollToBottom = true;
+      this.isTestingAgent = true;
+
+      const npaId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      const npaTitle = this.inputData?.title || '';
+      const inputs = {
+         current_project_id: npaId ? String(npaId) : '',
+         npa_data: npaTitle ? `NPA title: ${npaTitle}` : ''
+      };
+
+      this.difyService.sendMessage('Connection test: reply with OK and your agent name.', inputs, agentKey).subscribe({
+         next: (resp) => {
+            chat.messages.push({
+               role: 'agent',
+               content: resp.answer || 'OK',
+               timestamp: new Date()
+            });
+            chat.isConnected = true;
+            this.agentConfigured.set(agentKey, true);
+            this.autoSaveSession(chat);
+            this.shouldScrollToBottom = true;
+            this.isTestingAgent = false;
+            this.cdr.detectChanges();
+         },
+         error: (err) => {
+            const msg = err?.error?.error || err?.message || 'Connection test failed';
+            chat.messages.push({
+               role: 'system',
+               content: `Connection test failed. ${String(msg)}`,
+               timestamp: new Date()
+            });
+            this.autoSaveSession(chat);
+            this.shouldScrollToBottom = true;
+            this.isTestingAgent = false;
+            this.cdr.detectChanges();
+         }
+      });
    }
 
    sendChatMessage(): void {
@@ -111,7 +192,14 @@ export class NpaAgentChatComponent implements AfterViewChecked {
       chat.isStreaming = true;
       chat.streamText = '';
 
-      this.difyService.sendMessageStreamed(fullPrompt, {}, agentKey).subscribe({
+      const npaId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      const inputs = {
+         current_project_id: npaId ? String(npaId) : '',
+         current_stage: 'draft_builder',
+         user_message: userMessage
+      };
+
+      this.difyService.sendMessageStreamed(fullPrompt, inputs, agentKey).subscribe({
          next: (event) => {
             if (event.type === 'chunk') {
                chat.streamText += event.text || '';
@@ -288,6 +376,23 @@ export class NpaAgentChatComponent implements AfterViewChecked {
    private buildAgentContext(group: SignOffGroup | undefined): string {
       if (!group) return '';
       const lines: string[] = [];
+
+      const npaId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+      const npaTitle = this.inputData?.title || this.inputData?.product_name || '';
+      const npaDesc = this.inputData?.description || '';
+      const npaType = this.inputData?.npaType || this.inputData?.npa_type || '';
+
+      const headerBits: string[] = [];
+      if (npaId) headerBits.push(`NPA ID: ${npaId}`);
+      if (npaTitle) headerBits.push(`Title: ${npaTitle}`);
+      if (npaType) headerBits.push(`Classification: ${npaType}`);
+      if (npaDesc) headerBits.push(`Description: ${String(npaDesc).substring(0, 240)}${String(npaDesc).length > 240 ? '...' : ''}`);
+      if (headerBits.length) {
+         lines.push(`NPA summary:\n- ${headerBits.join('\n- ')}`);
+      }
+
+      const missingRequired: { key: string; label: string; section: string }[] = [];
+
       for (const sectionId of group.sections) {
          const groups = this.sectionFieldGroups.get(sectionId) || [];
          for (const g of groups) {
@@ -298,8 +403,28 @@ export class NpaAgentChatComponent implements AfterViewChecked {
                   lines.push(`- **${f.label}**: ${f.value.substring(0, 200)}${f.value.length > 200 ? '...' : ''}`);
                }
             }
+
+            for (const f of g.fields) {
+               const isEmpty = !f.value || !String(f.value).trim();
+               if (isEmpty && f.required) {
+                  missingRequired.push({ key: f.key, label: f.label, section: sectionId });
+               }
+            }
          }
       }
+
+      if (missingRequired.length > 0) {
+         const top = missingRequired.slice(0, 30);
+         lines.push('');
+         lines.push('Missing required fields (please propose values; if unknown, ask 1 clarification question first):');
+         for (const m of top) {
+            lines.push(`- ${m.key} — ${m.label} (${m.section})`);
+         }
+         if (missingRequired.length > top.length) {
+            lines.push(`- ...and ${missingRequired.length - top.length} more required fields`);
+         }
+      }
+
       return lines.length > 0 ? `Current field values:\n${lines.join('\n')}` : '';
    }
 

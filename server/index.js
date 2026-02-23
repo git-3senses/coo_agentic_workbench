@@ -1,5 +1,5 @@
-
-require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
+const { loadEnv } = require('./utils/load-env');
+const envPath = loadEnv();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -7,6 +7,7 @@ const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+console.log('[ENV] Loaded:', envPath);
 
 app.use(cors());
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '2mb' }));
@@ -47,6 +48,7 @@ const escalationsRoutes = require('./routes/escalations');
 const documentsRoutes = require('./routes/documents');
 const knowledgeRoutes = require('./routes/knowledge');
 const evidenceRoutes = require('./routes/evidence');
+const kbRoutes = require('./routes/kb');
 const { startMonitor: startSlaMonitor } = require('./jobs/sla-monitor');
 const { startHealthMonitor, getHealthStatus } = require('./jobs/agent-health');
 const { auditMiddleware } = require('./middleware/audit');
@@ -79,6 +81,7 @@ app.use('/api/escalations', auditMiddleware('ESCALATION'), escalationsRoutes);
 app.use('/api/documents', auditMiddleware('DOCUMENT'), documentsRoutes);
 app.use('/api/knowledge', auditMiddleware('KNOWLEDGE'), knowledgeRoutes);
 app.use('/api/evidence', auditMiddleware('EVIDENCE'), evidenceRoutes);
+app.use('/api/kb', auditMiddleware('KB'), kbRoutes);
 
 // GAP-022: Agent health endpoint — live Dify agent availability metrics
 app.get('/api/dify/agents/health', (req, res) => {

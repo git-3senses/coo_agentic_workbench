@@ -23,9 +23,10 @@
                     class="pl-9 pr-4 py-2 w-64 bg-slate-100 hover:bg-slate-200/60 focus:bg-white border border-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 text-sm rounded-lg transition-all outline-none">
             </div>
             <button
+                (click)="openUploadModal()"
                 class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm shadow-blue-600/20 transition-all">
                 <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
-                Sync with Source
+                Upload Document
             </button>
         </div>
     </header>
@@ -85,6 +86,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <div *ngFor="let doc of universalDocs"
+                        (click)="openDoc(doc)"
                         class="group bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-300 transition-all cursor-pointer flex flex-col h-full">
                         <div class="p-5 flex-1 flex flex-col">
                             <div
@@ -130,6 +132,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <div *ngFor="let doc of agentDocs"
+                        (click)="openDoc(doc)"
                         class="group bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-emerald-100/50 hover:border-emerald-200 transition-all cursor-pointer flex flex-col h-full relative">
                         <!-- Agent Badge -->
                         <div
@@ -170,6 +173,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div *ngFor="let doc of workflowDocs"
+                        (click)="openDoc(doc)"
                         class="group bg-white rounded-xl border border-slate-200 p-5 flex items-start gap-4 hover:shadow-lg hover:shadow-indigo-100/50 hover:border-indigo-200 transition-all cursor-pointer">
                         <div
                             class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
@@ -185,6 +189,126 @@
                 </div>
             </section>
 
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div *ngIf="showUploadModal" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/40" (click)="closeUploadModal()"></div>
+        <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-slate-500">Knowledge Base</div>
+                    <div class="text-lg font-bold text-slate-900">Upload a document</div>
+                </div>
+                <button class="p-2 rounded-lg hover:bg-slate-100 text-slate-600" (click)="closeUploadModal()">
+                    <lucide-icon name="x" class="w-5 h-5"></lucide-icon>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Section</label>
+                        <select [(ngModel)]="uploadForm.ui_category"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                            <option value="UNIVERSAL">Universal Rules</option>
+                            <option value="AGENT">Agent Specific</option>
+                            <option value="WORKFLOW">Workflow & Orchestration</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Doc Type</label>
+                        <select [(ngModel)]="uploadForm.doc_type"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                            <option value="REGULATORY">REGULATORY</option>
+                            <option value="POLICY">POLICY</option>
+                            <option value="SOP">SOP</option>
+                            <option value="GOLDEN_SOURCE">GOLDEN_SOURCE</option>
+                            <option value="PLAYBOOK">PLAYBOOK</option>
+                            <option value="TEMPLATE">TEMPLATE</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Title</label>
+                    <input [(ngModel)]="uploadForm.title" type="text" placeholder="e.g. MAS Notice 626 — AML/CFT (Banks)"
+                        class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+                    <textarea [(ngModel)]="uploadForm.description" rows="3"
+                        placeholder="Short description for users and agents…"
+                        class="w-full resize-none border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Link to agent (optional)</label>
+                        <input [(ngModel)]="uploadForm.agent_target" type="text"
+                            placeholder="e.g. CF_NPA_LCS / Compliance / Finance"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Source URL (optional)</label>
+                        <input [(ngModel)]="uploadForm.source_url" type="text" placeholder="https://…"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Display date (optional)</label>
+                        <input [(ngModel)]="uploadForm.display_date" type="text" placeholder="e.g. Jan 2026"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Visibility</label>
+                        <select [(ngModel)]="uploadForm.visibility"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                            <option value="INTERNAL">INTERNAL</option>
+                            <option value="PUBLIC">PUBLIC</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="border border-dashed border-slate-300 rounded-2xl p-4 bg-slate-50">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="text-sm font-semibold text-slate-800">PDF file</div>
+                            <div class="text-xs text-slate-500 truncate">
+                                {{ uploadFile?.name || 'No file selected' }}
+                            </div>
+                        </div>
+                        <div class="shrink-0">
+                            <input #kbFile type="file" accept="application/pdf" class="hidden"
+                                (change)="onUploadFileSelected($event)">
+                            <button (click)="kbFile.click()"
+                                class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-sm font-semibold text-slate-700">
+                                Choose PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="uploadError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                    {{ uploadError }}
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-white">
+                <button (click)="closeUploadModal()"
+                    class="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-sm font-semibold text-slate-700">
+                    Cancel
+                </button>
+                <button (click)="submitUpload()"
+                    class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">
+                    Upload
+                </button>
+            </div>
         </div>
     </div>
 </div>

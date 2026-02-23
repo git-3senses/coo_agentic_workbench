@@ -118,6 +118,29 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// GET /api/npas/:id/form-data — Field key/value pairs for draft builder
+router.get('/:id/form-data', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const [rows] = await db.query(
+            'SELECT field_key, field_value, lineage, confidence_score, metadata FROM npa_form_data WHERE project_id = ? ORDER BY field_key',
+            [id]
+        );
+        const out = rows.map(r => ({
+            ...r,
+            metadata: r.metadata ? (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata) : null
+        }));
+        res.json(out);
+    } catch (err) {
+        // Back-compat / partial DB: if table missing, return empty (UI will proceed with blank form)
+        const msg = String(err?.message || '');
+        if (msg.includes('doesn\'t exist') || msg.includes('ER_NO_SUCH_TABLE')) {
+            return res.json([]);
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ═══════════════════════════════════════════════════════════════
 // GET /api/npas/:id/prefill — AUTOFILL Step 1: Deterministic pre-fill
 // ═══════════════════════════════════════════════════════════════

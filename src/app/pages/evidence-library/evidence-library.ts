@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-evidence-library',
@@ -13,11 +14,17 @@ import { HttpClient } from '@angular/common/http';
 export class EvidenceLibraryComponent implements OnInit {
   activeCategory: 'ALL' | 'PRECEDENTS' | 'PATTERNS' | 'AUDITS' | 'EXCEPTIONS' = 'ALL';
   private http = inject(HttpClient);
+  private route = inject(ActivatedRoute);
 
   evidenceItems: any[] = [];
   isLoading = true;
 
   ngOnInit() {
+    const tab = String(this.route.snapshot.queryParamMap.get('tab') || '').toUpperCase();
+    if (tab === 'PATTERNS') this.activeCategory = 'PATTERNS';
+    if (tab === 'PRECEDENTS') this.activeCategory = 'PRECEDENTS';
+    if (tab === 'AUDITS') this.activeCategory = 'AUDITS';
+    if (tab === 'EXCEPTIONS') this.activeCategory = 'EXCEPTIONS';
     this.fetchData();
   }
 
