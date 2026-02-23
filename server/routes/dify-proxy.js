@@ -495,48 +495,94 @@ async function readStreamError(err) {
  * Returns { fullAnswer, convId, msgId }.
  */
 async function collectBlockingChat(agent, difyPayload, agentId, signal) {
-    const payload = { ...difyPayload, response_mode: 'blocking' };
-    const res = await fetch(`${DIFY_BASE_URL}/chat-messages`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${agent.key}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload),
-        signal
-    });
+    const shouldFallbackToStreamingCollect = (status, bodyText) => {
+        if (Number(status) !== 400) return false;
+        const body = String(bodyText || '');
+        if (body.includes('Agent Chat App does not support blocking mode')) return true;
+        if (body.includes('"code":"invalid_param"') && body.toLowerCase().includes('blocking')) return true;
+        return false;
+    };
 
-    const contentType = res.headers.get('content-type') || '';
-    const bodyText = await res.text();
-
-    if (!res.ok) {
-        const err = new Error(`Dify HTTP ${res.status}`);
-        err.status = res.status;
-        err.body = bodyText;
-        err.contentType = contentType;
-        throw err;
-    }
-
-    let data;
+    // Prefer native JSON blocking mode when supported (newer Dify versions).
+    // Some Dify deployments (notably older/self-hosted builds) reject blocking
+    // for Agent/Chat apps and require streaming-only. In that case we fall back
+    // to server-side SSE collection and return a JSON response to the client.
     try {
-        data = bodyText ? JSON.parse(bodyText) : {};
-    } catch (e) {
-        const err = new Error(`Dify JSON parse error: ${e.message}`);
-        err.status = 502;
-        err.body = bodyText;
-        err.contentType = contentType;
-        throw err;
+        const payload = { ...difyPayload, response_mode: 'blocking' };
+        const res = await fetch(`${DIFY_BASE_URL}/chat-messages`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${agent.key}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        const bodyText = await res.text();
+
+        if (!res.ok) {
+            if (shouldFallbackToStreamingCollect(res.status, bodyText)) {
+                throw Object.assign(new Error('Dify blocking not supported'), { status: res.status, body: bodyText, contentType });
+            }
+            const err = new Error(`Dify HTTP ${res.status}`);
+            err.status = res.status;
+            err.body = bodyText;
+            err.contentType = contentType;
+            throw err;
+        }
+
+        let data;
+        try {
+            data = bodyText ? JSON.parse(bodyText) : {};
+        } catch (e) {
+            const err = new Error(`Dify JSON parse error: ${e.message}`);
+            err.status = 502;
+            err.body = bodyText;
+            err.contentType = contentType;
+            throw err;
+        }
+
+        const fullAnswer = String(data?.answer || '');
+        const convId = data?.conversation_id || data?.conversationId || null;
+        const msgId = data?.message_id || data?.messageId || null;
+
+        if (process.env.DIFY_DEBUG === '1') {
+            console.log(`[${agentId}] Blocking JSON answer (${fullAnswer.length} chars), conv=${convId || 'null'}`);
+        }
+
+        return { fullAnswer, convId, msgId };
+    } catch (err) {
+        const status = err?.status || err?.response?.status || null;
+        const bodyText = err?.body || err?.response?.data || '';
+        if (!shouldFallbackToStreamingCollect(status, bodyText)) throw err;
+
+        console.warn(`[${agentId}] Dify blocking mode not supported — falling back to SSE collection`);
+
+        const payload = { ...difyPayload, response_mode: 'streaming' };
+        const response = await axios.post(
+            `${DIFY_BASE_URL}/chat-messages`,
+            payload,
+            {
+                headers: {
+                    'Authorization': `Bearer ${agent.key}`,
+                    'Content-Type': 'application/json'
+                },
+                responseType: 'stream',
+                timeout: 120000,
+                signal
+            }
+        );
+
+        const collected = await collectSSEStream(response.data);
+        return {
+            fullAnswer: collected.fullAnswer || '',
+            convId: collected.conversationId || null,
+            msgId: collected.messageId || null,
+            streamError: collected.streamError || null
+        };
     }
-
-    const fullAnswer = String(data?.answer || '');
-    const convId = data?.conversation_id || data?.conversationId || null;
-    const msgId = data?.message_id || data?.messageId || null;
-
-    if (process.env.DIFY_DEBUG === '1') {
-        console.log(`[${agentId}] Blocking JSON answer (${fullAnswer.length} chars), conv=${convId || 'null'}`);
-    }
-
-    return { fullAnswer, convId, msgId };
 }
 
 /**
