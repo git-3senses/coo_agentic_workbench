@@ -174,14 +174,18 @@ router.post('/:id/form-data', requireAuth(), validatePersistMiddleware, async (r
             let allowedKeys = new Set(uniqueKeys);
             try {
                 if (uniqueKeys.length > 0) {
+                    // NOTE: mysql2 does not reliably expand arrays inside `IN (?)` across environments.
+                    // Build explicit placeholders for consistent behavior.
+                    const placeholders = uniqueKeys.map(() => '?').join(', ');
                     const [refRows] = await conn.query(
-                        `SELECT field_key FROM ref_npa_fields WHERE field_key IN (?)`,
-                        [uniqueKeys]
+                        `SELECT field_key FROM ref_npa_fields WHERE field_key IN (${placeholders})`,
+                        uniqueKeys
                     );
                     allowedKeys = new Set((refRows || []).map(r => String(r.field_key)));
                 }
             } catch (e) {
-                // If ref table doesn't exist (partial DB), don't block; bulkUpsert will no-op or error accordingly.
+                // If we can't verify ref keys, keep original set (best effort). If FK fails later,
+                // we'll map it to a clearer 400 for the client.
             }
 
             const filtered = rows.filter(r => allowedKeys.has(String(r.field_key)));
@@ -210,6 +214,24 @@ router.post('/:id/form-data', requireAuth(), validatePersistMiddleware, async (r
             });
         } catch (err) {
             await conn.rollback();
+            // Common: FK violation when DB ref_npa_fields is missing field keys present in payload.
+            const msg = String(err?.message || '');
+            const code = String(err?.code || '');
+            if (
+                code === 'ER_NO_REFERENCED_ROW_2' ||
+                code === 'ER_ROW_IS_REFERENCED_2' ||
+                msg.includes('foreign key constraint fails') ||
+                msg.includes('ref_npa_fields')
+            ) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    details: [{
+                        path: 'filled_fields',
+                        message:
+                            'One or more field_key values do not exist in ref_npa_fields. Apply DB migration 004_sync_339_fields.sql (or regenerate ref_npa_fields) and retry.',
+                    }],
+                });
+            }
             throw err;
         } finally {
             conn.release();
