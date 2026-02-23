@@ -489,31 +489,54 @@ async function readStreamError(err) {
 // ─── Blocking Chat Helpers ───────────────────────────────────────────────────
 
 /**
- * Execute a blocking chat request: call Dify streaming, collect SSE, return result.
- * Returns { fullAnswer, convId, msgId, streamError }.
+ * Execute a blocking chat request by using Dify's native JSON "blocking" mode.
+ * This avoids brittle end-to-end SSE piping/collection issues in some environments.
+ *
+ * Returns { fullAnswer, convId, msgId }.
  */
 async function collectBlockingChat(agent, difyPayload, agentId, signal) {
-    const response = await axios.post(
-        `${DIFY_BASE_URL}/chat-messages`,
-        difyPayload,
-        {
-            headers: {
-                'Authorization': `Bearer ${agent.key}`,
-                'Content-Type': 'application/json'
-            },
-            responseType: 'stream',
-            signal,
-            timeout: 120000 // 2 minutes — prevent indefinite hangs on Dify calls
-        }
-    );
+    const payload = { ...difyPayload, response_mode: 'blocking' };
+    const res = await fetch(`${DIFY_BASE_URL}/chat-messages`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${agent.key}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        signal
+    });
 
-    const { fullAnswer, conversationId: convId, messageId: msgId, streamError } = await collectSSEStream(response.data);
+    const contentType = res.headers.get('content-type') || '';
+    const bodyText = await res.text();
 
-    if (process.env.DIFY_DEBUG === '1') {
-        console.log(`[${agentId}] Collected answer (${fullAnswer.length} chars), conv=${convId}${streamError ? `, streamError: ${streamError.code}: ${streamError.message}` : ''}`);
+    if (!res.ok) {
+        const err = new Error(`Dify HTTP ${res.status}`);
+        err.status = res.status;
+        err.body = bodyText;
+        err.contentType = contentType;
+        throw err;
     }
 
-    return { fullAnswer, convId, msgId, streamError };
+    let data;
+    try {
+        data = bodyText ? JSON.parse(bodyText) : {};
+    } catch (e) {
+        const err = new Error(`Dify JSON parse error: ${e.message}`);
+        err.status = 502;
+        err.body = bodyText;
+        err.contentType = contentType;
+        throw err;
+    }
+
+    const fullAnswer = String(data?.answer || '');
+    const convId = data?.conversation_id || data?.conversationId || null;
+    const msgId = data?.message_id || data?.messageId || null;
+
+    if (process.env.DIFY_DEBUG === '1') {
+        console.log(`[${agentId}] Blocking JSON answer (${fullAnswer.length} chars), conv=${convId || 'null'}`);
+    }
+
+    return { fullAnswer, convId, msgId };
 }
 
 /**
@@ -650,58 +673,42 @@ router.post('/chat', async (req, res) => {
                 res.end();
             });
         } else {
-            // Client wants blocking JSON — collect stream server-side, parse, return JSON
-            //
-            // Retry strategy for the session_create MCP tool bug:
-            // Dify's MCP+REST dual-mount can produce "Extra data" JSON parse errors
-            // when the LLM calls session_create. Since whether Dify calls the tool is
-            // non-deterministic, retrying often succeeds. We retry up to MAX_RETRIES
-            // times, alternating between fresh conversation and original conversation_id.
-            const MAX_RETRIES = Number(process.env.DIFY_CHAT_MAX_RETRIES || 1);
+            // Client wants blocking JSON — use Dify's native blocking mode and parse envelope.
+            const MAX_RETRIES = Number(process.env.DIFY_CHAT_MAX_RETRIES || 0);
             let lastCollected = null;
+            let lastError = null;
 
-            const controller = new AbortController();
-            const abortUpstream = () => {
-                if (!controller.signal.aborted) controller.abort();
-            };
-            req.on('close', abortUpstream);
-            res.on('close', abortUpstream);
+            const timeoutMs = Number(process.env.DIFY_CHAT_TIMEOUT_MS || 120000);
+            // NOTE: Do not bind AbortController to req/res 'close' for blocking mode.
+            // Some clients/proxies close the request socket early, which would abort
+            // the upstream Dify call even though the request is still valid.
+            const signal = typeof AbortSignal?.timeout === 'function'
+                ? AbortSignal.timeout(timeoutMs)
+                : undefined;
 
             for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-                const isRetry = attempt > 0;
-                let payload = difyPayload;
-
-                if (isRetry) {
-                    // Alternate: odd retries drop conversation_id, even retries keep it
-                    payload = { ...difyPayload };
-                    if (attempt % 2 === 1) {
-                        delete payload.conversation_id;
-                    }
-                    console.warn(`[${agent_id}] Retry ${attempt}/${MAX_RETRIES} (conv=${payload.conversation_id || 'FRESH'})`);
-                }
-
                 try {
-                    lastCollected = await collectBlockingChat(agent, payload, agent_id, controller.signal);
+                    // Alternate: odd retries drop conversation_id, even retries keep it.
+                    // This helps when a conversation gets into a “bad state”.
+                    let payload = difyPayload;
+                    if (attempt > 0) {
+                        payload = { ...difyPayload };
+                        if (attempt % 2 === 1) delete payload.conversation_id;
+                        console.warn(`[${agent_id}] Retry ${attempt}/${MAX_RETRIES} (conv=${payload.conversation_id || 'FRESH'})`);
+                    }
+                    lastCollected = await collectBlockingChat(agent, payload, agent_id, signal);
+                    lastError = null;
                 } catch (retryErr) {
-                    // Network error during retry — continue to next attempt
-                    console.error(`[${agent_id}] Attempt ${attempt} network error: ${retryErr.message}`);
+                    lastError = {
+                        message: retryErr?.message || 'Unknown error',
+                        status: retryErr?.status || null,
+                        body: retryErr?.body || null
+                    };
+                    console.error(`[${agent_id}] Attempt ${attempt} failed: ${lastError.message}`);
                     continue;
                 }
 
-                // Success: got an answer (even partial)
-                if (lastCollected.fullAnswer.trim()) {
-                    return respondWithCollected(res, lastCollected, agent_id);
-                }
-
-                // No answer but also no error — unusual, but still return it
-                if (!lastCollected.streamError) {
-                    return respondWithCollected(res, lastCollected, agent_id);
-                }
-
-                // Error with no answer — retry if we have attempts left
-                if (attempt < MAX_RETRIES) {
-                    console.warn(`[${agent_id}] Attempt ${attempt} failed (${lastCollected.streamError.message}), will retry...`);
-                }
+                return respondWithCollected(res, lastCollected, agent_id);
             }
 
             // All retries exhausted — return a user-friendly 200 with fallback message
@@ -718,9 +725,10 @@ router.post('/chat', async (req, res) => {
                     payload: { raw_answer: fallbackAnswer },
                     trace: {
                         error: 'TOOL_ERROR_EXHAUSTED',
-                        detail: lastCollected?.streamError?.message || 'All retry attempts failed',
-                        dify_code: lastCollected?.streamError?.code || null,
-                        dify_status: lastCollected?.streamError?.status || null,
+                        detail: lastError?.message || 'All retry attempts failed',
+                        dify_code: null,
+                        dify_status: lastError?.status || null,
+                        upstream_body: lastError?.body ? String(lastError.body).slice(0, 600) : null,
                         retries: MAX_RETRIES,
                         hint: 'Set DIFY_DEBUG=1 to log SSE error events and collection details'
                     }
