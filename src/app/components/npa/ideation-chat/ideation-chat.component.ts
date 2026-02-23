@@ -615,24 +615,33 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
                 this.currentAgent = targetAgent;
             }
 
-            if (action === 'DELEGATE_AGENT' && targetId) {
+            if ((action === 'DELEGATE_AGENT' || action === 'ROUTE_DOMAIN') && targetId) {
                 const greetIdentity = this.AGENTS[targetId] || this.AGENTS['MASTER_COO'];
                 const agentName = targetAgent?.name || targetId;
 
+                let title = 'Agent Handoff';
+                let description = `${agentName} is taking over with full context.`;
+                if (action === 'ROUTE_DOMAIN' && intent) {
+                    title = 'Domain Orchestrator';
+                    description = `Routing to ${agentName} to handle **${intent}**. Forwarding your request...`;
+                }
+
                 this.messages.push({
                     role: 'agent',
-                    content: `**${agentName}** is now connected. Forwarding context from the orchestrator...`,
+                    content: `**${agentName}** is now connected. Forwarding context...`,
                     timestamp: new Date(),
                     agentIdentity: greetIdentity,
                     cardType: 'INFO',
-                    cardData: { title: 'Agent Handoff', description: `${agentName} is taking over with full product context.` }
+                    cardData: { title, description }
                 });
 
-                // Auto-send the orchestrator's last response as context to the new agent
+                // Auto-send the orchestrator's last response and user messages as context to the new agent
                 this.isThinking = true;
                 this.startThinkingTimer(`${agentName} is loading context...`);
                 const contextSummary = this._buildDelegationContext(res.answer);
                 this.currentSubscription?.unsubscribe();
+
+                // For ideation-chat, we use sendMessage (not streamed) since it uses block/streaming fallback internally
                 this.currentSubscription = this.difyService.sendMessage(
                     contextSummary,
                     { orchestrator_message: res.answer.substring(0, 4000) },
@@ -678,7 +687,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         const userMessages = this.messages
             .filter(m => m.role === 'user')
             .map(m => m.content)
-            .join('\n');
+            .join(' | ');
         return `[CONTEXT FROM ORCHESTRATOR]\nThe following product details were gathered during the routing phase. Please use this context to begin the structured interview — do not re-ask questions already answered.\n\nUser's original request:\n${userMessages.substring(0, 2000)}\n\nOrchestrator summary:\n${trimmed}`;
     }
 
