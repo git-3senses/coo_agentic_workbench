@@ -13,7 +13,7 @@ from db import execute, query
 GET_NPA_BY_ID_SCHEMA = {
     "type": "object",
     "properties": {
-        "project_id": {"type": "string", "description": "NPA project ID (e.g. NPA-2025-1234)"},
+        "project_id": {"type": "string", "description": "NPA project ID (e.g. NPA-<uuid>)"},
     },
     "required": ["project_id"],
 }

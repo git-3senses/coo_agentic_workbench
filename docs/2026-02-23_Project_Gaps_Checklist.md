@@ -75,6 +75,12 @@
 - [x] **Fix approach:** Either raise the limit safely (and ensure request size limits are OK) or implement a chunking contract (client sends multiple batches and server returns per-batch status).
 - [x] **Acceptance criteria:** Persisting 339 fields works reliably and returns a clear success summary.
 
+### DB‑P0‑07 — Avoid duplicate KB registries (`kb_documents` vs `knowledge_documents`)
+- [x] **Why:** Two KB registries create drift: MCP/RAG uses `kb_documents` while UI-only tables can diverge.
+- [x] **Where:** `database/migrations/009_add_knowledge_evidence_tables.sql`, `database/migrations/010_expand_kb_documents_and_add_evidence_library.sql`
+- [x] **Fix approach:** Store UI metadata in `kb_documents` (single source of truth) and keep `knowledge_documents` out of the schema.
+- [x] **Acceptance criteria:** Knowledge Base UI reads from `kb_documents` and there is no separate `knowledge_documents` table required for prod.
+
 ## P1 — Performance & Scalability
 
 ### DB‑P1‑01 — Reduce N+1 and correlated subqueries in list endpoints
@@ -145,6 +151,12 @@
 - [x] **Fix approach:** Expand recognition to include `dropdown`, `multiselect`, `checkbox_group` (as applicable) and align with the Angular registry.
 - [x] **Acceptance criteria:** Dropdown/multiselect fields return options correctly from `ref_field_options`.
 
+### AG‑P0‑06 — Fix collision-prone NPA ID generation in MCP Python tools
+- [x] **Why:** `NPA-YYYY-####` generation can collide under concurrency and cause intermittent insert failures when MCP tools create projects directly in the DB.
+- [x] **Where:** `server/mcp-python/tools/ideation.py`, `server/mcp-python/tools/prospects.py`
+- [x] **Fix approach:** Use a UUID-based ID (e.g., `NPA-<uuid>`) consistent with the Node API.
+- [x] **Acceptance criteria:** Creating many NPAs via MCP tools produces no duplicate IDs or insert errors.
+
 ## P1 — Reliability / Observability
 
 ### AG‑P1‑01 — Make agent health checks more meaningful (reduce false positives)
@@ -176,6 +188,12 @@
 - [x] **Where:** `server/routes/npas.js` (`GET /:id/form-sections`)
 - [x] **Fix approach:** Join `ref_field_options` into the response (by field id), return `options: [{value,label}]`.
 - [x] **Acceptance criteria:** Dropdown/multiselect UI shows correct options without hardcoding.
+
+### UI‑P0‑03 — Fix Lucide “icon not provided” runtime errors
+- [x] **Why:** Missing icon registrations crash rendering for pages that bind icon names dynamically (e.g., Knowledge Base).
+- [x] **Where:** `src/app/shared/icons/shared-icons.module.ts`, icon usage in `src/app/pages/knowledge-base/knowledge-base.ts`
+- [x] **Fix approach:** Register the missing icons using their canonical export names (avoid aliasing icons like `Map as MapIcon`, which changes the registry key).
+- [x] **Acceptance criteria:** No console errors like `The "map" icon has not been provided...` and Knowledge Base renders without icon failures.
 
 ## P1 — Performance / Responsiveness
 

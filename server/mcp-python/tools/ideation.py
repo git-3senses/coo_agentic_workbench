@@ -4,7 +4,7 @@ Powers the Ideation Agent: create NPAs, find similar products, check prohibited 
 Mirrors server/mcp/src/tools/ideation.ts exactly.
 """
 import json
-import random
+import uuid
 from datetime import datetime, timezone
 
 from registry import ToolDefinition, ToolResult, registry
@@ -33,7 +33,7 @@ CREATE_NPA_SCHEMA = {
 
 
 async def ideation_create_npa_handler(inp: dict) -> ToolResult:
-    npa_id = f"NPA-{datetime.now().year}-{random.randint(1000, 9999)}"
+    npa_id = f"NPA-{uuid.uuid4().hex}"
     await execute(
         """INSERT INTO npa_projects (id, title, description, npa_type, product_category, risk_level,
                                      is_cross_border, notional_amount, currency, submitted_by,

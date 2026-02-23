@@ -160,7 +160,7 @@ chmod +x apply-demo-seeds.sh
 | `npa_prospects` | 5 | Pipeline prospect records |
 | `npa_audit_log` | 30 | Immutable audit trail for all NPA actions |
 
-### AI Agent System (4 tables)
+### AI Agent System (5 tables)
 
 | Table | Rows | Description |
 |---|---|---|
@@ -168,6 +168,7 @@ chmod +x apply-demo-seeds.sh
 | `agent_messages` | 28 | Individual agent/user messages with reasoning chains |
 | `npa_agent_routing_decisions` | 14 | Agent-to-agent routing decisions with confidence scores |
 | `kb_documents` | 20 | Knowledge base document registry for RAG |
+| `evidence_library` | 8 | Evidence Library records shown in the UI |
 
 ### Reference Data (13 tables)
 
@@ -198,9 +199,9 @@ chmod +x apply-demo-seeds.sh
 | Risk & Compliance | 4 | 174 |
 | Post-Launch Monitoring | 5 | 50 |
 | Dashboard & Analytics | 4 | 42 |
-| AI Agent System | 4 | 72 |
+| AI Agent System | 5 | 80 |
 | Reference Data | 13 | 342 |
-| **Total** | **42** | **1,054** |
+| **Total** | **43** | **1,062** |
 
 ---
 

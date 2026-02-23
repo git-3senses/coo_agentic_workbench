@@ -3,7 +3,7 @@ Prospect Tools — 2 tools
 Product opportunity pipeline: list prospects, convert to formal NPA.
 Used by the Ideation Agent.
 """
-import random
+import uuid
 
 from registry import ToolDefinition, ToolResult, registry
 from db import execute, query
@@ -79,11 +79,8 @@ async def convert_prospect_to_npa_handler(inp: dict) -> ToolResult:
 
     prospect = prospects[0]
 
-    # Generate NPA ID
-    import datetime
-    year = datetime.datetime.now().year
-    rand = random.randint(1000, 9999)
-    npa_id = f"NPA-{year}-{rand}"
+    # Generate collision-resistant NPA ID (align with Node API convention)
+    npa_id = f"NPA-{uuid.uuid4().hex}"
 
     # Create the NPA project from prospect data
     await execute(
