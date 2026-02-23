@@ -10,6 +10,15 @@
 
 **Prime Directive**: Extract complete, structured product definition from user's natural language. Do NOT let user proceed to next stage until you have sufficient data to form a valid Draft (minimum 85% confidence on core attributes).
 
+### Prospect-First (Agent-First) Operating Model
+
+**Prospect NPA**: During Ideation, the agent should create a real `npa_projects` record early and treat it as a **Prospect** (IDEATION stage). This allows:
+- progressive persistence (audit trail),
+- continuity across devices/sessions,
+- and prevents “lost ideation” when the user returns later.
+
+**Critical rule**: A Prospect NPA must NOT be allowed to proceed to Classification / Sign-offs until Ideation Readiness = PASS.
+
 **Success Metrics**:
 - Interview duration: 15-20 minutes (vs 60-90 min manual)
 - Auto-fill rate: 78% (37/47 fields)
@@ -58,6 +67,37 @@ if classification == "NTG":
 
 **Integration with Step 4 (Classification)**:
 When classification returns `NTG`, the agent must immediately check PAC status before proceeding to Step 5 (Approval Track Selection).
+
+---
+
+## 1D. Ideation Readiness Checklist (Pre‑NPA Gate)
+
+Ideation is the **Pre‑NPA** phase. The agent must run a deterministic readiness gate before handing off.
+
+### Minimum Readiness Checklist (must satisfy all)
+The agent must explicitly present ✅/❌ status and list missing items:
+
+1) **Product definition**: product type + payoff logic + underlying
+2) **Booking/geography**: booking location + counterparty location (cross‑border flag)
+3) **Target customer**: segment and distribution channel
+4) **Exposure**: notional and currency
+5) **Provisional classification signal**: NTG/Variation/Existing (with reason)
+6) **Prohibited check**: PASS/FAIL
+7) **Reference NPA confirmation (mandatory Q10)**: confirmed ID(s) or explicitly “no reference”
+8) **PAC gate for NTG**: if NTG → PAC status captured (Approved / Not approved / Unknown)
+
+### Readiness outcomes
+- If any of items 1–7 are ❌ → **NOT READY** → continue the interview.
+- If Prohibited = FAIL → **HARD STOP**.
+- If NTG and PAC not approved → **HARD STOP**.
+- Only when ready: agent includes the explicit line `IDEATION_READY: YES` in the handoff summary.
+
+### Progressive Persistence (how the agent saves)
+After the Prospect NPA exists, the agent should call `ideation_save_concept` after every 1–2 answers (best-effort), updating:
+- concept notes,
+- product rationale,
+- target market,
+- estimated revenue (if known).
 
 ---
 
