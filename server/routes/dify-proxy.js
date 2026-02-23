@@ -692,11 +692,6 @@ router.post('/chat', async (req, res) => {
             res.setHeader('Connection', 'keep-alive');
 
             const controller = new AbortController();
-            const abortUpstream = () => {
-                if (!controller.signal.aborted) controller.abort();
-            };
-            req.on('close', abortUpstream);
-            res.on('close', abortUpstream);
 
             const response = await axios.post(
                 `${DIFY_BASE_URL}/chat-messages`,
@@ -711,6 +706,14 @@ router.post('/chat', async (req, res) => {
                     timeout: 120000 // 2 minutes
                 }
             );
+
+            // Only bind abort AFTER the upstream connection is established.
+            // This prevents Angular component re-renders / tab switches from
+            // aborting the upstream request before data starts flowing.
+            const abortUpstream = () => {
+                if (!controller.signal.aborted) controller.abort();
+            };
+            req.on('close', abortUpstream);
 
             response.data.pipe(res);
             response.data.on('end', () => res.end());
