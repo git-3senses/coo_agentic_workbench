@@ -28,11 +28,41 @@ const sqlFile = path.resolve(process.argv[2] || '../database/seed-npa-001-digita
         await conn.query(sql);
         console.log('SQL executed successfully.');
 
-        // Verification
-        const [rows] = await conn.query(
-            "SELECT project_id, COUNT(*) AS cnt FROM npa_form_data GROUP BY project_id ORDER BY project_id"
+        // Verification (best-effort; keep backward compatible across different seed files)
+        const [[{ db }]] = await conn.query('SELECT DATABASE() AS db');
+        console.log(`Database: ${db}`);
+
+        const [[{ hasKbDocuments }]] = await conn.query(
+            "SELECT COUNT(*) AS hasKbDocuments FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'kb_documents'"
         );
-        console.log('All NPA form_data counts:', JSON.stringify(rows));
+        const [[{ hasEvidence }]] = await conn.query(
+            "SELECT COUNT(*) AS hasEvidence FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'evidence_library'"
+        );
+        const [[{ hasFormData }]] = await conn.query(
+            "SELECT COUNT(*) AS hasFormData FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'npa_form_data'"
+        );
+
+        if (hasKbDocuments) {
+            const [[{ kbUiRows }]] = await conn.query(
+                "SELECT COUNT(*) AS kbUiRows FROM kb_documents WHERE ui_category IS NOT NULL"
+            );
+            const [[{ kbTotalRows }]] = await conn.query("SELECT COUNT(*) AS kbTotalRows FROM kb_documents");
+            console.log(`kb_documents: ${kbTotalRows} rows (${kbUiRows} UI-tagged)`);
+        }
+
+        if (hasEvidence) {
+            const [[{ evidenceRows }]] = await conn.query(
+                "SELECT COUNT(*) AS evidenceRows FROM evidence_library"
+            );
+            console.log(`evidence_library: ${evidenceRows} rows`);
+        }
+
+        if (!hasKbDocuments && !hasEvidence && hasFormData) {
+            const [rows] = await conn.query(
+                "SELECT project_id, COUNT(*) AS cnt FROM npa_form_data GROUP BY project_id ORDER BY project_id"
+            );
+            console.log('npa_form_data counts (by project):', JSON.stringify(rows));
+        }
 
     } catch (err) {
         console.error('Error:', err.message);
