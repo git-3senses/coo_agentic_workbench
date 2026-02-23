@@ -288,6 +288,7 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    overallProgress = 0;
    totalFields = 0;
    filledFields = 0;
+   private statsRecomputeScheduled = false;
 
    // ─── NPA Classification ──────────────────────────────────────
    npaClassification: 'New-to-Group' | 'Variation' | 'Existing' | 'NPA Lite' = 'New-to-Group';
@@ -300,6 +301,17 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    // ─── Knowledge & Evidence Panel ─────────────────────────────
    agentPanelTab: 'CHAT' | 'KNOWLEDGE' | 'ISSUES' = 'CHAT'; // Toggle between Chat and KB/Issues
    selectedCitation: Citation | null = null; // Currently viewed citation
+
+   // Track field-level changes so DB persists never wipe untouched fields.
+   // Allows explicit clears (empty string) to be persisted safely.
+   private dirtyFieldKeys = new Set<string>();
+
+   // ─── Reference NPA Picker ────────────────────────────────────
+   referenceNpaIds: string[] = [];
+   referenceNpaDetails: { id: string; title: string }[] = []; // display info
+   npaSearchResults: { id: string; title: string; npa_type: string }[] = [];
+   showRefSearch = false;
+   refSearchQuery = '';
 
    // ─── Expose to template ─────────────────────────────────────
    Math = Math;
@@ -315,6 +327,12 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
 
       if (this.inputData?.npaType) {
          this.npaClassification = this.inputData.npaType;
+      }
+      // Initialize reference NPAs from input context
+      const inputRefs = this.inputData?.referenceNpaIds || [];
+      if (inputRefs.length > 0) {
+         this.referenceNpaIds = [...inputRefs];
+         this.loadReferenceNpaDetails();
       }
       this.initializeSections();
       this.initializeFieldMap();
@@ -346,7 +364,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       try {
          sessionStorage.setItem(`_draft_builder_autosave_${npaId}`, JSON.stringify(data));
          this.lastSavedAt = new Date();
-         this.isDirty = false;
          console.log(`[DraftBuilder] Auto-saved ${Object.keys(data).length} fields`);
       } catch (e) { /* quota exceeded */ }
 
@@ -578,6 +595,95 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    }
 
    // ═══════════════════════════════════════════════════════════
+   // Reference NPA Picker
+   // ═══════════════════════════════════════════════════════════
+
+   /** Load display details for reference NPA IDs */
+   private loadReferenceNpaDetails(): void {
+      this.referenceNpaDetails = this.referenceNpaIds.map(id => ({ id, title: 'Loading...' }));
+      for (const refId of this.referenceNpaIds) {
+         this.http.get<any>(`/api/npas/${refId}`).subscribe({
+            next: (npa) => {
+               const idx = this.referenceNpaDetails.findIndex(r => r.id === refId);
+               if (idx >= 0) {
+                  this.referenceNpaDetails[idx] = { id: refId, title: npa.title || refId };
+                  this.cdr.detectChanges();
+               }
+            },
+            error: () => { } // keep the ID as display
+         });
+      }
+   }
+
+   /** Search NPAs for the reference picker */
+   searchNpas(query: string): void {
+      this.refSearchQuery = query;
+      if (!query || query.length < 2) {
+         this.npaSearchResults = [];
+         return;
+      }
+      this.http.get<any[]>('/api/npas').subscribe({
+         next: (npas) => {
+            const q = query.toLowerCase();
+            this.npaSearchResults = npas
+               .filter(n => !this.referenceNpaIds.includes(n.id))  // exclude already selected
+               .filter(n => n.id.toLowerCase().includes(q) || n.title.toLowerCase().includes(q))
+               .slice(0, 5)
+               .map(n => ({ id: n.id, title: n.title, npa_type: n.npa_type }));
+            this.cdr.detectChanges();
+         }
+      });
+   }
+
+   /** Add a reference NPA */
+   addReferenceNpa(npa: { id: string; title: string }): void {
+      if (this.referenceNpaIds.includes(npa.id)) return;
+      this.referenceNpaIds.push(npa.id);
+      this.referenceNpaDetails.push({ id: npa.id, title: npa.title });
+      this.npaSearchResults = [];
+      this.refSearchQuery = '';
+      this.showRefSearch = false;
+      this.persistReferenceNpaIds();
+      this.retriggerPrefillWithRefs();
+   }
+
+   /** Remove a reference NPA */
+   removeReferenceNpa(refId: string): void {
+      this.referenceNpaIds = this.referenceNpaIds.filter(id => id !== refId);
+      this.referenceNpaDetails = this.referenceNpaDetails.filter(r => r.id !== refId);
+      this.persistReferenceNpaIds();
+      // Don't re-trigger prefill on removal — fields already filled stay
+   }
+
+   /** Persist reference NPA IDs to the DB */
+   private persistReferenceNpaIds(): void {
+      const projectId = this.inputData?.npaId || this.inputData?.projectId || '';
+      if (!projectId) return;
+      this.http.put(`/api/npas/${projectId}`, { reference_npa_ids: this.referenceNpaIds }).subscribe({
+         next: () => console.log('[DraftBuilder] Reference NPAs saved:', this.referenceNpaIds),
+         error: (err) => console.warn('[DraftBuilder] Failed to save reference NPAs:', err.message)
+      });
+   }
+
+   /** Re-trigger prefill with updated reference NPA list */
+   private retriggerPrefillWithRefs(): void {
+      const npaId = this.inputData?.npaId || this.inputData?.projectId || '';
+      if (!npaId || this.referenceNpaIds.length === 0) return;
+      const qs = `?similar_npa_ids=${encodeURIComponent(this.referenceNpaIds.join(','))}`;
+      this.http.get<any>(`/api/npas/${npaId}/prefill${qs}`).subscribe({
+         next: (prefillResult) => {
+            const filledFields = prefillResult?.filled_fields?.filter((f: any) => f.strategy === 'COPY');
+            if (!filledFields?.length) return;
+            console.log(`[DraftBuilder] Re-prefill ${filledFields.length} COPY fields from ${this.referenceNpaIds.length} refs`);
+            this.applyFormDataToFieldMap(filledFields);
+            // Persist updated fields
+            this.http.post(`/api/npas/${npaId}/prefill/persist`, { filled_fields: filledFields }).subscribe({
+               next: () => console.log('[DraftBuilder] Updated COPY fields persisted'),
+               error: () => { }
+            });
+         }
+      });
+   }
 
    // ═══════════════════════════════════════════════════════════
    // Child Component Event Handlers
@@ -587,18 +693,19 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    onFieldEdited(field: FieldState): void {
       this.isDirty = true;
       this.focusedFieldKey = field.key;
+      this.dirtyFieldKeys.add(field.key);
       // Clear validation error when user provides a value
       if (field.value && field.value.trim() !== '') {
          field.validationError = undefined;
       }
-      this.updateProgress();
-      this.recomputeRequiredStats();
+      this.scheduleStatsRecompute();
    }
 
    /** Fired by NpaFieldRendererComponent when a field is cleared */
    onFieldCleared(field: FieldState): void {
-      this.updateProgress();
-      this.recomputeRequiredStats();
+      this.isDirty = true;
+      this.dirtyFieldKeys.add(field.key);
+      this.scheduleStatsRecompute();
    }
 
    /** Fired by NpaFieldRendererComponent — delegates to the agent chat */
@@ -642,14 +749,25 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          field.confidence = suggestion.confidence;
          field.validationError = undefined;
          this.isDirty = true;
-         this.updateProgress();
-         this.recomputeRequiredStats();
+         this.dirtyFieldKeys.add(field.key);
+         this.scheduleStatsRecompute();
          // Persist immediately so "anything over draft" is DB-backed (comments + field edits).
          this.persistFormDataToDb('autosave');
          console.log(`[DraftBuilder] Applied suggestion for ${suggestion.fieldKey}`);
       } else {
          console.warn(`[DraftBuilder] Unknown field key in suggestion: ${suggestion.fieldKey}`);
       }
+   }
+
+   private scheduleStatsRecompute(): void {
+      if (this.statsRecomputeScheduled) return;
+      this.statsRecomputeScheduled = true;
+      setTimeout(() => {
+         this.statsRecomputeScheduled = false;
+         this.updateProgress();
+         this.recomputeRequiredStats();
+         this.cdr.detectChanges();
+      }, 100);
    }
 
    private parseBulletItems(text: string): string[] {
@@ -1174,30 +1292,37 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          return;
       }
 
+      // Persist only fields that changed (prevents wiping seeded/prefilled values).
       const filled_fields: any[] = [];
-      this.fieldMap.forEach((field, key) => {
-         if (!this.isSectionApplicable(field.nodeId?.split('.').slice(0, 2).join('.') || '')) return;
+      const keysToPersist = Array.from(this.dirtyFieldKeys);
+      for (const key of keysToPersist) {
+         const field = this.fieldMap.get(key);
+         if (!field) continue;
+         if (!this.isSectionApplicable(field.nodeId?.split('.').slice(0, 2).join('.') || '')) continue;
+
          const rawConf: any = (field as any).confidence;
          const confNum = rawConf === null || rawConf === undefined || rawConf === '' ? null : Number(rawConf);
          filled_fields.push({
             field_key: key,
-            value: field.value || '',
+            value: field.value ?? '',
             lineage: field.lineage || 'MANUAL',
             confidence: Number.isFinite(confNum as any) ? (confNum as any) : null,
             source: field.source || null,
             strategy: field.strategy || 'MANUAL'
          });
-      });
+      }
 
       if (filled_fields.length === 0) return;
       if (this.isSavingDraft) return;
 
       this.isSavingDraft = true;
       this.draftSaveError = null;
+      const sentKeys = new Set(filled_fields.map(f => String(f.field_key)));
       this.http.post(`/api/npas/${encodeURIComponent(projectId)}/form-data`, { filled_fields }).subscribe({
          next: () => {
             this.lastSavedAt = new Date();
-            this.isDirty = false;
+            for (const k of sentKeys) this.dirtyFieldKeys.delete(k);
+            this.isDirty = this.dirtyFieldKeys.size > 0;
             this.isSavingDraft = false;
             this.draftSaveError = null;
             if (mode === 'manual') console.log('[DraftBuilder] Saved to DB:', projectId);

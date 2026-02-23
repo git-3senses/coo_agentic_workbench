@@ -111,6 +111,7 @@
    <input *ngIf="field.type === 'text'"
           type="text"
           [(ngModel)]="field.value"
+          (ngModelChange)="fieldEdited.emit(field)"
           (focus)="startEditing()"
           (blur)="finishEditing()"
           [placeholder]="field.placeholder || ''"
@@ -131,6 +132,7 @@
 	   <textarea *ngIf="field.type === 'textarea' || field.type === 'flowchart'"
 	             #autosize
 	             [(ngModel)]="field.value"
+	             (ngModelChange)="fieldEdited.emit(field)"
 	             (focus)="startEditing()"
 	             (blur)="finishEditing()"
 	             (input)="autoResize($event)"
@@ -153,6 +155,7 @@
    <input *ngIf="field.type === 'date'"
           type="date"
           [(ngModel)]="field.value"
+          (ngModelChange)="fieldEdited.emit(field)"
           (change)="finishEditing()"
           class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20"
           [class.text-slate-900]="field.value"
@@ -163,6 +166,7 @@
       <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">{{ field.currencyCode || 'SGD' }}</span>
       <input type="number"
              [(ngModel)]="field.value"
+             (ngModelChange)="fieldEdited.emit(field)"
              (focus)="startEditing()"
              (blur)="finishEditing()"
              [placeholder]="field.placeholder || '0.00'"
@@ -354,6 +358,7 @@
 	      <textarea *ngIf="!field.tableColumns || field.tableColumns.length === 0"
 	                #autosize
 	                [(ngModel)]="field.value"
+	                (ngModelChange)="fieldEdited.emit(field)"
 	                (focus)="startEditing()"
 	                (blur)="finishEditing()"
 	                (input)="autoResize($event)"
@@ -383,6 +388,7 @@
    <!-- ═══ REPEATABLE SECTION ═══ -->
 	   <div *ngIf="field.type === 'repeatable'" class="space-y-2">
 	      <textarea #autosize [(ngModel)]="field.value"
+	                (ngModelChange)="fieldEdited.emit(field)"
 	                (focus)="startEditing()"
 	                (blur)="finishEditing()"
 	                (input)="autoResize($event)"
@@ -400,6 +406,7 @@
 	   <textarea *ngIf="field.type === 'conditional'"
 	             #autosize
 	             [(ngModel)]="field.value"
+	             (ngModelChange)="fieldEdited.emit(field)"
 	             (focus)="startEditing()"
 	             (blur)="finishEditing()"
 	             (input)="autoResize($event)"
