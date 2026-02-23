@@ -12,7 +12,8 @@ const { z } = require('zod');
 // ── Single autofill field ──
 const AutofillFieldSchema = z.object({
    field_key: z.string().min(1).max(100),
-   value: z.string().max(10000), // Allow empty string for clearing a field
+   // npa_form_data.field_value is TEXT (up to ~64KB). Allow larger narratives while still bounding payload size.
+   value: z.string().max(60000), // Allow empty string for clearing a field
    lineage: z.enum(['AUTO', 'ADAPTED', 'MANUAL']).default('AUTO'),
    confidence: z.number().min(0).max(100).optional().nullable(),
    source: z.string().max(500).optional().nullable(),

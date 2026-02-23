@@ -1206,10 +1206,17 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
             if (status === 401) {
                this.draftSaveError = 'Session expired. Please log in again to save.';
             } else {
-               this.draftSaveError = err?.error?.error || err?.message || 'Failed to save draft to DB';
+               const base = err?.error?.error || err?.message || 'Failed to save draft to DB';
+               const details = Array.isArray(err?.error?.details) ? err.error.details : null;
+               if (details?.length) {
+                  const first = details[0];
+                  this.draftSaveError = `${base}: ${String(first.path || 'field')} — ${String(first.message || '')}`;
+               } else {
+                  this.draftSaveError = base;
+               }
             }
             this.isDirty = true;
-            console.warn('[DraftBuilder] Failed to persist form data:', this.draftSaveError);
+            console.warn('[DraftBuilder] Failed to persist form data:', this.draftSaveError, err?.error?.details || '');
             this.cdr.detectChanges();
          }
       });
