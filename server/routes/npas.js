@@ -168,10 +168,46 @@ router.post('/:id/form-data', requireAuth(), validatePersistMiddleware, async (r
                 },
             }));
 
-            const result = await bulkUpsertNpaFormData(conn, id, rows, { batchSize: 400 });
+            // Guardrail: some DBs may have an older ref_npa_fields set. Filter out unknown field_keys
+            // to avoid FK failures and return visibility to the client.
+            const uniqueKeys = Array.from(new Set(rows.map(r => String(r.field_key || '')).filter(Boolean)));
+            let allowedKeys = new Set(uniqueKeys);
+            try {
+                if (uniqueKeys.length > 0) {
+                    const [refRows] = await conn.query(
+                        `SELECT field_key FROM ref_npa_fields WHERE field_key IN (?)`,
+                        [uniqueKeys]
+                    );
+                    allowedKeys = new Set((refRows || []).map(r => String(r.field_key)));
+                }
+            } catch (e) {
+                // If ref table doesn't exist (partial DB), don't block; bulkUpsert will no-op or error accordingly.
+            }
+
+            const filtered = rows.filter(r => allowedKeys.has(String(r.field_key)));
+            const dropped = uniqueKeys.filter(k => !allowedKeys.has(k));
+
+            if (filtered.length === 0) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    details: [{
+                        path: 'filled_fields',
+                        message: 'No field_key exists in ref_npa_fields. Apply DB migration 004_sync_339_fields.sql (or regenerate ref_npa_fields) and retry.'
+                    }],
+                });
+            }
+
+            const result = await bulkUpsertNpaFormData(conn, id, filtered, { batchSize: 400 });
 
             await conn.commit();
-            res.json({ status: 'PERSISTED', npa_id: id, fields_saved: result.rows, batches: result.batches });
+            res.json({
+                status: 'PERSISTED',
+                npa_id: id,
+                fields_saved: result.rows,
+                batches: result.batches,
+                dropped_field_keys: dropped.slice(0, 50),
+                dropped_field_keys_count: dropped.length,
+            });
         } catch (err) {
             await conn.rollback();
             throw err;
@@ -327,6 +363,8 @@ router.get('/:id/prefill', async (req, res) => {
     try {
         const id = req.params.id;
         const similarNpaId = req.query.similar_npa_id;
+        // Support multiple reference NPAs: ?similar_npa_ids=id1,id2,id3
+        const similarNpaIdsRaw = req.query.similar_npa_ids;
 
         // ── 1. Load the NPA record (source for RULE fields) ──
         const [npaRows] = await db.query('SELECT * FROM npa_projects WHERE id = ?', [id]);
@@ -339,16 +377,31 @@ router.get('/:id/prefill', async (req, res) => {
         );
         const jurisdictions = jurisdictionRows.map(j => j.jurisdiction_code);
 
-        // ── 2. Find the most similar approved NPA (for COPY fields) ──
-        let similarNpa = null;
-        let similarFormData = [];
+        // ── 2. Find similar NPAs (for COPY fields) ──
+        // Priority: explicit similar_npa_ids > single similar_npa_id > auto-detect
+        let similarNpas = [];  // Array of { npa, formData } in priority order
 
-        if (similarNpaId) {
-            // Explicit: use the provided similar NPA
-            const [rows] = await db.query('SELECT * FROM npa_projects WHERE id = ?', [similarNpaId]);
-            if (rows.length > 0) similarNpa = rows[0];
+        // Parse explicit list of reference NPA IDs
+        const explicitIds = similarNpaIdsRaw
+            ? String(similarNpaIdsRaw).split(',').map(s => s.trim()).filter(Boolean)
+            : similarNpaId
+                ? [String(similarNpaId).trim()]
+                : [];
+
+        if (explicitIds.length > 0) {
+            // Load all explicitly provided reference NPAs in order
+            for (const refId of explicitIds) {
+                const [rows] = await db.query('SELECT * FROM npa_projects WHERE id = ?', [refId]);
+                if (rows.length > 0) {
+                    const [fdRows] = await db.query(
+                        'SELECT field_key, field_value, lineage, confidence_score FROM npa_form_data WHERE project_id = ?',
+                        [refId]
+                    );
+                    similarNpas.push({ npa: rows[0], formData: fdRows });
+                }
+            }
         } else {
-            // Auto: find best match by product_type + product_category
+            // Auto: find best matches by product_type + product_category (top 3)
             const [candidates] = await db.query(`
                 SELECT * FROM npa_projects
                 WHERE id != ? AND status IN ('Approved', 'Launched', 'In Monitoring')
@@ -357,21 +410,31 @@ router.get('/:id/prefill', async (req, res) => {
                     (CASE WHEN npa_type = ? THEN 2 ELSE 0 END) +
                     (CASE WHEN risk_level = ? THEN 1 ELSE 0 END) DESC,
                     created_at DESC
-                LIMIT 1
+                LIMIT 3
             `, [id, npa.product_category || '', npa.npa_type || '', npa.risk_level || '']);
 
-            if (candidates.length > 0) similarNpa = candidates[0];
+            for (const candidate of candidates) {
+                const [fdRows] = await db.query(
+                    'SELECT field_key, field_value, lineage, confidence_score FROM npa_form_data WHERE project_id = ?',
+                    [candidate.id]
+                );
+                similarNpas.push({ npa: candidate, formData: fdRows });
+            }
         }
 
-        // Load the similar NPA's form data (for COPY fields)
-        if (similarNpa) {
-            const [rows] = await db.query(
-                'SELECT field_key, field_value, lineage, confidence_score FROM npa_form_data WHERE project_id = ?',
-                [similarNpa.id]
-            );
-            similarFormData = rows;
+        // Build merged data map: for each field, use the first non-empty value across references (priority order)
+        const similarDataMap = new Map();
+        const sourceMap = new Map(); // track which NPA a COPY field came from
+        for (const ref of similarNpas) {
+            for (const row of ref.formData) {
+                if (!similarDataMap.has(row.field_key) && row.field_value && row.field_value.trim()) {
+                    similarDataMap.set(row.field_key, row.field_value);
+                    sourceMap.set(row.field_key, ref.npa.id);
+                }
+            }
         }
-        const similarDataMap = new Map(similarFormData.map(r => [r.field_key, r.field_value]));
+        // Backward compat: expose the primary similar NPA (first in list)
+        const similarNpa = similarNpas.length > 0 ? similarNpas[0].npa : null;
 
         // ── 3. Build the RULE field values ──
         // These are deterministic: derived from the NPA record, org config, or lookup tables.
@@ -518,27 +581,31 @@ router.get('/:id/prefill', async (req, res) => {
             }
         }
 
-        // Add COPY fields
+        // Add COPY fields (with per-field source tracking)
         for (const [key, value] of Object.entries(copyValues)) {
+            const sourceNpaId = sourceMap.get(key);
             filledFields.push({
                 field_key: key,
                 value: value,
                 lineage: 'AUTO',
                 confidence: 75,
-                source: similarNpa ? `copied_from_npa:${similarNpa.id}` : 'similar_npa',
+                source: sourceNpaId ? `copied_from_npa:${sourceNpaId}` : 'similar_npa',
                 strategy: 'COPY'
             });
         }
 
-        // Return summary
+        // Return summary (include all reference NPAs used)
+        const referenceNpaIds = similarNpas.map(r => r.npa.id);
         res.json({
             npa_id: id,
             similar_npa_id: similarNpa?.id || null,
             similar_npa_title: similarNpa?.title || null,
+            reference_npas: similarNpas.map(r => ({ id: r.npa.id, title: r.npa.title })),
             filled_fields: filledFields,
             summary: {
                 rule_count: Object.keys(ruleValues).length,
                 copy_count: Object.keys(copyValues).length,
+                reference_npa_count: similarNpas.length,
                 total_prefilled: filledFields.length,
                 remaining_for_llm: 'Use POST /api/dify/workflow with app=WF_NPA_Autofill for LLM fields'
             }
@@ -699,12 +766,12 @@ router.get('/:id/form-sections', async (req, res) => {
 });
 
 // DELETE /api/npas/seed-demo — Clear ALL NPA data (wipe slate for fresh seeding)
-	router.delete('/seed-demo', async (req, res) => {
-	    console.log('[NPA SEED-CLEAR] Wiping all NPA data...');
-	    const conn = await db.getConnection();
-	    try {
-	        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-	        await conn.beginTransaction();
+router.delete('/seed-demo', async (req, res) => {
+    console.log('[NPA SEED-CLEAR] Wiping all NPA data...');
+    const conn = await db.getConnection();
+    try {
+        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+        await conn.beginTransaction();
 
         const tables = [
             'npa_loop_backs', 'npa_post_launch_conditions', 'npa_performance_metrics',
@@ -732,16 +799,16 @@ router.get('/:id/form-sections', async (req, res) => {
 
 // POST /api/npas/seed-demo — Create 8 diverse NPAs covering all NPA types, product categories, risk levels
 // Aligned with KB_NPA_Templates.md — modeled after real TSG examples (TSG1917, TSG2042, TSG2339, TSG2055)
-	router.post('/seed-demo', async (req, res) => {
+router.post('/seed-demo', async (req, res) => {
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     console.log('[NPA SEED-DEMO] Creating 8 diverse NPAs...');
     const profiles = getNpaProfiles(now);
     const conn = await db.getConnection();
     const results = [];
 
-	    try {
-	        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-	        await conn.beginTransaction();
+    try {
+        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+        await conn.beginTransaction();
 
         // ── Insert any missing field_keys into ref_npa_fields so FK is satisfied ──
         const allFieldKeys = new Set();
@@ -1246,17 +1313,17 @@ router.put('/:id', async (req, res) => {
 });
 
 // POST /api/npas — Create new NPA
-	router.post('/', async (req, res) => {
-	    console.log('[NPA CREATE] Received:', JSON.stringify(req.body));
-	    const { title, description, submitted_by, npa_type } = req.body;
-	    const id = `NPA-${crypto.randomUUID().replace(/-/g, '')}`;
-	    try {
-	        const conn = await db.getConnection();
-	        try {
-	            await conn.query(
-	                `INSERT INTO npa_projects (id, title, description, submitted_by, npa_type, current_stage, status, created_at, updated_at)
+router.post('/', async (req, res) => {
+    console.log('[NPA CREATE] Received:', JSON.stringify(req.body));
+    const { title, description, submitted_by, npa_type } = req.body;
+    const id = `NPA-${crypto.randomUUID().replace(/-/g, '')}`;
+    try {
+        const conn = await db.getConnection();
+        try {
+            await conn.query(
+                `INSERT INTO npa_projects (id, title, description, submitted_by, npa_type, current_stage, status, created_at, updated_at)
 	                 VALUES (?, ?, ?, ?, ?, 'INITIATION', 'On Track', NOW(), NOW())`,
-	                [id, title, description, submitted_by || 'system', npa_type || 'STANDARD']
+                [id, title, description, submitted_by || 'system', npa_type || 'STANDARD']
             );
             console.log('[NPA CREATE] Success:', id);
             res.json({ id, status: 'CREATED' });
