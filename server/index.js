@@ -45,6 +45,8 @@ const bundlingRoutes = require('./routes/bundling');
 const evergreenRoutes = require('./routes/evergreen');
 const escalationsRoutes = require('./routes/escalations');
 const documentsRoutes = require('./routes/documents');
+const knowledgeRoutes = require('./routes/knowledge');
+const evidenceRoutes = require('./routes/evidence');
 const { startMonitor: startSlaMonitor } = require('./jobs/sla-monitor');
 const { startHealthMonitor, getHealthStatus } = require('./jobs/agent-health');
 const { auditMiddleware } = require('./middleware/audit');
@@ -75,6 +77,8 @@ app.use('/api/bundling', auditMiddleware('BUNDLING'), bundlingRoutes);
 app.use('/api/evergreen', auditMiddleware('EVERGREEN'), evergreenRoutes);
 app.use('/api/escalations', auditMiddleware('ESCALATION'), escalationsRoutes);
 app.use('/api/documents', auditMiddleware('DOCUMENT'), documentsRoutes);
+app.use('/api/knowledge', auditMiddleware('KNOWLEDGE'), knowledgeRoutes);
+app.use('/api/evidence', auditMiddleware('EVIDENCE'), evidenceRoutes);
 
 // GAP-022: Agent health endpoint — live Dify agent availability metrics
 app.get('/api/dify/agents/health', (req, res) => {

@@ -1,18 +1,21 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-knowledge-base',
   standalone: true,
   imports: [CommonModule, SharedIconsModule],
   templateUrl: './knowledge-base.html',
-  styleUrl: './knowledge-base.css',
+  styleUrl: './knowledge-base.css'
 })
-export class KnowledgeBaseComponent {
+export class KnowledgeBaseComponent implements OnInit {
   activeTab: 'ALL' | 'UNIVERSAL' | 'AGENT' | 'WORKFLOW' = 'ALL';
+  private http = inject(HttpClient);
 
-  universalDocs = [
+  // Fallback (used when DB/API is unavailable)
+  private fallbackUniversalDocs = [
     { title: 'DBS Group NPA Policy & Standard', id: 'DBS_10_S_0012_GR', desc: 'Overarching global policy (RMG-OR). Defines NTG vs Variation vs Existing classifications and standard 1-year validity.', type: 'PDF', date: 'Oct 2025', icon: 'file-text' },
     { title: 'GFM NPA Standard Operating Procedures', id: 'GFM_SOP_v2.3', desc: 'Stricter GFM-specific rules. Dictates mandatory 5 sign-offs for cross-border deals and 3-loop-back circuit breaker.', type: 'Docs', date: 'Jan 2026', icon: 'book-open' },
     { title: 'Global Prohibited & Sanctions List', id: 'SANCTIONS_2026', desc: 'OFAC, UN, EU sanctions list plus internal prohibited products. "Hard Stop" reference for Ideation Agent.', type: 'Database', date: 'Live', icon: 'alert-triangle' },
@@ -25,7 +28,7 @@ export class KnowledgeBaseComponent {
     { title: 'DBS Group Sustainability Framework', id: 'ESG_FRAMEWORK', desc: 'Definitions and criteria for classifying products as "Green", "Social", or "Sustainable".', type: 'PDF', date: 'May 2025', icon: 'leaf' }
   ];
 
-  agentDocs = [
+  private fallbackAgentDocs = [
     { title: 'NPA Decision Matrix / Classification Tree', agent: 'Ideation', desc: 'Ontological decision tree for NTG vs. Variation vs. Existing mapping.', icon: 'git-branch' },
     { title: 'Evergreen Eligibility Master List', agent: 'Ideation', desc: 'Constantly maintained list of products eligible for the 3-year Evergreen track.', icon: 'list-checks' },
     { title: 'Evergreen Usage Tracker API', agent: 'Ideation', desc: 'Real-time tracker of current Evergreen notional usage against the $500M GFM-wide cap.', icon: 'activity' },
@@ -45,11 +48,51 @@ export class KnowledgeBaseComponent {
     { title: 'BCM Standards (BIA/RTO/RPO)', agent: 'Tech & Ops', desc: 'Rules for required RTO/RPO limits and Business Impact Analysis generation.', icon: 'hard-drive' }
   ];
 
-  workflowDocs = [
+  private fallbackWorkflowDocs = [
     { title: 'SOP SLA Matrix', desc: 'Turnaround times for paths (e.g., 48 hours for Impending Deal, targets for Full NPA).', icon: 'clock' },
     { title: 'PIR Playbook', desc: 'Rules for triggering PIRs (6 months post-launch), tracking conditions, and repeating failed PIRs.', icon: 'clipboard-check' },
     { title: 'Governance Hierarchy & Escalation Paths', desc: 'Contact mapping for GFM COO Office, PAC, and Forum routing.', icon: 'network' },
     { title: 'Bundling Arbitration Team Charter', desc: 'Arbitration rules when a bundle fails one of the 8 safety conditions.', icon: 'gavel' },
     { title: 'Fast-Track Dormant Reactivation Rules', desc: 'Requirements to bypass NPA Lite for products dormant under 3 years with no variations.', icon: 'zap' }
   ];
+
+  universalDocs: any[] = [...this.fallbackUniversalDocs];
+  agentDocs: any[] = [...this.fallbackAgentDocs];
+  workflowDocs: any[] = [...this.fallbackWorkflowDocs];
+  isLoading = true;
+
+  ngOnInit() {
+    this.fetchData();
+  }
+
+  fetchData() {
+    this.isLoading = true;
+    this.http.get<any[]>('/api/knowledge').subscribe({
+      next: (docs) => {
+        // Map kb_documents UI columns to expected template fields
+        const mapDoc = (d: any) => ({
+          ...d,
+          icon: d.icon_name || d.icon || 'file-text',
+          desc: d.description,
+          agent: d.agent_target,
+          type: d.doc_type || d.doc_format || d.type || null,
+          date: d.display_date || (d.last_synced ? new Date(d.last_synced).toLocaleDateString() : 'N/A')
+        });
+
+        const universal = docs.filter(d => d.category === 'UNIVERSAL').map(mapDoc);
+        const agent = docs.filter(d => d.category === 'AGENT').map(mapDoc);
+        const workflow = docs.filter(d => d.category === 'WORKFLOW').map(mapDoc);
+
+        if (universal.length) this.universalDocs = universal;
+        if (agent.length) this.agentDocs = agent;
+        if (workflow.length) this.workflowDocs = workflow;
+
+        this.isLoading = false;
+      },
+      error: (err) => {
+        console.warn('[KnowledgeBase] Failed to fetch data from DB; using fallback.', err);
+        this.isLoading = false;
+      }
+    });
+  }
 }
