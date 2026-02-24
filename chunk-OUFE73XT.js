@@ -1,0 +1,1 @@
+import{a}from"./chunk-KP5T4CHQ.js";import"./chunk-IUB5JG3Z.js";import"./chunk-FLFKSUZI.js";import"./chunk-SL2VEL43.js";import"./chunk-IVDQKAZB.js";import"./chunk-7RJXRMKA.js";export{a as BundlingAssessmentComponent};

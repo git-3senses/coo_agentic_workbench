@@ -1,0 +1,1 @@
+import{a as t}from"./chunk-FJNWIHH7.js";var i=t.map(e=>({id:String(e.id),name:String(e.name),tier:e.tier,icon:String(e.icon),color:String(e.color),difyType:e.difyType,description:String(e.description||"")}));export{i as a};
