@@ -95,6 +95,9 @@ export class NpaDetailComponent implements OnInit {
    private static _activeAgentRunTimestamp = 0;
    private waveContext: Record<string, any> = {};
    dbDataSufficient = false;
+   private loadedProjectDetails = false;
+   private loadedPersistedRiskChecks = false;
+   private agentAnalysisScheduled = false;
 
    // Monitoring fallback metrics
    monitoringMetrics = [
@@ -534,6 +537,10 @@ export class NpaDetailComponent implements OnInit {
    // ─── Data Loading ─────────────────────────────────────────────────
 
    loadProjectDetails(id: string) {
+      this.loadedProjectDetails = false;
+      this.loadedPersistedRiskChecks = false;
+      this.agentAnalysisScheduled = false;
+
       // Load documents from DB (P1 fix)
       this.loadDocuments();
 
@@ -553,7 +560,8 @@ export class NpaDetailComponent implements OnInit {
             this.projectData = data;
             this.currentStage = data.current_stage;
             this.mapBackendDataToView(data);
-            this.runAgentAnalysis();
+            this.loadedProjectDetails = true;
+            this.maybeRunAgentAnalysis();
          },
          error: (err) => console.error('Failed to load project details', err)
       });
@@ -583,6 +591,7 @@ export class NpaDetailComponent implements OnInit {
       // Load persisted risk assessment to restore on page reload
       this.riskCheckService.getNpaChecks(id).subscribe({
          next: (checks) => {
+            this.loadedPersistedRiskChecks = true;
             if (!checks?.length) return;
             const layerChecks = checks.filter(c => c.checked_by === 'RISK_AGENT');
             const domainChecks = checks.filter(c => c.checked_by === 'RISK_AGENT_DOMAIN');
@@ -627,11 +636,30 @@ export class NpaDetailComponent implements OnInit {
                   circuitBreaker: findings.circuit_breaker || undefined,
                   evergreenLimits: findings.evergreen_limits || undefined
                };
+               this.mergeDomainAssessmentsIntoIntake(domainAssessments);
                console.log('[loadProjectDetails] Restored persisted risk assessment:', this.riskAssessmentResult.overallScore, this.riskAssessmentResult.overallRating);
             }
+            this.maybeRunAgentAnalysis();
          },
-         error: (err) => console.warn('Could not load persisted risk checks', err)
+         error: (err) => {
+            this.loadedPersistedRiskChecks = true;
+            console.warn('Could not load persisted risk checks', err);
+            this.maybeRunAgentAnalysis();
+         }
       });
+   }
+
+   /**
+    * Prevents firing workflow agents before we've hydrated DB state.
+    * This avoids "every reload re-runs all agents" (because risk checks load async and runAgentAnalysis used to fire too early).
+    */
+   private maybeRunAgentAnalysis(): void {
+      if (this.agentAnalysisScheduled || this._agentsLaunched) return;
+      if (!this.loadedProjectDetails) return;
+      if (!this.loadedPersistedRiskChecks) return;
+      this.agentAnalysisScheduled = true;
+      // Defer by a tick to allow any synchronous mapping to complete.
+      setTimeout(() => this.runAgentAnalysis(), 0);
    }
 
    mapBackendDataToView(data: any) {
@@ -900,6 +928,54 @@ export class NpaDetailComponent implements OnInit {
       }
    }
 
+   private normalizeIntakeDomain(domain: string): string {
+      const d = String(domain || '').toUpperCase().trim();
+      if (!d) return '';
+      if (d === 'OPERATIONAL' || d === 'OPERATIONAL_RISK' || d === 'OPERATIONS') return 'OPS';
+      if (d === 'CYBER' || d === 'TECH' || d === 'TECHNOLOGY' || d === 'IT') return 'TECH';
+      if (d === 'DATA' || d === 'DATA_PRIVACY' || d === 'DATA_MANAGEMENT') return 'DATA';
+      return d;
+   }
+
+   /**
+    * Operational Readiness cards in UI are based on `intakeAssessments` (OPS/TECH/DATA domains).
+    * Risk agent domain assessments often emit domains like OPERATIONAL/CYBER; normalize + merge
+    * so these sections populate (including after reload when we reconstruct from risk check rows).
+    */
+   private mergeDomainAssessmentsIntoIntake(domainAssessments: any[]): void {
+      if (!Array.isArray(domainAssessments) || domainAssessments.length === 0) return;
+      if (!Array.isArray(this.intakeAssessments)) this.intakeAssessments = [];
+
+      for (const d of domainAssessments) {
+         const normalizedDomain = this.normalizeIntakeDomain(d?.domain);
+         if (!normalizedDomain) continue;
+         const rating = String(d?.rating || '').toUpperCase();
+         const status = rating === 'HIGH' || rating === 'CRITICAL'
+            ? 'FAIL'
+            : (rating === 'MEDIUM' ? 'WARN' : 'PASS');
+
+         const findings = {
+            observation: Array.isArray(d?.keyFindings) ? d.keyFindings.join('. ') : (d?.keyFindings || `${normalizedDomain} assessment: ${rating || 'UNKNOWN'}`),
+            mitigants: Array.isArray(d?.mitigants) ? d.mitigants : [],
+            source_domain: d?.domain
+         };
+
+         const row = {
+            domain: normalizedDomain,
+            score: typeof d?.score === 'number' ? d.score : 0,
+            status,
+            findings: JSON.stringify(findings)
+         };
+
+         const existingIdx = this.intakeAssessments.findIndex(a => String(a.domain || '').toUpperCase() === normalizedDomain);
+         if (existingIdx >= 0) {
+            this.intakeAssessments[existingIdx] = { ...this.intakeAssessments[existingIdx], ...row };
+         } else {
+            this.intakeAssessments.push(row);
+         }
+      }
+   }
+
    formatLabel(key: string): string {
       return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
    }
@@ -1031,6 +1107,7 @@ export class NpaDetailComponent implements OnInit {
 
       const hasRisk = !!this.riskAssessmentResult;
       const hasClassification = !!this.classificationResult;
+      const hasMlPredict = !!this.mlPrediction;
       const hasGovernance = !!this.governanceState;
       const hasDocs = !!this.docCompleteness;
       if (hasRisk && hasClassification && hasGovernance && hasDocs) {
@@ -1038,17 +1115,45 @@ export class NpaDetailComponent implements OnInit {
          this.dbDataSufficient = true;
          this._agentsLaunched = true;
          const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
-         agents.forEach(a => this.agentLoading[a] = false);
+         agents.forEach(a => {
+            this.agentLoading[a] = false;
+            if (!this.agentErrors[a]) this.agentErrors[a] = '';
+         });
          return;
       }
 
       this._agentsLaunched = true;
       this.waveContext = {};
 
-      const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
-      agents.forEach(a => this.agentLoading[a] = true);
+      const shouldRun: Record<string, boolean> = {
+         RISK: !hasRisk,
+         CLASSIFIER: !hasClassification,
+         // Avoid "ML Prediction loop" on every reload when we already have a synthesized prediction.
+         ML_PREDICT: !hasMlPredict,
+         GOVERNANCE: !hasGovernance,
+         DOC_LIFECYCLE: !hasDocs,
+         MONITORING: !this.monitoringResult,
+      };
+      Object.keys(shouldRun).forEach(a => {
+         this.agentLoading[a] = !!shouldRun[a];
+         if (!shouldRun[a]) this.agentErrors[a] = '';
+      });
+
+      const extractFailureReason = (res: any): string => {
+         const meta = res?.metadata || res?.meta || {};
+         const trace = meta?.trace || meta?.payload?.trace || {};
+         return (
+            trace?.detail ||
+            trace?.error_detail ||
+            trace?.message ||
+            meta?.error ||
+            res?.error ||
+            'Workflow failed'
+         );
+      };
 
       const fireAgent = (agentId: string, extraInputs: Record<string, any> = {}): Observable<any> => {
+         if (!shouldRun[agentId]) return of({ skipped: true, data: { status: 'skipped', outputs: null } });
          const agentInputs = { ...inputs, ...this.waveContext, ...extraInputs };
          console.log(`[fireAgent] ${agentId} — sending request`);
          return this.difyService.runWorkflow(agentId, agentInputs).pipe(
@@ -1060,6 +1165,7 @@ export class NpaDetailComponent implements OnInit {
                   this.waveContext[`${agentId.toLowerCase()}_result`] = res.data.outputs;
                } else {
                   console.warn(`[fireAgent] ${agentId} — status not succeeded:`, res?.data?.status);
+                  this.agentErrors[agentId] = extractFailureReason(res);
                }
             }),
             catchError(err => {
@@ -1138,25 +1244,8 @@ export class NpaDetailComponent implements OnInit {
             // P5/P6 fix: Synthesize intakeAssessments from RISK agent domain assessments
             // so the Risk Analysis & Operational Readiness sections populate
             if (this.riskAssessmentResult?.domainAssessments?.length) {
-               const synthesized = this.riskAssessmentResult.domainAssessments.map(d => ({
-                  domain: d.domain,
-                  score: d.score,
-                  status: d.rating === 'HIGH' ? 'FAIL' : (d.rating === 'MEDIUM' ? 'WARN' : 'PASS'),
-                  findings: JSON.stringify({
-                     observation: d.keyFindings?.join('. ') || `${d.domain} assessment: ${d.rating}`,
-                     mitigants: d.mitigants || []
-                  })
-               }));
-               // Merge without overwriting existing DB-sourced assessments
-               for (const s of synthesized) {
-                  const existing = this.intakeAssessments.findIndex(a => a.domain === s.domain);
-                  if (existing >= 0) {
-                     this.intakeAssessments[existing] = { ...this.intakeAssessments[existing], ...s };
-                  } else {
-                     this.intakeAssessments.push(s);
-                  }
-               }
-               console.log('[handleAgentResult] RISK: Synthesized', synthesized.length, 'intake assessments from domain assessments');
+               this.mergeDomainAssessmentsIntoIntake(this.riskAssessmentResult.domainAssessments);
+               console.log('[handleAgentResult] RISK: Merged domain assessments into intake assessments');
             }
             // Also add overall RISK entry if missing
             if (this.riskAssessmentResult && !this.intakeAssessments.find(a => a.domain === 'RISK')) {
