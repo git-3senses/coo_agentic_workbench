@@ -153,6 +153,9 @@ app.use(express.static(ANGULAR_DIST));
 
 // SPA fallback: any non-API route returns index.html so Angular router handles it
 app.get(/^\/(?!api\/).*/, (req, res) => {
+    // Prevent stale SPA shells being cached (common cause of "old UI even after refresh")
+    // Hashed JS/CSS assets can still be cached safely via their filenames.
+    res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(ANGULAR_DIST, 'index.html'), (err) => {
         if (err) {
             res.status(404).json({ error: 'Angular build not found. Run: npx ng build' });

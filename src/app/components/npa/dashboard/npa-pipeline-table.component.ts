@@ -138,19 +138,23 @@ export class NpaPipelineTableComponent implements OnInit {
   private mapStage(backendStage: string): string {
     const map: any = {
       'IDEATION': 'Prospect (Ideation)',
-      'INITIATION': 'Discovery',
+      'INITIATION': 'Initiation',
       'DISCOVERY': 'Discovery',
-      'REVIEW': 'DCE Review',
-      'RISK_ASSESSMENT': 'Risk Assess',
-      'DCE_REVIEW': 'DCE Review',
-      'GOVERNANCE': 'Governance',
+      'REVIEW': 'Review',
+      'DCE_REVIEW': 'Review',
+      'RETURNED_TO_MAKER': 'Review',
+      'RISK_ASSESSMENT': 'Sign-Off',
+      'GOVERNANCE': 'Pre Launch',
       'SIGN_OFF': 'Sign-Off',
       'PENDING_SIGN_OFFS': 'Sign-Off',
+      'PENDING_FINAL_APPROVAL': 'Pre Launch',
+      'APPROVED': 'Pre Launch',
+      'LAUNCH_PREP': 'Pre Launch',
+      'UAT': 'Pre Launch',
       'LAUNCH': 'Launch',
-      'APPROVED': 'Launch',
       'LAUNCHED': 'Launch',
-      'MONITORING': 'Monitoring',
-      'RETURNED_TO_MAKER': 'Review'
+      'PIR': 'PIR / Monitoring',
+      'MONITORING': 'PIR / Monitoring'
     };
     return map[backendStage] || backendStage || 'Discovery';
   }
