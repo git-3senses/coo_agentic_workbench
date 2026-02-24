@@ -290,6 +290,44 @@ router.get('/docs/:id/files/:fileId', requireAuth(), async (req, res) => {
     }
 });
 
+// DELETE /api/studio/docs/:id/files/:fileId
+router.delete('/docs/:id/files/:fileId', requireAuth(), async (req, res) => {
+    try {
+        const doc = await getStudioDoc(req.params.id);
+        if (!doc) return res.status(404).json({ error: 'Not found' });
+        if (doc.owner_user_id !== req.user.userId && !['APPROVER', 'COO', 'ADMIN'].includes(req.user.role)) {
+            return res.status(403).json({ error: 'Insufficient permissions' });
+        }
+        if (doc.status !== 'DRAFT') {
+            return res.status(400).json({ error: 'Sources can only be removed while status is DRAFT' });
+        }
+
+        const [rows] = await db.query(
+            'SELECT id, filename, file_path FROM studio_document_files WHERE id = ? AND studio_doc_id = ?',
+            [req.params.fileId, doc.id]
+        );
+        const file = rows[0];
+        if (!file) return res.status(404).json({ error: 'File not found' });
+
+        await db.query('DELETE FROM studio_document_files WHERE id = ? AND studio_doc_id = ?', [file.id, doc.id]);
+
+        try {
+            const rel = String(file.file_path || '').trim();
+            const abs = rel ? path.join(__dirname, '..', '..', rel) : null;
+            const uploadRoot = path.join(__dirname, '..', '..', 'uploads', 'studio');
+            if (abs && abs.startsWith(uploadRoot) && fs.existsSync(abs)) fs.unlinkSync(abs);
+        } catch {
+            // Best-effort: file might already be missing; DB is the source of truth.
+        }
+
+        const out = await listFiles(doc.id);
+        res.json({ ok: true, files: out });
+    } catch (err) {
+        console.error('[STUDIO] delete file error:', err.message);
+        res.status(500).json({ error: 'Failed to remove source file' });
+    }
+});
+
 // ─── Generate Draft via Dify ─────────────────────────────────────────────────
 
 async function extractSourceText(files) {

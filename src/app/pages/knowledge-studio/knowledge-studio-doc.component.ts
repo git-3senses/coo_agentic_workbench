@@ -107,11 +107,18 @@ type StudioFile = {
           </div>
         </div>
         <div class="flex-1 min-h-0 overflow-y-auto">
-          <button *ngFor="let f of files" (click)="selectFile(f)"
-            class="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50">
-            <div class="text-sm font-semibold text-slate-800 truncate">{{ f.filename }}</div>
-            <div class="text-xs text-slate-500 truncate">{{ f.mime_type || '—' }}</div>
-          </button>
+          <div *ngFor="let f of files" (click)="selectFile(f)"
+            class="w-full px-4 py-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer flex items-start justify-between gap-3"
+            [class.bg-slate-50]="selectedFile?.id===f.id">
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-slate-800 truncate">{{ f.filename }}</div>
+              <div class="text-xs text-slate-500 truncate">{{ f.mime_type || '—' }}</div>
+            </div>
+            <button (click)="removeFile(f, $event)" title="Remove source"
+              class="shrink-0 p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700">
+              <lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon>
+            </button>
+          </div>
           <div *ngIf="files.length===0" class="p-6 text-xs text-slate-500">Upload sources (PDF/Markdown/email) to ground the draft.</div>
         </div>
       </section>
@@ -161,6 +168,9 @@ type StudioFile = {
           <iframe *ngIf="selectedPreviewUrl && selectedPreviewKind==='pdf'" class="w-full h-full" [src]="selectedPreviewUrl"></iframe>
           <div *ngIf="selectedPreviewKind==='md' && selectedMarkdownText" class="w-full h-full overflow-y-auto p-4 prose prose-slate max-w-none">
             <markdown [data]="selectedMarkdownText"></markdown>
+          </div>
+          <div *ngIf="previewError" class="p-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl m-4">
+            {{ previewError }}
           </div>
           <div *ngIf="selectedFile && selectedPreviewKind==='other'" class="h-full flex items-center justify-center text-center p-6 text-xs text-slate-500">
             Preview is not available for this file type.
@@ -251,6 +261,8 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
   selectedPreviewKind: 'pdf' | 'md' | 'other' = 'other';
   selectedPreviewUrl: SafeResourceUrl | null = null;
   selectedMarkdownText = '';
+  previewError: string | null = null;
+  private objectUrl: string | null = null;
 
   showGenerate = false;
   isGenerating = false;
@@ -272,6 +284,14 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.sub?.unsubscribe?.();
+    this.revokeObjectUrl();
+  }
+
+  private revokeObjectUrl(): void {
+    if (this.objectUrl) {
+      try { URL.revokeObjectURL(this.objectUrl); } catch { /* ignore */ }
+      this.objectUrl = null;
+    }
   }
 
   load() {
@@ -316,12 +336,25 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
     this.selectedFile = f;
     this.selectedPreviewUrl = null;
     this.selectedMarkdownText = '';
+    this.previewError = null;
+    this.revokeObjectUrl();
 
     const name = (f.filename || '').toLowerCase();
     if (name.endsWith('.pdf')) {
       this.selectedPreviewKind = 'pdf';
       const url = `/api/studio/docs/${encodeURIComponent(this.docId)}/files/${encodeURIComponent(String(f.id))}`;
-      this.selectedPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+      // Important: <iframe> requests do NOT include JWT headers, so preview via a blob request.
+      this.http.get(url, { responseType: 'blob' }).subscribe({
+        next: (blob) => {
+          this.revokeObjectUrl();
+          this.objectUrl = URL.createObjectURL(blob);
+          this.selectedPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+        },
+        error: (e) => {
+          const msg = e?.error?.error || e?.message || 'Failed to load PDF preview';
+          this.previewError = String(msg);
+        }
+      });
       return;
     }
     if (name.endsWith('.md') || name.endsWith('.mmd') || name.endsWith('.txt') || name.endsWith('.eml')) {
@@ -329,11 +362,41 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
       const url = `/api/studio/docs/${encodeURIComponent(this.docId)}/files/${encodeURIComponent(String(f.id))}`;
       this.http.get(url, { responseType: 'text' }).subscribe({
         next: (txt) => this.selectedMarkdownText = txt || '',
-        error: () => this.selectedMarkdownText = '(Unable to load preview)'
+        error: (e) => {
+          const msg = e?.error?.error || e?.message || 'Unable to load preview';
+          this.selectedMarkdownText = '';
+          this.previewError = String(msg);
+        }
       });
       return;
     }
     this.selectedPreviewKind = 'other';
+  }
+
+  removeFile(f: StudioFile, ev: Event) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!confirm(`Remove "${f.filename}" from sources?`)) return;
+    this.previewError = null;
+    this.http.delete<{ files: StudioFile[] }>(`/api/studio/docs/${encodeURIComponent(this.docId)}/files/${encodeURIComponent(String(f.id))}`).subscribe({
+      next: (res) => {
+        this.files = Array.isArray(res?.files) ? res.files : this.files.filter(x => x.id !== f.id);
+        this.uploadMsg = `Removed "${f.filename}".`;
+        this.uploadError = null;
+        if (this.selectedFile?.id === f.id) {
+          this.selectedFile = null;
+          this.selectedPreviewKind = 'other';
+          this.selectedPreviewUrl = null;
+          this.selectedMarkdownText = '';
+          this.previewError = null;
+          this.revokeObjectUrl();
+        }
+      },
+      error: (e) => {
+        const msg = e?.error?.error || e?.message || 'Failed to remove source';
+        this.uploadError = String(msg);
+      }
+    });
   }
 
   openGenerateModal() {
