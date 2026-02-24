@@ -23,6 +23,12 @@
                     class="pl-9 pr-4 py-2 w-64 bg-slate-100 hover:bg-slate-200/60 focus:bg-white border border-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 text-sm rounded-lg transition-all outline-none">
             </div>
             <button
+                (click)="openDifySyncModal()"
+                class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-sm font-semibold rounded-lg shadow-sm transition-all">
+                <lucide-icon name="refresh-cw" class="w-4 h-4"></lucide-icon>
+                Sync from Dify
+            </button>
+            <button
                 (click)="openUploadModal()"
                 class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm shadow-blue-600/20 transition-all">
                 <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
@@ -307,6 +313,86 @@
                 <button (click)="submitUpload()"
                     class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">
                     Upload
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dify Sync Modal -->
+    <div *ngIf="showDifySyncModal" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/40" (click)="closeDifySyncModal()"></div>
+        <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-slate-500">Knowledge Base</div>
+                    <div class="text-lg font-bold text-slate-900">Sync PDFs from Dify Dataset</div>
+                </div>
+                <button class="p-2 rounded-lg hover:bg-slate-100 text-slate-600" (click)="closeDifySyncModal()">
+                    <lucide-icon name="x" class="w-5 h-5"></lucide-icon>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Dataset ID</label>
+                    <input [(ngModel)]="difySyncForm.dataset_id"
+                        placeholder="dataset-xxxxxxxxxxxxxxxx"
+                        class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Section</label>
+                        <select [(ngModel)]="difySyncForm.ui_category"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                            <option value="UNIVERSAL">Universal Rules</option>
+                            <option value="AGENT">Agent Specific</option>
+                            <option value="WORKFLOW">Workflow & Orchestration</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Visibility</label>
+                        <select [(ngModel)]="difySyncForm.visibility"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                            <option value="INTERNAL">Internal</option>
+                            <option value="PUBLIC">Public</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Agent Target (optional)</label>
+                        <input [(ngModel)]="difySyncForm.agent_target"
+                            placeholder="e.g., CF_NPA_LCS"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Doc Type</label>
+                        <input [(ngModel)]="difySyncForm.doc_type"
+                            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+                    </div>
+                </div>
+
+                <div *ngIf="difySyncError" class="text-sm text-rose-700 bg-rose-50 border border-rose-100 rounded-xl p-3">
+                    {{ difySyncError }}
+                </div>
+
+                <div *ngIf="difySyncResult" class="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    Imported: <span class="font-mono">{{ difySyncResult.imported }}</span> •
+                    Skipped: <span class="font-mono">{{ difySyncResult.skipped }}</span> •
+                    Errors: <span class="font-mono">{{ difySyncResult.errors }}</span>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button class="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50"
+                    (click)="closeDifySyncModal()">
+                    Cancel
+                </button>
+                <button class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                    (click)="submitDifySync()">
+                    Sync
                 </button>
             </div>
         </div>

@@ -67,6 +67,17 @@ export class KnowledgeBaseComponent implements OnInit {
   // ─── Upload modal state ─────────────────────────────────────
   showUploadModal = false;
   uploadError: string | null = null;
+  showDifySyncModal = false;
+  difySyncError: string | null = null;
+  difySyncResult: any = null;
+  difySyncForm = {
+    dataset_id: '',
+    ui_category: 'UNIVERSAL' as 'UNIVERSAL' | 'AGENT' | 'WORKFLOW',
+    doc_type: 'REGULATORY',
+    agent_target: '',
+    icon_name: 'file-text',
+    visibility: 'INTERNAL' as 'INTERNAL' | 'PUBLIC'
+  };
   uploadForm = {
     title: '',
     description: '',
@@ -143,6 +154,55 @@ export class KnowledgeBaseComponent implements OnInit {
     this.showUploadModal = false;
     this.uploadError = null;
     this.uploadFile = null;
+  }
+
+  openDifySyncModal() {
+    this.showDifySyncModal = true;
+    this.difySyncError = null;
+    this.difySyncResult = null;
+    this.difySyncForm = {
+      dataset_id: '',
+      ui_category: this.activeTab === 'AGENT' ? 'AGENT' : (this.activeTab === 'WORKFLOW' ? 'WORKFLOW' : 'UNIVERSAL'),
+      doc_type: 'REGULATORY',
+      agent_target: '',
+      icon_name: 'file-text',
+      visibility: 'INTERNAL'
+    };
+  }
+
+  closeDifySyncModal() {
+    this.showDifySyncModal = false;
+    this.difySyncError = null;
+    this.difySyncResult = null;
+  }
+
+  submitDifySync() {
+    this.difySyncError = null;
+    this.difySyncResult = null;
+
+    const datasetId = (this.difySyncForm.dataset_id || '').trim();
+    if (!datasetId) {
+      this.difySyncError = 'Please enter a Dify Dataset ID.';
+      return;
+    }
+
+    this.http.post<any>('/api/kb/dify/sync', {
+      dataset_id: datasetId,
+      ui_category: this.difySyncForm.ui_category,
+      doc_type: this.difySyncForm.doc_type,
+      agent_target: (this.difySyncForm.agent_target || '').trim() || null,
+      icon_name: (this.difySyncForm.icon_name || 'file-text').trim(),
+      visibility: this.difySyncForm.visibility
+    }).subscribe({
+      next: (res) => {
+        this.difySyncResult = res;
+        this.fetchData();
+      },
+      error: (err) => {
+        const msg = err?.error?.error || err?.message || 'Sync failed';
+        this.difySyncError = String(msg);
+      }
+    });
   }
 
   onUploadFileSelected(ev: Event) {

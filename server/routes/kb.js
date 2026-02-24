@@ -17,6 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { requireAuth } = require('../middleware/auth');
+const axios = require('axios');
 
 // ─── Storage ────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,18 @@ function sha256File(filePath) {
     const data = fs.readFileSync(filePath);
     hash.update(data);
     return hash.digest('hex');
+}
+
+async function downloadToFile(url, destPath) {
+    const resp = await axios.get(url, { responseType: 'stream', timeout: 60_000 });
+    await new Promise((resolve, reject) => {
+        const w = fs.createWriteStream(destPath);
+        resp.data.pipe(w);
+        w.on('finish', resolve);
+        w.on('error', reject);
+    });
+    const stat = fs.statSync(destPath);
+    return { size: stat.size, contentType: resp.headers?.['content-type'] };
 }
 
 function resolveKbPath(relPath) {
@@ -216,6 +229,149 @@ router.post('/upload', requireAuth(), (req, res) => {
             res.status(500).json({ error: 'Failed to register KB document in DB' });
         }
     });
+});
+
+// POST /api/kb/dify/sync — import PDFs from a Dify Dataset into kb_documents + local /uploads/kb
+// Body: { dataset_id, ui_category, doc_type?, agent_target?, icon_name?, visibility? }
+router.post('/dify/sync', requireAuth(), async (req, res) => {
+    try {
+        const apiKey = String(process.env.DIFY_DATASET_API_KEY || '').trim();
+        const baseUrl = String(process.env.DIFY_API_BASE || 'https://api.dify.ai/v1').trim();
+        if (!apiKey) return res.status(400).json({ error: 'Missing server env: DIFY_DATASET_API_KEY' });
+
+        const datasetId = String(req.body?.dataset_id || '').trim();
+        if (!datasetId) return res.status(400).json({ error: 'dataset_id is required' });
+
+        const uiCategory = String(req.body?.ui_category || 'UNIVERSAL').trim().toUpperCase();
+        const docType = String(req.body?.doc_type || 'REGULATORY').trim().toUpperCase();
+        const agentTarget = req.body?.agent_target ? String(req.body.agent_target).trim() : null;
+        const iconName = req.body?.icon_name ? String(req.body.icon_name).trim() : 'file-text';
+        const visibility = String(req.body?.visibility || 'INTERNAL').trim().toUpperCase();
+
+        const client = axios.create({
+            baseURL: baseUrl,
+            headers: { Authorization: `Bearer ${apiKey}` },
+            timeout: 30_000
+        });
+
+        const collected = [];
+        let page = 1;
+        const limit = 50;
+        for (;;) {
+            const r = await client.get(`/datasets/${encodeURIComponent(datasetId)}/documents`, { params: { page, limit } });
+            const items = r?.data?.data || r?.data?.documents || r?.data || [];
+            if (!Array.isArray(items) || items.length === 0) break;
+            collected.push(...items);
+            if (items.length < limit) break;
+            page += 1;
+            if (page > 50) break; // safety cap
+        }
+
+        const results = { dataset_id: datasetId, imported: 0, skipped: 0, errors: 0, docs: [] };
+
+        const uploadRoot = path.join(__dirname, '..', '..', 'uploads', 'kb');
+        if (!fs.existsSync(uploadRoot)) fs.mkdirSync(uploadRoot, { recursive: true });
+
+        for (const doc of collected) {
+            const difyDocId = String(doc?.id || doc?.document_id || doc?.documentId || '').trim();
+            const name = String(doc?.name || doc?.title || doc?.file_name || difyDocId || 'document').trim();
+            if (!difyDocId) {
+                results.skipped += 1;
+                continue;
+            }
+
+            try {
+                // Fetch a fresh download URL for the document file
+                const u = await client.get(`/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(difyDocId)}/upload-file`);
+                const data = u?.data?.data || u?.data || {};
+                const downloadUrl = String(data?.download_url || data?.downloadUrl || data?.url || '').trim();
+                const fileName = String(data?.name || data?.file_name || `${name}.pdf`).trim();
+
+                if (!downloadUrl) {
+                    results.skipped += 1;
+                    results.docs.push({ doc_id: `DIFY-${difyDocId}`, title: name, status: 'SKIPPED', reason: 'No download_url' });
+                    continue;
+                }
+
+                const ext = path.extname(fileName).toLowerCase() || '.pdf';
+                if (ext !== '.pdf') {
+                    results.skipped += 1;
+                    results.docs.push({ doc_id: `DIFY-${difyDocId}`, title: name, status: 'SKIPPED', reason: 'Not a PDF' });
+                    continue;
+                }
+
+                const stableDocId = `DIFY-${difyDocId}`;
+                const safeBase = path.basename(fileName, ext).replace(/[^a-zA-Z0-9_-]/g, '_') || 'document';
+                const localName = `${stableDocId}__${safeBase}__${Date.now()}${ext}`;
+                const absPath = path.join(uploadRoot, localName);
+                const relPath = path.posix.join('uploads', 'kb', localName);
+
+                const dl = await downloadToFile(downloadUrl, absPath);
+                const sha256 = sha256File(absPath);
+                const now = new Date();
+
+                await db.query(
+                    `INSERT INTO kb_documents
+                     (doc_id, filename, doc_type, embedding_id, last_synced,
+                      title, description, ui_category, agent_target, icon_name, display_date,
+                      source_url, file_path, mime_type, file_size, sha256, visibility)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE
+                       filename=VALUES(filename),
+                       doc_type=VALUES(doc_type),
+                       embedding_id=VALUES(embedding_id),
+                       last_synced=VALUES(last_synced),
+                       title=VALUES(title),
+                       description=VALUES(description),
+                       ui_category=COALESCE(VALUES(ui_category), ui_category),
+                       agent_target=COALESCE(VALUES(agent_target), agent_target),
+                       icon_name=COALESCE(VALUES(icon_name), icon_name),
+                       source_url=COALESCE(VALUES(source_url), source_url),
+                       file_path=VALUES(file_path),
+                       mime_type=VALUES(mime_type),
+                       file_size=VALUES(file_size),
+                       sha256=VALUES(sha256),
+                       visibility=VALUES(visibility)`,
+                    [
+                        stableDocId,
+                        fileName,
+                        docType,
+                        `${datasetId}:${difyDocId}`,
+                        now,
+                        name.replace(/\.pdf$/i, ''),
+                        `Synced from Dify dataset ${datasetId}`,
+                        uiCategory,
+                        agentTarget,
+                        iconName,
+                        null,
+                        null,
+                        relPath,
+                        (dl.contentType || 'application/pdf').split(';')[0],
+                        dl.size,
+                        sha256,
+                        visibility
+                    ]
+                );
+
+                results.imported += 1;
+                results.docs.push({ doc_id: stableDocId, title: name, status: 'IMPORTED' });
+            } catch (e) {
+                results.errors += 1;
+                results.docs.push({ doc_id: `DIFY-${difyDocId}`, title: name, status: 'ERROR', reason: String(e?.message || e) });
+            }
+        }
+
+        res.json(results);
+    } catch (err) {
+        const msg = String(err?.message || '');
+        if (msg.includes('Unknown column') || msg.includes('ER_BAD_FIELD_ERROR')) {
+            return res.status(400).json({
+                error: 'KB schema missing file/link columns. Apply DB migration database/migrations/011_add_kb_document_files.sql and retry.'
+            });
+        }
+        console.error('[KB] Dify sync error:', err.message);
+        res.status(500).json({ error: 'Failed to sync from Dify dataset' });
+    }
 });
 
 module.exports = router;
