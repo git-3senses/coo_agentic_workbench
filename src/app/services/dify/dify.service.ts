@@ -144,6 +144,36 @@ export class DifyService {
         this.setConversationId(agentId, conversationId);
     }
 
+    /** Export current multi-agent conversation state for persistence. */
+    exportConversationState(): { activeAgentId: string; delegationStack: string[]; conversations: Record<string, string> } {
+        const conversations: Record<string, string> = {};
+        for (const [agentId, conv] of this.conversations.entries()) {
+            if (conv?.conversationId) conversations[agentId] = conv.conversationId;
+        }
+        return {
+            activeAgentId: this._activeAgentId,
+            delegationStack: [...this.delegationStack],
+            conversations
+        };
+    }
+
+    /** Restore multi-agent conversation state (after reload / session load). */
+    restoreConversationState(state: any): void {
+        if (!state || typeof state !== 'object') return;
+        const conversations = state.conversations && typeof state.conversations === 'object' ? state.conversations : {};
+        for (const [agentId, conversationId] of Object.entries(conversations)) {
+            if (typeof conversationId === 'string' && conversationId) {
+                this.restoreConversation(String(agentId), conversationId);
+            }
+        }
+        if (Array.isArray(state.delegationStack)) {
+            this.delegationStack = state.delegationStack.map(String);
+        }
+        if (typeof state.activeAgentId === 'string' && state.activeAgentId) {
+            this.setActiveAgent(state.activeAgentId);
+        }
+    }
+
     // ─── Agent Routing ───────────────────────────────────────────
 
     /**

@@ -24,6 +24,7 @@ router.get('/sessions', async (req, res) => {
                           s.started_at,
                           s.agent_identity,
                           NULL as domain_agent_json,
+                          s.conversation_state_json,
                           s.current_stage,
                           s.handoff_from,
                           s.ended_at,
@@ -75,6 +76,7 @@ router.get('/sessions/:id', async (req, res) => {
                     s.started_at,
                     s.agent_identity,
                     NULL as domain_agent_json,
+                    s.conversation_state_json,
                     s.current_stage,
                     s.handoff_from,
                     s.ended_at,
@@ -112,7 +114,7 @@ router.get('/sessions/:id', async (req, res) => {
 // POST /api/agents/sessions — Create a new chat session
 router.post('/sessions', async (req, res) => {
     try {
-        const { id: clientId, agent_identity, user_id, project_id, current_stage, handoff_from, ended_at } = req.body;
+        const { id: clientId, agent_identity, user_id, project_id, current_stage, handoff_from, ended_at, conversation_state_json } = req.body;
         // Use client-provided ID if available, otherwise generate one
         const id = clientId || `cs_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
         const sessionUserId =
@@ -121,9 +123,9 @@ router.post('/sessions', async (req, res) => {
             || `anon:${req.ip || 'unknown'}`;
 
         await db.query(
-            `INSERT INTO agent_sessions (id, agent_identity, user_id, project_id, current_stage, handoff_from, ended_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [id, agent_identity || null, sessionUserId, project_id || null, current_stage || null, handoff_from || null, ended_at || null]
+            `INSERT INTO agent_sessions (id, agent_identity, user_id, project_id, current_stage, handoff_from, ended_at, conversation_state_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, agent_identity || null, sessionUserId, project_id || null, current_stage || null, handoff_from || null, ended_at || null, conversation_state_json ? JSON.stringify(conversation_state_json) : null]
         );
 
         const [rows] = await db.query(
@@ -136,6 +138,7 @@ router.post('/sessions', async (req, res) => {
                     s.started_at,
                     s.agent_identity,
                     NULL as domain_agent_json,
+                    s.conversation_state_json,
                     s.current_stage,
                     s.handoff_from,
                     s.ended_at,
@@ -157,7 +160,7 @@ router.post('/sessions', async (req, res) => {
 // PUT /api/agents/sessions/:id — Update session metadata (title, agent, stage, etc.)
 router.put('/sessions/:id', async (req, res) => {
     try {
-        const { agent_identity, current_stage, handoff_from, ended_at } = req.body;
+        const { agent_identity, current_stage, handoff_from, ended_at, conversation_state_json } = req.body;
         const updates = [];
         const params = [];
 
@@ -165,6 +168,7 @@ router.put('/sessions/:id', async (req, res) => {
         if (current_stage !== undefined) { updates.push('current_stage = ?'); params.push(current_stage); }
         if (handoff_from !== undefined) { updates.push('handoff_from = ?'); params.push(handoff_from); }
         if (ended_at !== undefined) { updates.push('ended_at = ?'); params.push(ended_at); }
+        if (conversation_state_json !== undefined) { updates.push('conversation_state_json = ?'); params.push(conversation_state_json ? JSON.stringify(conversation_state_json) : null); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
@@ -183,6 +187,7 @@ router.put('/sessions/:id', async (req, res) => {
                     s.started_at,
                     s.agent_identity,
                     NULL as domain_agent_json,
+                    s.conversation_state_json,
                     s.current_stage,
                     s.handoff_from,
                     s.ended_at,

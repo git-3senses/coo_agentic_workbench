@@ -1086,7 +1086,7 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
             this.messages,
             this.difyService.activeAgentId,
             this.activeDomainAgent,
-            { makeActive: isNew }
+            { makeActive: isNew, conversationState: this.difyService.exportConversationState() }
         );
     }
 
@@ -1122,6 +1122,11 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         const activeAgent = fullSession?.activeAgentId || session.activeAgentId;
         if (activeAgent && activeAgent !== 'MASTER_COO') {
             this.difyService.setActiveAgent(activeAgent);
+        }
+
+        const state = fullSession?.conversationState || session.conversationState;
+        if (state) {
+            this.difyService.restoreConversationState(state);
         }
 
         this.chatSessionService.setActiveSession(session.id);

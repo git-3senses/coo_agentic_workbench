@@ -359,14 +359,21 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             agentAction: m.agentAction || undefined,
         }));
 
-        // Restore Dify conversation state
-        if (this.initialConversationId) {
-            // Set the active agent to NPA_ORCHESTRATOR (or the provided default)
+        // Restore Dify conversation state (so reload doesn't restart the interview)
+        this.difyService.reset();
+        if (session.conversationState) {
+            this.difyService.restoreConversationState(session.conversationState);
+        } else if (this.initialConversationId) {
+            // Backwards-compat: older links pass a single conversationId.
             const targetAgent = this.defaultAgent || session.activeAgentId || 'NPA_ORCHESTRATOR';
             this.difyService.setActiveAgent(targetAgent);
             this.difyService.restoreConversation(targetAgent, this.initialConversationId);
-            this.currentAgent = this.AGENTS[targetAgent] || this.AGENTS['MASTER_COO'];
+        } else if (session.activeAgentId) {
+            this.difyService.setActiveAgent(session.activeAgentId);
+        } else if (this.defaultAgent) {
+            this.difyService.setActiveAgent(this.defaultAgent);
         }
+        this.currentAgent = this.AGENTS[this.difyService.activeAgentId] || this.AGENTS['MASTER_COO'];
 
         this.chatSessionService.setActiveSession(session.id);
 
@@ -890,7 +897,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             this.messages,
             this.difyService.activeAgentId || this.currentAgent?.id,
             this.currentAgent,
-            { makeActive: isNew }
+            { makeActive: isNew, conversationState: this.difyService.exportConversationState() }
         );
     }
 

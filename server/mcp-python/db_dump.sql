@@ -65,6 +65,7 @@ CREATE TABLE `agent_sessions` (
   `agent_identity` varchar(50) DEFAULT NULL COMMENT 'Which agent owns this session',
   `current_stage` varchar(50) DEFAULT NULL,
   `handoff_from` varchar(50) DEFAULT NULL COMMENT 'Agent that handed off to this one',
+  `conversation_state_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Dify per-agent conversation state (JSON)' CHECK (json_valid(`conversation_state_json`)),
   `ended_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `project_id` (`project_id`),

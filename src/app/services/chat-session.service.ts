@@ -29,6 +29,7 @@ export interface ChatSession {
     messageCount: number;
     messages: StoredMessage[];
     activeAgentId?: string;   // Which agent was active at end of session
+    conversationState?: any;  // Per-agent conversation_id map + delegation stack + active agent
     domainAgent?: {
         id: string;
         name: string;
@@ -48,6 +49,7 @@ interface SessionRow {
     updated_at: string;
     agent_identity: string | null;
     domain_agent_json: any;
+    conversation_state_json?: any;
     current_stage: string | null;
     handoff_from: string | null;
     ended_at: string | null;
@@ -56,6 +58,7 @@ interface SessionRow {
 }
 
 const API_BASE = '/api/agents';
+const ACTIVE_SESSION_STORAGE_KEY = 'coo_active_chat_session_id';
 
 @Injectable({
     providedIn: 'root'
@@ -104,6 +107,11 @@ export class ChatSessionService {
     activeSessionId = this._activeSessionId.asReadonly();
 
     constructor() {
+        // Restore last active session across reloads (best-effort).
+        try {
+            const saved = localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+            if (saved) this._activeSessionId.set(saved);
+        } catch { /* ignore */ }
         // Load sessions from DB on startup (with retry on failure)
         this.loadSessionsWithRetry();
     }
@@ -153,7 +161,7 @@ export class ChatSessionService {
         messages: { role: string; content: string; timestamp: Date; agentIdentity?: any; cardType?: string; cardData?: any; agentAction?: string }[],
         activeAgentId?: string,
         domainAgent?: { id: string; name: string; icon: string; color: string } | null,
-        opts: { makeActive?: boolean } = {}
+        opts: { makeActive?: boolean; conversationState?: any } = {}
     ): string {
         if (messages.length === 0) return '';
 
@@ -184,6 +192,7 @@ export class ChatSessionService {
                     updatedAt: new Date().toISOString(),
                     activeAgentId,
                     domainAgent: domainAgent || undefined,
+                    conversationState: opts.conversationState ?? sessions[idx].conversationState,
                     title,
                     preview
                 };
@@ -193,7 +202,7 @@ export class ChatSessionService {
                 this._sessions.set(sessions);
             }
             // Persist to DB (fire-and-forget)
-            this.updateSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages);
+            this.updateSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages, opts.conversationState);
         } else {
             // ── Create new session ──
             sessionId = this.generateId();
@@ -206,6 +215,7 @@ export class ChatSessionService {
                 messageCount: storedMessages.length,
                 messages: storedMessages,
                 activeAgentId,
+                conversationState: opts.conversationState,
                 domainAgent: domainAgent || undefined
             };
             const sessions = [newSession, ...this._sessions()];
@@ -215,11 +225,12 @@ export class ChatSessionService {
             }
 
             // Persist to DB (fire-and-forget)
-            this.createSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages);
+            this.createSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages, opts.conversationState);
         }
 
         if (opts.makeActive && sessionId) {
             this._activeSessionId.set(sessionId);
+            try { localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId); } catch { /* ignore */ }
         }
         return sessionId!;
     }
@@ -251,6 +262,10 @@ export class ChatSessionService {
      */
     setActiveSession(sessionId: string | null): void {
         this._activeSessionId.set(sessionId);
+        try {
+            if (sessionId) localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
+            else localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+        } catch { /* ignore */ }
     }
 
     /**
@@ -258,6 +273,7 @@ export class ChatSessionService {
      */
     startNewSession(): void {
         this._activeSessionId.set(null);
+        try { localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY); } catch { /* ignore */ }
     }
 
     /**
@@ -329,7 +345,8 @@ export class ChatSessionService {
         preview: string,
         activeAgentId?: string,
         domainAgent?: { id: string; name: string; icon: string; color: string } | null,
-        messages?: StoredMessage[]
+        messages?: StoredMessage[],
+        conversationState?: any
     ): Promise<void> {
         try {
             // 1. Create the session record (server accepts client-provided ID)
@@ -339,7 +356,8 @@ export class ChatSessionService {
                     title,
                     preview,
                     agent_identity: activeAgentId || null,
-                    domain_agent_json: domainAgent || null
+                    domain_agent_json: domainAgent || null,
+                    conversation_state_json: conversationState || null
                 })
             );
 
@@ -358,7 +376,8 @@ export class ChatSessionService {
         preview: string,
         activeAgentId?: string,
         domainAgent?: { id: string; name: string; icon: string; color: string } | null,
-        messages?: StoredMessage[]
+        messages?: StoredMessage[],
+        conversationState?: any
     ): Promise<void> {
         try {
             // 1. Update session metadata
@@ -367,7 +386,8 @@ export class ChatSessionService {
                     title,
                     preview,
                     agent_identity: activeAgentId || null,
-                    domain_agent_json: domainAgent || null
+                    domain_agent_json: domainAgent || null,
+                    conversation_state_json: conversationState || null
                 })
             );
 
@@ -409,6 +429,9 @@ export class ChatSessionService {
         const domainAgent = row.domain_agent_json
             ? (typeof row.domain_agent_json === 'string' ? JSON.parse(row.domain_agent_json) : row.domain_agent_json)
             : undefined;
+        const conversationState = row.conversation_state_json
+            ? (typeof row.conversation_state_json === 'string' ? JSON.parse(row.conversation_state_json) : row.conversation_state_json)
+            : undefined;
 
         // Map DB messages to StoredMessage format (only present when fetching single session)
         const messages: StoredMessage[] = (messageRows || []).map((m: any) => {
@@ -435,6 +458,7 @@ export class ChatSessionService {
             messageCount: row.message_count || messages.length,
             messages,
             activeAgentId: row.agent_identity || undefined,
+            conversationState,
             domainAgent
         };
     }

@@ -331,6 +331,13 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
 
    private autoSaveSession(chat: AgentChat): void {
       if (!chat.messages.length) return;
+      const agentKey = this.agentIdMap[this.activeAgentId] || this.activeAgentId;
+      const conversationId = this.difyService.getConversationId(agentKey);
+      const conversationState = {
+         activeAgentId: agentKey,
+         delegationStack: [],
+         conversations: conversationId ? { [agentKey]: conversationId } : {}
+      };
       chat.sessionId = this.chatSessionService.saveSessionFor(
          chat.sessionId || null,
          chat.messages.map(m => ({
@@ -338,9 +345,9 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
             content: m.content,
             timestamp: m.timestamp
          })),
-         this.agentIdMap[this.activeAgentId] || this.activeAgentId,
+         agentKey,
          null,
-         { makeActive: false }
+         { makeActive: false, conversationState }
       );
    }
 
