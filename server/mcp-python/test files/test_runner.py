@@ -1,5 +1,5 @@
 """
-Test all 71 MCP tools via the REST API.
+Test all MCP tools via the REST API.
 Works on Windows, Linux, Mac — uses only Python stdlib (no pip install needed).
 
 Usage:
@@ -12,31 +12,71 @@ import json
 import sys
 import urllib.request
 import urllib.error
+from typing import Any, Dict, Optional, Tuple
 
 BASE_URL = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:3002"
 TOOLS_URL = f"{BASE_URL}/tools"
 PASS = 0
 FAIL = 0
 TOTAL = 0
+EXECUTED = set()
 
 
-def post(url: str, data: dict, timeout: int = 15):
-    """POST JSON and return parsed response."""
-    body = json.dumps(data).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=body, headers={"Content-Type": "application/json"}, method="POST"
-    )
+def _read_response_body(resp) -> str:
+    try:
+        raw = resp.read()
+    except Exception:
+        return ""
+    try:
+        return raw.decode("utf-8", errors="replace")
+    except Exception:
+        return str(raw)[:500]
+
+
+def request_json(method: str, url: str, data: Optional[Dict[str, Any]] = None, timeout: int = 20) -> Dict[str, Any]:
+    """HTTP JSON helper with better diagnostics (handles HTML error pages cleanly)."""
+    body = None
+    headers = {}
+    if data is not None:
+        body = json.dumps(data).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            text = _read_response_body(resp)
+            try:
+                return json.loads(text)
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": f"Non-JSON response (HTTP {getattr(resp, 'status', '?')}): {e}",
+                    "raw_snippet": text[:400],
+                }
+    except urllib.error.HTTPError as e:
+        text = _read_response_body(e)
+        return {
+            "success": False,
+            "error": f"HTTPError {e.code}: {e.reason}",
+            "raw_snippet": text[:400],
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def get(url: str, timeout: int = 10) -> Dict[str, Any]:
+    return request_json("GET", url, data=None, timeout=timeout)
+
+
+def post(url: str, data: Dict[str, Any], timeout: int = 20) -> Dict[str, Any]:
+    return request_json("POST", url, data=data, timeout=timeout)
 
 
 def test_tool(name: str, data: dict):
     """Test a single tool and print PASS/FAIL."""
     global PASS, FAIL, TOTAL
     TOTAL += 1
+    EXECUTED.add(name)
     resp = post(f"{TOOLS_URL}/{name}", data)
     if resp.get("success") is True:
         print(f"  PASS  {name}")
@@ -47,6 +87,10 @@ def test_tool(name: str, data: dict):
         print(f"        Response: {err}")
         FAIL += 1
     return resp
+
+
+def skip_tool(name: str, reason: str):
+    print(f"  SKIP  {name} — {reason}")
 
 
 def extract(resp, *keys):
@@ -62,24 +106,109 @@ def extract(resp, *keys):
     return obj
 
 
+# ────────────────────────────────────────────────────────────────
+# Payload helpers (use OpenAPI schema + known IDs)
+# ────────────────────────────────────────────────────────────────
+
+def placeholder_for(schema: Dict[str, Any]) -> Any:
+    if not isinstance(schema, dict):
+        return "test"
+
+    if "enum" in schema and isinstance(schema["enum"], list) and schema["enum"]:
+        return schema["enum"][0]
+
+    t = schema.get("type")
+    if t == "string":
+        return "test"
+    if t == "integer":
+        return 1
+    if t == "number":
+        return 1.0
+    if t == "boolean":
+        return True
+    if t == "array":
+        # Minimal non-empty array if items are primitive
+        items = schema.get("items", {})
+        return [placeholder_for(items)]
+    if t == "object":
+        return {}
+    return "test"
+
+
+def schema_for_tool(openapi: Dict[str, Any], tool_name: str) -> Dict[str, Any]:
+    path = f"/tools/{tool_name}"
+    post_spec = (((openapi or {}).get("paths") or {}).get(path) or {}).get("post") or {}
+    schema = (
+        (((post_spec.get("requestBody") or {}).get("content") or {}).get("application/json") or {}).get("schema")
+        or {}
+    )
+    return schema if isinstance(schema, dict) else {}
+
+
+def build_payload(schema: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    props = schema.get("properties") if isinstance(schema, dict) else {}
+    required = schema.get("required") if isinstance(schema, dict) else []
+
+    payload: Dict[str, Any] = {}
+    if isinstance(required, list):
+        for key in required:
+            if isinstance(key, str):
+                payload[key] = placeholder_for((props or {}).get(key, {}))
+
+    # Contextual overrides
+    for k, v in list(payload.items()):
+        if k in ("project_id", "npa_id"):
+            payload[k] = context.get("NPA_ID") or v
+        elif k == "session_id":
+            payload[k] = context.get("SESSION_ID") or v
+        elif k == "signoff_id":
+            payload[k] = context.get("SIGNOFF_ID") or v
+        elif k == "document_id":
+            payload[k] = context.get("DOCUMENT_ID") or v
+        elif k == "doc_id":
+            payload[k] = context.get("KB_DOC_ID") or v
+        elif k == "condition_id":
+            payload[k] = context.get("CONDITION_ID") or v
+
+    # Some tools accept alternate param names
+    if "signoffs_json" in payload and isinstance(payload.get("signoffs_json"), str):
+        # Always provide a valid JSON array string
+        payload["signoffs_json"] = json.dumps(context.get("SIGNOFFS_FIXTURE", []))
+
+    return payload
+
+
 # ═══════════════════════════════════════════════════════════════════
 #  Preflight: Health Check
 # ═══════════════════════════════════════════════════════════════════
 print("--- Preflight: Health Check ---")
-try:
-    req = urllib.request.Request(f"{BASE_URL}/health")
-    with urllib.request.urlopen(req, timeout=5) as resp:
-        health = json.loads(resp.read().decode("utf-8"))
-    print(f"  OK     Server reachable - {health.get('tool_count', '?')} tools registered")
-except Exception as e:
+health = get(f"{BASE_URL}/health", timeout=8)
+if health.get("status") == "ok":
+    tool_count = health.get("tools") or health.get("tool_count") or "?"
+    print(f"  OK     Server reachable - {tool_count} tools registered")
+else:
     print(f"  FATAL  Cannot reach {BASE_URL}/health")
-    print(f"         {e}")
+    print(f"         {health.get('error')}")
+    if health.get("raw_snippet"):
+        print(f"         Raw: {health.get('raw_snippet')}")
     print("         Is the server running? Check the URL and try again.")
     sys.exit(1)
 
+print("--- Preflight: Tools + OpenAPI ---")
+tools_list = get(f"{BASE_URL}/tools", timeout=15)
+openapi = get(f"{BASE_URL}/openapi.json", timeout=15)
+tools = tools_list.get("tools") if isinstance(tools_list.get("tools"), list) else []
+tools_count = tools_list.get("count", len(tools))
+paths_count = len((openapi.get("paths") or {})) if isinstance(openapi, dict) else 0
+print(f"  Tools  {tools_count}")
+print(f"  Paths  {paths_count} (OpenAPI)")
+if tools_count and paths_count and tools_count != paths_count:
+    print("  WARN   Tool count != OpenAPI path count (check /openapi.json generation)")
+print()
+
 print()
 print("============================================")
-print("  Testing all 71 MCP Tools (Python port)")
+print("  Testing MCP Tools (Python port)")
 print("============================================")
 print()
 
@@ -97,6 +226,9 @@ NPA_ID = extract(npa_resp, "data", "npa_id")
 print(f"  Created test NPA: {NPA_ID}")
 print()
 
+# Shared context IDs for payload builder
+CTX: Dict[str, Any] = {"NPA_ID": NPA_ID}
+
 # ═══════════════════════════════════════════════════════════════════
 #  1. SESSION (2 tools)
 # ═══════════════════════════════════════════════════════════════════
@@ -105,6 +237,7 @@ test_tool("session_create", {"agent_id": "test-agent", "project_id": NPA_ID, "us
 
 sess_resp = post(f"{TOOLS_URL}/session_create", {"agent_id": "test-agent-2", "project_id": NPA_ID})
 SESSION_ID = extract(sess_resp, "data", "session_id")
+CTX["SESSION_ID"] = SESSION_ID
 
 test_tool("session_log_message", {
     "session_id": SESSION_ID, "role": "agent",
@@ -114,8 +247,34 @@ test_tool("session_log_message", {
 })
 print()
 
+# Prepare signoffs + document fixture IDs for tools that require them.
+print("--- Setup: Creating signoff + document fixtures ---")
+SIGNOFFS_FIXTURE = [
+    {"party": "Credit Risk", "department": "Risk Management", "approver_name": "John Smith", "approver_email": "john@test.com", "sla_hours": 48},
+    {"party": "Legal", "department": "Legal & Compliance", "approver_name": "Jane Doe", "sla_hours": 72},
+]
+CTX["SIGNOFFS_FIXTURE"] = SIGNOFFS_FIXTURE
+
+post(f"{TOOLS_URL}/governance_create_signoff_matrix", {"project_id": NPA_ID, "signoffs_json": json.dumps(SIGNOFFS_FIXTURE)})
+signoff_resp = post(f"{TOOLS_URL}/governance_get_signoffs", {"project_id": NPA_ID})
+SIGNOFF_ID = extract(signoff_resp, "data", "signoffs", 0, "id")
+CTX["SIGNOFF_ID"] = SIGNOFF_ID
+print(f"  Using signoff ID: {SIGNOFF_ID}")
+
+doc_resp = post(f"{TOOLS_URL}/upload_document_metadata", {
+    "project_id": NPA_ID,
+    "document_name": "Python Test Term Sheet",
+    "document_type": "TERM_SHEET",
+    "file_extension": "pdf",
+    "file_size": "1.0 MB",
+})
+DOCUMENT_ID = extract(doc_resp, "data", "document_id")
+CTX["DOCUMENT_ID"] = DOCUMENT_ID
+print(f"  Using document ID: {DOCUMENT_ID}")
+print()
+
 # ═══════════════════════════════════════════════════════════════════
-#  2. IDEATION (5 tools)
+#  2. IDEATION (smoke)
 # ═══════════════════════════════════════════════════════════════════
 print("--- Ideation Tools (5) ---")
 test_tool("ideation_create_npa", {
@@ -208,13 +367,7 @@ print()
 #  6. GOVERNANCE (5 tools)
 # ═══════════════════════════════════════════════════════════════════
 print("--- Governance Tools (5) ---")
-test_tool("governance_create_signoff_matrix", {
-    "project_id": NPA_ID,
-    "signoffs": [
-        {"party": "Credit Risk", "department": "Risk Management", "approver_name": "John Smith", "approver_email": "john@test.com", "sla_hours": 48},
-        {"party": "Legal", "department": "Legal & Compliance", "approver_name": "Jane Doe", "sla_hours": 72},
-    ],
-})
+test_tool("governance_create_signoff_matrix", {"project_id": NPA_ID, "signoffs_json": json.dumps(SIGNOFFS_FIXTURE)})
 test_tool("governance_get_signoffs", {"project_id": NPA_ID})
 
 signoff_resp = post(f"{TOOLS_URL}/governance_get_signoffs", {"project_id": NPA_ID})
@@ -283,9 +436,12 @@ test_tool("get_post_launch_conditions", {"project_id": NPA_ID})
 
 cond_resp = post(f"{TOOLS_URL}/get_post_launch_conditions", {"project_id": NPA_ID})
 conditions = extract(cond_resp, "data", "conditions") or []
-CONDITION_ID = conditions[0]["id"] if conditions else 1
-
-test_tool("update_condition_status", {"condition_id": CONDITION_ID, "status": "COMPLETED"})
+CONDITION_ID = conditions[0]["id"] if conditions else None
+CTX["CONDITION_ID"] = CONDITION_ID
+if CONDITION_ID:
+    test_tool("update_condition_status", {"condition_id": CONDITION_ID, "status": "COMPLETED"})
+else:
+    skip_tool("update_condition_status", "no post-launch conditions exist to update")
 print()
 
 # ═══════════════════════════════════════════════════════════════════
@@ -325,7 +481,7 @@ test_tool("save_approval_decision", {
 })
 test_tool("add_comment", {
     "project_id": NPA_ID, "comment_type": "SYSTEM_ALERT",
-    "comment_text": "All 71 tools tested successfully", "author_name": "Test Script",
+    "comment_text": "MCP tool suite test-run completed", "author_name": "Test Script",
     "generated_by_ai": True, "ai_agent": "test-agent",
 })
 print()
@@ -348,7 +504,14 @@ print()
 # ═══════════════════════════════════════════════════════════════════
 print("--- KB Search Tools (3) ---")
 test_tool("search_kb_documents", {"search_term": "NPA", "limit": 5})
-test_tool("get_kb_document_by_id", {"doc_id": "KB-NPA-001"})
+kb_sources = post(f"{TOOLS_URL}/list_kb_sources", {})
+kb_docs = extract(kb_sources, "data", "sources") or []
+KB_DOC_ID = kb_docs[0]["doc_id"] if kb_docs else None
+CTX["KB_DOC_ID"] = KB_DOC_ID
+if KB_DOC_ID:
+    test_tool("get_kb_document_by_id", {"doc_id": KB_DOC_ID})
+else:
+    skip_tool("get_kb_document_by_id", "no KB docs seeded (kb_documents is empty)")
 test_tool("list_kb_sources", {})
 print()
 
@@ -356,8 +519,13 @@ print()
 #  15. PROSPECTS (2 tools)
 # ═══════════════════════════════════════════════════════════════════
 print("--- Prospect Tools (2) ---")
-test_tool("get_prospects", {"limit": 5})
-test_tool("convert_prospect_to_npa", {"prospect_id": 1, "submitted_by": "Test Script", "risk_level": "MEDIUM"})
+prospects_resp = test_tool("get_prospects", {"limit": 5})
+prospects = extract(prospects_resp, "data", "prospects") or []
+PROSPECT_ID = prospects[0]["id"] if prospects else None
+if PROSPECT_ID:
+    test_tool("convert_prospect_to_npa", {"prospect_id": PROSPECT_ID, "submitted_by": "Test Script", "risk_level": "MEDIUM"})
+else:
+    skip_tool("convert_prospect_to_npa", "no prospects seeded (npa_prospects is empty)")
 print()
 
 # ═══════════════════════════════════════════════════════════════════
@@ -374,7 +542,7 @@ print("--- Notification Tools (3) ---")
 test_tool("get_pending_notifications", {"project_id": NPA_ID, "limit": 10})
 test_tool("send_notification", {
     "project_id": NPA_ID, "notification_type": "SYSTEM_ALERT",
-    "title": "Test Notification", "message": "All 71 tools tested", "severity": "INFO",
+    "title": "Test Notification", "message": "MCP tool suite test-run completed", "severity": "INFO",
 })
 test_tool("mark_notification_read", {"project_id": NPA_ID, "notification_type": "SYSTEM_ALERT"})
 print()
@@ -387,6 +555,19 @@ test_tool("get_npa_jurisdictions", {"project_id": NPA_ID})
 test_tool("get_jurisdiction_rules", {"jurisdiction_code": "SG"})
 test_tool("adapt_classification_weights", {"project_id": NPA_ID, "base_score": 10})
 print()
+
+# ═══════════════════════════════════════════════════════════════════
+#  Catch-all: run any tools not explicitly covered above
+# ═══════════════════════════════════════════════════════════════════
+all_tool_names = [t.get("name") for t in tools if isinstance(t, dict) and t.get("name")]
+remaining = sorted({n for n in all_tool_names if isinstance(n, str)} - set(EXECUTED))
+if remaining:
+    print(f"--- Catch-all Tools ({len(remaining)}) ---")
+    for name in remaining:
+        schema = schema_for_tool(openapi, name)
+        payload = build_payload(schema, CTX)
+        test_tool(name, payload)
+    print()
 
 # ═══════════════════════════════════════════════════════════════════
 #  Results
