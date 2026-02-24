@@ -196,6 +196,16 @@ export class DifyAgentService {
     }
 
     /**
+     * Get connected knowledge bases from Dify
+     */
+    getConnectedKnowledgeBases(): Observable<any[]> {
+        return this.http.get<any>('/api/dify/datasets').pipe(
+            map(response => response.data || []),
+            catchError(() => of([]))
+        );
+    }
+
+    /**
      * Get real-time agent activity stream
      */
     getAgentActivityStream(): Observable<AgentActivityUpdate> {

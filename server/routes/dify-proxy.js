@@ -1090,4 +1090,35 @@ router.get('/agents/status', (req, res) => {
     res.json(summary);
 });
 
+/**
+ * GET /api/dify/datasets
+ * Fetch list of connected Knowledge Bases from Dify directly.
+ */
+router.get('/datasets', async (req, res) => {
+    try {
+        const apiKey = process.env.DIFY_DATASET_API_KEY;
+        if (!apiKey) {
+            console.warn('[DIFY PROXY] DIFY_DATASET_API_KEY is not configured');
+            return res.json({ data: [] });
+        }
+
+        const response = await axios.get(`${DIFY_BASE_URL}/datasets`, {
+            params: { page: 1, limit: 100 },
+            headers: {
+                'Authorization': `Bearer ${apiKey}`
+            },
+            timeout: 10000
+        });
+
+        res.json(response.data);
+    } catch (err) {
+        console.error('[DIFY PROXY] Failed to list datasets:', err.response?.data || err.message);
+        const status = err.response?.status || 500;
+        res.status(status).json({
+            error: 'Failed to fetch datasets',
+            detail: err.response?.data?.message || err.message
+        });
+    }
+});
+
 module.exports = router;

@@ -1,7 +1,7 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
-import { HealthMetrics } from '../../../services/dify/dify-agent.service';
+import { HealthMetrics, DifyAgentService } from '../../../services/dify/dify-agent.service';
 
 @Component({
    selector: 'app-agent-health-panel',
@@ -71,28 +71,60 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
          </div>
 
          <!-- Metric 4: KBs Connected -->
-         <div class="p-4 flex items-center gap-4">
+         <div class="p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50" (click)="showKbs = !showKbs">
              <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
                 <lucide-icon name="book-open" class="w-5 h-5"></lucide-icon>
              </div>
-             <div>
-                <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.kbsConnected || 0 }}</p>
-                <p class="text-xs text-slate-500 font-medium uppercase">KBs Connected</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">{{ formatNumber(metrics.kbRecords || 0) }} records indexed</p>
+             <div class="flex-1 flex items-center justify-between">
+                <div>
+                   <p class="text-2xl font-mono font-bold text-slate-900">{{ kbs.length || metrics.kbsConnected || 0 }}</p>
+                   <p class="text-xs text-slate-500 font-medium uppercase">KBs Connected</p>
+                   <p class="text-[10px] text-slate-400 mt-0.5">{{ formatNumber(metrics.kbRecords || 0) }} records indexed</p>
+                </div>
+                <lucide-icon [name]="showKbs ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 text-slate-400"></lucide-icon>
              </div>
          </div>
 
       </div>
+
+      <!-- KBs List Expanded Area -->
+      <div *ngIf="showKbs" class="border-t border-slate-100 bg-slate-50 p-4 max-h-60 overflow-y-auto">
+         <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-2">Connected Datasets (Dify API)</h4>
+         <div *ngIf="kbs.length === 0" class="text-sm text-slate-500 px-2">No KBs found or failed to load.</div>
+         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div *ngFor="let kb of kbs" class="bg-white p-3 rounded border border-slate-200 flex items-start gap-3">
+               <div class="w-8 h-8 rounded shrink-0 flex items-center justify-center text-slate-500 bg-slate-100">
+                  <lucide-icon name="database" class="w-4 h-4"></lucide-icon>
+               </div>
+               <div>
+                  <h5 class="text-sm font-medium text-slate-900 leading-tight mb-1">{{ kb.name }}</h5>
+                  <p class="text-[10px] text-slate-500">{{ formatNumber(kb.document_count || kb.total_documents || 0) }} indexed docs • {{ kb.provider || 'Dify' }}</p>
+               </div>
+            </div>
+         </div>
+      </div>
     </div>
   `
 })
-export class AgentHealthPanelComponent {
+export class AgentHealthPanelComponent implements OnInit {
    @Input() metrics: HealthMetrics = {
       status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0,
       confidenceScore: 0, toolsUsed: 0, kbsConnected: 0, kbRecords: 0
    };
 
+   kbs: any[] = [];
+   showKbs = false;
+
+   constructor(private difyService: DifyAgentService) { }
+
+   ngOnInit() {
+      this.difyService.getConnectedKnowledgeBases().subscribe(kbs => {
+         this.kbs = kbs;
+      });
+   }
+
    formatNumber(num: number): string {
+      if (!num) return '0';
       if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
       return num.toString();
    }
