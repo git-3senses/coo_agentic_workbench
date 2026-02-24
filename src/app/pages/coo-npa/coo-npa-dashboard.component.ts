@@ -117,15 +117,15 @@ interface NpaItem {
       </div>
 
       <!-- TABS -->
-      <div class="border-b border-slate-200 bg-white px-6 sm:px-10">
-         <div class="flex gap-6">
+      <div class="border-b border-slate-200 bg-white">
+         <div class="flex w-full max-w-7xl mx-auto px-6 sm:px-10 overflow-x-auto hide-scrollbar">
             <button
                [class.border-slate-900]="activeTab === 'overview'"
                [class.text-slate-900]="activeTab === 'overview'"
                [class.border-transparent]="activeTab !== 'overview'"
                [class.text-slate-500]="activeTab !== 'overview'"
                (click)="activeTab = 'overview'"
-               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               class="flex-1 flex items-center justify-center px-2 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors whitespace-nowrap">
                Overview
             </button>
             <button
@@ -134,7 +134,7 @@ interface NpaItem {
                [class.border-transparent]="activeTab !== 'npa-pool'"
                [class.text-slate-500]="activeTab !== 'npa-pool'"
                (click)="activeTab = 'npa-pool'"
-               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               class="flex-1 flex items-center justify-center px-2 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors whitespace-nowrap">
                NPA Pool
             </button>
             <button
@@ -143,7 +143,7 @@ interface NpaItem {
                [class.border-transparent]="activeTab !== 'monitoring'"
                [class.text-slate-500]="activeTab !== 'monitoring'"
                (click)="activeTab = 'monitoring'"
-               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors flex items-center gap-2">
+               class="flex-1 flex items-center justify-center px-2 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors whitespace-nowrap gap-2">
                Monitoring
                <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-200">{{ monitoringSummary.open_breaches }}</span>
             </button>
@@ -153,7 +153,7 @@ interface NpaItem {
                [class.border-transparent]="activeTab !== 'escalations'"
                [class.text-slate-500]="activeTab !== 'escalations'"
                (click)="activeTab = 'escalations'"
-               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               class="flex-1 flex items-center justify-center px-2 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors whitespace-nowrap">
                Escalations
             </button>
             <button
@@ -162,7 +162,7 @@ interface NpaItem {
                [class.border-transparent]="activeTab !== 'pir'"
                [class.text-slate-500]="activeTab !== 'pir'"
                (click)="activeTab = 'pir'"
-               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               class="flex-1 flex items-center justify-center px-2 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors whitespace-nowrap">
                PIR
             </button>
             <button
@@ -171,7 +171,7 @@ interface NpaItem {
                [class.border-transparent]="activeTab !== 'bundling'"
                [class.text-slate-500]="activeTab !== 'bundling'"
                (click)="activeTab = 'bundling'"
-               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               class="flex-1 flex items-center justify-center px-2 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors whitespace-nowrap">
                Bundling
             </button>
             <button
@@ -180,7 +180,7 @@ interface NpaItem {
                [class.border-transparent]="activeTab !== 'documents'"
                [class.text-slate-500]="activeTab !== 'documents'"
                (click)="activeTab = 'documents'"
-               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               class="flex-1 flex items-center justify-center px-2 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors whitespace-nowrap">
                Documents
             </button>
             <button
@@ -189,7 +189,7 @@ interface NpaItem {
                [class.border-transparent]="activeTab !== 'evergreen'"
                [class.text-slate-500]="activeTab !== 'evergreen'"
                (click)="activeTab = 'evergreen'"
-               class="px-1 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors">
+               class="flex-1 flex items-center justify-center px-2 py-3 text-sm font-semibold border-b-2 hover:text-slate-900 transition-colors whitespace-nowrap">
                Evergreen
             </button>
          </div>
