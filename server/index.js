@@ -99,17 +99,22 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ─── Serve Angular static files in production ────────────────────────────────
-// The Angular build output lives at ../dist/agent-command-hub-angular/browser
-// When deployed on Railway, Express serves both the API and the Angular SPA.
-const ANGULAR_DIST = path.join(__dirname, '..', 'dist', 'agent-command-hub-angular', 'browser');
+// Angular build output can be either:
+//   - dist/<app>/browser (SSR-style output structure)
+//   - dist/<app>         (single-page build output)
+// Express serves both the API and the Angular SPA.
 const fs = require('fs');
+const ANGULAR_DIST_BROWSER = path.join(__dirname, '..', 'dist', 'agent-command-hub-angular', 'browser');
+const ANGULAR_DIST_FLAT = path.join(__dirname, '..', 'dist', 'agent-command-hub-angular');
+const ANGULAR_DIST = fs.existsSync(ANGULAR_DIST_BROWSER) ? ANGULAR_DIST_BROWSER : ANGULAR_DIST_FLAT;
+
 if (fs.existsSync(ANGULAR_DIST)) {
     console.log('[STATIC] Angular dist found at:', ANGULAR_DIST);
 } else {
     console.warn('[STATIC] ⚠️  Angular dist NOT found at:', ANGULAR_DIST);
     console.warn('[STATIC] __dirname:', __dirname);
     console.warn('[STATIC] Looking for parent dist dirs...');
-    try { console.log('[STATIC] ../dist contents:', fs.readdirSync(path.join(__dirname, '..', 'dist'))); } catch(e) { console.warn('[STATIC] ../dist does not exist'); }
+    try { console.log('[STATIC] ../dist contents:', fs.readdirSync(path.join(__dirname, '..', 'dist'))); } catch (e) { console.warn('[STATIC] ../dist does not exist'); }
 }
 
 app.use(express.static(ANGULAR_DIST));
