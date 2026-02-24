@@ -33,10 +33,11 @@ type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; t
 	      <div class="flex items-center gap-2">
 	        <input #fileInput type="file" accept=".pdf,.md,.mmd,application/pdf,text/markdown"
 	          class="hidden" (change)="onUploadFile($event)">
-	        <button (click)="fileInput.click()"
-	          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">
+	        <button (click)="fileInput.click()" [disabled]="isUploading"
+	          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold">
 	          <lucide-icon name="upload" class="w-4 h-4"></lucide-icon>
-	          Upload Document
+	          <span *ngIf="!isUploading">Upload Document</span>
+	          <span *ngIf="isUploading">Uploading…</span>
 	        </button>
 	        <button (click)="openEditModal()" *ngIf="doc"
 	          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 text-sm font-semibold">
@@ -50,6 +51,15 @@ type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; t
 	        </button>
 	      </div>
 	    </header>
+
+    <div *ngIf="uploadMsg || uploadError" class="px-6 pt-4">
+      <div *ngIf="uploadMsg" class="text-sm text-green-700 bg-green-50 border border-green-100 rounded-xl px-3 py-2">
+        {{ uploadMsg }}
+      </div>
+      <div *ngIf="uploadError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+        {{ uploadError }}
+      </div>
+    </div>
 
     <!-- Split view -->
     <div class="flex-1 min-h-0 flex">
@@ -304,6 +314,10 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
   };
   difyLinkLabel: string | null = null;
   difyKpis: any | null = null;
+
+  isUploading = false;
+  uploadMsg: string | null = null;
+  uploadError: string | null = null;
 
   ngOnInit() {
     this.docId = String(this.route.snapshot.paramMap.get('id') || '');
@@ -560,6 +574,10 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
     const file = input.files?.[0] || null;
     if (!file) return;
 
+    this.isUploading = true;
+    this.uploadMsg = null;
+    this.uploadError = null;
+
     const form = new FormData();
     form.append('file', file);
     form.append('doc_id', this.docId || '');
@@ -576,11 +594,15 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
     this.http.post<any>('/api/kb/upload', form).subscribe({
       next: () => {
         input.value = '';
+        this.isUploading = false;
+        this.uploadMsg = `Uploaded “${file.name}”.`;
         this.loadDoc();
       },
-      error: () => {
+      error: (e) => {
         input.value = '';
-        alert('Upload failed. Ensure you are logged in and the server has multer installed.');
+        this.isUploading = false;
+        const msg = e?.error?.error || e?.message || 'Upload failed';
+        this.uploadError = String(msg);
       }
     });
   }
