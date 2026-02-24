@@ -1071,7 +1071,8 @@ export class NpaDetailComponent implements OnInit {
             || this.npaContext?.similar_npa_id || this.npaContext?.data?.top_match || '',
          similarity_score: String(d.similarity_score || fieldValue('similarity_score', '0')
             || this.npaContext?.reference_similarity || this.npaContext?.data?.reference_similarity || 0),
-         input_text: productDesc
+         input_text: productDesc,
+         agent_id: 'CLASSIFIER'
       };
    }
 

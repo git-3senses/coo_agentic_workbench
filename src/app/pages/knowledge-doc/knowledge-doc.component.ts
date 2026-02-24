@@ -35,7 +35,7 @@ type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; t
 	          class="hidden" (change)="onUploadFile($event)">
 	        <button (click)="fileInput.click()" [disabled]="isUploading"
 	          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold">
-	          <lucide-icon name="upload" class="w-4 h-4"></lucide-icon>
+	          <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
 	          <span *ngIf="!isUploading">Upload Document</span>
 	          <span *ngIf="isUploading">Uploading…</span>
 	        </button>

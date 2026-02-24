@@ -67,7 +67,7 @@ type StudioFile = {
           class="hidden" (change)="onUploadFiles($event)">
         <button (click)="fileInput.click()"
           class="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-sm font-semibold">
-          <lucide-icon name="upload" class="w-4 h-4"></lucide-icon>
+          <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
           Upload Sources
         </button>
         <button (click)="openGenerateModal()" [disabled]="doc?.status!=='DRAFT'"
