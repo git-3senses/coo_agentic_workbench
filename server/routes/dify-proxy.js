@@ -880,11 +880,6 @@ router.post('/workflow', async (req, res) => {
             res.setHeader('Connection', 'keep-alive');
 
             const controller = new AbortController();
-            const abortUpstream = () => {
-                if (!controller.signal.aborted) controller.abort();
-            };
-            req.on('close', abortUpstream);
-            res.on('close', abortUpstream);
 
             const response = await axios.post(
                 `${DIFY_BASE_URL}/workflows/run`,
@@ -898,6 +893,12 @@ router.post('/workflow', async (req, res) => {
                     signal: controller.signal
                 }
             );
+
+            // Only bind abort AFTER the upstream connection is established.
+            const abortUpstream = () => {
+                if (!controller.signal.aborted) controller.abort();
+            };
+            req.on('close', abortUpstream);
 
             response.data.pipe(res);
             response.data.on('end', () => res.end());
@@ -917,12 +918,10 @@ router.post('/workflow', async (req, res) => {
             const WF_MAX_RETRIES = 2;
             let lastResult = null;
 
-            const controller = new AbortController();
-            const abortUpstream = () => {
-                if (!controller.signal.aborted) controller.abort();
-            };
-            req.on('close', abortUpstream);
-            res.on('close', abortUpstream);
+            // NOTE: Do not bind AbortController to req/res 'close' for blocking mode.
+            // Some clients/proxies close the request socket early, which would abort
+            // the upstream Dify call even though the request is still valid.
+            const timeoutMs = 600000; // 10 minutes for network-level timeout (AUTOFILL takes ~8 min)
 
             for (let attempt = 0; attempt <= WF_MAX_RETRIES; attempt++) {
                 if (attempt > 0) {
@@ -943,8 +942,7 @@ router.post('/workflow', async (req, res) => {
                                 'Content-Type': 'application/json'
                             },
                             responseType: 'stream',
-                            signal: controller.signal,
-                            timeout: 600000 // 10 minutes for network-level timeout (AUTOFILL takes ~8 min)
+                            timeout: timeoutMs
                         }
                     );
 

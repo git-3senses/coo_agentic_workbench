@@ -1071,8 +1071,7 @@ export class NpaDetailComponent implements OnInit {
             || this.npaContext?.similar_npa_id || this.npaContext?.data?.top_match || '',
          similarity_score: String(d.similarity_score || fieldValue('similarity_score', '0')
             || this.npaContext?.reference_similarity || this.npaContext?.data?.reference_similarity || 0),
-         input_text: productDesc,
-         agent_id: 'CLASSIFIER'
+         input_text: productDesc
       };
    }
 
@@ -1154,7 +1153,7 @@ export class NpaDetailComponent implements OnInit {
 
       const fireAgent = (agentId: string, extraInputs: Record<string, any> = {}): Observable<any> => {
          if (!shouldRun[agentId]) return of({ skipped: true, data: { status: 'skipped', outputs: null } });
-         const agentInputs = { ...inputs, ...this.waveContext, ...extraInputs };
+         const agentInputs = { ...inputs, ...this.waveContext, agent_id: agentId, ...extraInputs };
          console.log(`[fireAgent] ${agentId} — sending request`);
          return this.difyService.runWorkflow(agentId, agentInputs).pipe(
             tap(res => {
