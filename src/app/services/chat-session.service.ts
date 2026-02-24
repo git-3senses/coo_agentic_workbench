@@ -138,6 +138,23 @@ export class ChatSessionService {
         activeAgentId?: string,
         domainAgent?: { id: string; name: string; icon: string; color: string } | null
     ): string {
+        return this.saveSessionFor(this._activeSessionId(), messages, activeAgentId, domainAgent, { makeActive: true });
+    }
+
+    /**
+     * Save/update a specific session ID (or create one if null).
+     * This avoids cross-component clobbering of the global activeSessionId
+     * (e.g. Draft Builder agent chat saving while the main workspace is open).
+     *
+     * By default, this does NOT change the global activeSessionId unless makeActive=true.
+     */
+    saveSessionFor(
+        sessionId: string | null,
+        messages: { role: string; content: string; timestamp: Date; agentIdentity?: any; cardType?: string; cardData?: any; agentAction?: string }[],
+        activeAgentId?: string,
+        domainAgent?: { id: string; name: string; icon: string; color: string } | null,
+        opts: { makeActive?: boolean } = {}
+    ): string {
         if (messages.length === 0) return '';
 
         const storedMessages: StoredMessage[] = messages.map(m => ({
@@ -154,8 +171,6 @@ export class ChatSessionService {
         const firstUserMsg = messages.find(m => m.role === 'user');
         const title = this.generateTitle(firstUserMsg?.content || 'New Chat');
         const preview = (firstUserMsg?.content || 'New conversation').substring(0, 200);
-
-        let sessionId = this._activeSessionId();
 
         if (sessionId) {
             // ── Update existing session ──
@@ -195,12 +210,17 @@ export class ChatSessionService {
             };
             const sessions = [newSession, ...this._sessions()];
             this._sessions.set(sessions);
-            this._activeSessionId.set(sessionId);
+            if (opts.makeActive) {
+                this._activeSessionId.set(sessionId);
+            }
 
             // Persist to DB (fire-and-forget)
             this.createSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages);
         }
 
+        if (opts.makeActive && sessionId) {
+            this._activeSessionId.set(sessionId);
+        }
         return sessionId!;
     }
 

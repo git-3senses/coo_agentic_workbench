@@ -70,13 +70,28 @@ export class DifyService {
 
     private static readonly difyAppAliasToAgentId: Record<string, string> = (() => {
         const out: Record<string, string> = {};
+        const priority: Record<string, number> = {};
+
+        // Multiple internal agent IDs can point to the same Dify app (e.g. DILIGENCE + KB_SEARCH).
+        // Prefer the higher-priority agent (lower tier number). If tied, keep the first seen.
+        const setAlias = (key: string, agentId: string, tier: number) => {
+            if (!key) return;
+            const existingTier = priority[key];
+            if (existingTier === undefined || tier < existingTier) {
+                out[key] = agentId;
+                priority[key] = tier;
+            }
+        };
+
         for (const a of (AGENT_REGISTRY_JSON as any[])) {
             if (!a?.id) continue;
             const id = String(a.id);
-            if (a.difyApp) out[String(a.difyApp)] = id;
+            const tier = typeof a.tier === 'number' ? a.tier : 99;
+
+            if (a.difyApp) setAlias(String(a.difyApp), id, tier);
             if (Array.isArray(a.aliases)) {
                 for (const alias of a.aliases) {
-                    if (alias) out[String(alias)] = id;
+                    if (alias) setAlias(String(alias), id, tier);
                 }
             }
         }

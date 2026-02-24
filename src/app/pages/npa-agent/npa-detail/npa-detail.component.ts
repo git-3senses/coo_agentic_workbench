@@ -1279,6 +1279,13 @@ export class NpaDetailComponent implements OnInit {
    private mapClassificationResult(rawOutputs: any): ClassificationResult | null {
       const o = this.parseJsonOutput(rawOutputs);
       if (!o) return null;
+
+      // Support Dify workflow traces (Agent-node debug output) where the payload is an array of rounds/tool calls.
+      // This happens when the workflow output mapping is misconfigured to return trace artifacts instead of JSON.
+      if (Array.isArray(o.result)) {
+         return this.mapClassificationFromTrace(o.result);
+      }
+
       const cl = o.classification || o.classification_result || o;
       const sc = o.scorecard || cl.scorecard || {};
       const scores = sc.scores || cl.scores || [];
@@ -1294,6 +1301,80 @@ export class NpaDetailComponent implements OnInit {
          overallConfidence: sc.overall_confidence || cl.overallConfidence || cl.overall_confidence || cl.confidence || 0,
          prohibitedMatch: o.prohibited_check || cl.prohibitedMatch || cl.prohibited_match || { matched: false },
          mandatorySignOffs: o.mandatory_signoffs || cl.mandatorySignOffs || cl.mandatory_signoffs || []
+      } as ClassificationResult;
+   }
+
+   private mapClassificationFromTrace(trace: any[]): ClassificationResult {
+      const toolErrors: string[] = [];
+      const thoughts: string[] = [];
+
+      for (const entry of trace) {
+         const d = entry?.data || {};
+         const observation = typeof d.observation === 'string' ? d.observation : '';
+         const thought = typeof d.thought === 'string' ? d.thought : '';
+         const toolName = d.tool_name || d.action_name || d.action;
+
+         if (observation && observation.toLowerCase().includes('tool invoke error')) {
+            toolErrors.push(`${toolName || 'tool'}: ${observation.split('\n')[0]}`);
+         }
+         if (thought) thoughts.push(thought.trim());
+      }
+
+      const rawText = thoughts.length ? thoughts[thoughts.length - 1] : JSON.stringify(trace, null, 2);
+
+      const type =
+         /classification:\s*(new-to-group|ntg)/i.test(rawText) ? 'NTG'
+            : /classification:\s*existing/i.test(rawText) ? 'Existing'
+               : /classification:\s*variation/i.test(rawText) ? 'Variation'
+                  : 'Variation';
+
+      const track =
+         /track:\s*full[_\s-]*npa/i.test(rawText) || /track:\s*full npa/i.test(rawText) ? 'Full NPA'
+            : /track:\s*npa[_\s-]*lite/i.test(rawText) ? 'NPA Lite'
+               : /track:\s*bundling/i.test(rawText) ? 'Bundling'
+                  : /track:\s*evergreen/i.test(rawText) ? 'Evergreen'
+                     : /track:\s*prohibited/i.test(rawText) ? 'Prohibited'
+                        : 'NPA Lite';
+
+      const confidenceMatch = rawText.match(/confidence:\s*(\d+)\s*%/i);
+      const overallConfidence = confidenceMatch ? Number(confidenceMatch[1]) : 0;
+
+      // Extract category subtotals for a clean score bar view when no JSON scorecard is available.
+      const scores: any[] = [];
+      const catPatterns: { key: string; label: string; max: number }[] = [
+         { key: 'PRODUCT_INNOVATION', label: 'Product Innovation', max: 8 },
+         { key: 'MARKET_CUSTOMER', label: 'Market & Customer', max: 10 },
+         { key: 'RISK_REGULATORY', label: 'Risk & Regulatory', max: 8 },
+         { key: 'FINANCIAL_OPERATIONAL', label: 'Financial & Operational', max: 7 }
+      ];
+      for (const c of catPatterns) {
+         const m = rawText.match(new RegExp(`${c.key}[\\s\\S]*?Subtotal:\\s*(\\d+)\\s*/\\s*(\\d+)`, 'i'));
+         if (m) {
+            scores.push({
+               criterion: c.label,
+               score: Number(m[1]),
+               maxScore: Number(m[2]) || c.max,
+               reasoning: `${c.key} subtotal from narrative output`
+            });
+         }
+      }
+
+      const analysisSummary: string[] = [];
+      if (toolErrors.length) {
+         analysisSummary.push(`Tool errors detected (${toolErrors.length}). Workflow likely returned trace/narrative output instead of JSON.`);
+         analysisSummary.push(...toolErrors.slice(0, 5));
+         if (toolErrors.length > 5) analysisSummary.push(`...and ${toolErrors.length - 5} more tool errors`);
+      }
+
+      return {
+         type: type as any,
+         track: track as any,
+         scores,
+         overallConfidence,
+         mandatorySignOffs: [],
+         analysisSummary: analysisSummary.length ? analysisSummary : undefined,
+         rawOutput: rawText,
+         rawJson: { trace }
       } as ClassificationResult;
    }
 

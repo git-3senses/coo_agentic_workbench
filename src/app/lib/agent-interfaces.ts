@@ -73,6 +73,17 @@ export interface ClassificationResult {
     track: 'Full NPA' | 'NPA Lite' | 'Bundling' | 'Evergreen' | 'Prohibited';
     scores: ClassificationScore[];
     overallConfidence: number;
+    /** Optional: human-readable summary bullets (grounded in the scorecard/prohibited screen). */
+    analysisSummary?: string[];
+    /** Optional: NTG trigger evaluation (for explainability). */
+    ntgTriggers?: { id: string; name: string; fired: boolean; reason?: string }[];
+    /** Optional: workflow execution identifiers (useful for debugging/audit). */
+    workflowRunId?: string;
+    taskId?: string;
+    /** Optional: raw classifier output (useful when the workflow returned narrative text or for audit/debug). */
+    rawOutput?: string;
+    /** Optional: raw parsed JSON object (for future detailed rendering). */
+    rawJson?: any;
     prohibitedMatch?: {
         matched: boolean;
         item?: string;

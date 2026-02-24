@@ -9,6 +9,7 @@ import { NpaDetailComponent } from './npa-detail/npa-detail.component';
 import { AgentGovernanceService } from '../../services/agent-governance.service';
 import { LayoutService } from '../../services/layout.service';
 import { NpaService } from '../../services/npa.service';
+import { DifyService } from '../../services/dify/dify.service';
 
 @Component({
    selector: 'app-npa-agent',
@@ -54,6 +55,7 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
    private router = inject(Router);
    private governanceService = inject(AgentGovernanceService);
    private npaService = inject(NpaService);
+   private difyService = inject(DifyService);
 
    viewMode: 'DASHBOARD' | 'IDEATION' | 'WORK_ITEM' = 'DASHBOARD';
 
@@ -134,6 +136,25 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
                this.npaService.update(newId, updatePayload).subscribe({
                   next: () => {
                      console.log(`[NPAAgent] Initial data persisted for ${newId}`);
+                     // Persist classification now that we have a project_id.
+                     // (Workflow may write via MCP tools when project_id is provided.)
+                     const classifierInputs: Record<string, any> = {
+                        agent_id: 'CLASSIFIER',
+                        product_description: payload.product_description || payload.description || '',
+                        product_category: payload.product_category || payload.product_type || payload.npa_type || '',
+                        underlying_asset: payload.underlying_asset || payload.underlying || '',
+                        notional_amount: payload.notional_amount || payload.notional || '',
+                        currency: payload.currency || 'USD',
+                        customer_segment: payload.customer_segment || payload.target_market || '',
+                        booking_location: payload.booking_location || payload.location || 'Singapore',
+                        counterparty_location: payload.counterparty_location || '',
+                        is_cross_border: payload.is_cross_border || false,
+                        project_id: newId
+                     };
+                     this.difyService.runWorkflow('CLASSIFIER', classifierInputs).subscribe({
+                        next: () => console.log(`[NPAAgent] Classification workflow executed for ${newId}`),
+                        error: (err) => console.warn('[NPAAgent] Classification workflow failed:', err)
+                     });
                      this.npaContext = { id: newId, npaId: newId, ...payload };
                      this.viewMode = 'WORK_ITEM';
                      this.autoOpenEditor = true; // Open the draft builder immediately

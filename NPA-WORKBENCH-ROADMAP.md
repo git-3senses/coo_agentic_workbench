@@ -2,48 +2,64 @@
 
 > **Project:** COO Agentic Workbench — NPA (New Product Approval) Module
 > **Version:** RMG OR Template Jun 2025
-> **Last Updated:** 2026-02-23
+> **Last Updated:** 2026-02-24
 > **Status:** Phase 3 COMPLETE — All 5 sign-off agents live on Dify Cloud, tested end-to-end
 
 ---
 
 ## Current State Summary
 
-| Metric | Value |
-|--------|-------|
-| Golden Template Fields | **339** (expanded from 87→251→339, target 250+ exceeded) ✅ |
+| Metric                     | Value                                                                                                                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Golden Template Fields     | **339** (expanded from 87→251→339, target 250+ exceeded) ✅                                                                                                                                                                                             |
 | Field Types Rendered in UI | 14 of 16 implemented (text, textarea, dropdown, multiselect, yesno, checkbox_group, bullet_list, date, currency, header, table_grid, reference_link, conditional, file_upload) — 2 deferred (flowchart→textarea alias, repeatable→textarea fallback) ✅ |
-| Dify Agents Defined | 18 in backend config — all 18 live on Dify Cloud (17 HEALTHY, 1 AUTOFILL ERROR expected) ✅ |
-| Draft Builder Status | 3-column layout refactored into 5 sub-components, field rendering working, 5 sign-off chat agents live |
-| Backend Endpoints | ~15 routes operational |
-| DB Tables | ~12 tables active |
-| Agent Orchestration Waves | W0→W1→W2→W3 pipeline coded (detail page) |
-| Strategy Distribution | RULE=63, COPY=60, LLM=149, MANUAL=67 |
-| Fields with dependsOn | 26 conditional fields |
-| Fields marked required | 7 (adequate for MVP) |
-| Template tree coverage | All registry fields now mapped to tree nodes ✅ |
-
-### Phase 1 Audit — Gap Resolution (completed 2026-02-23)
-
-| Gap | Resolution |
-|-----|------------|
-| Part A (13 fields) & Part B (routing table) absent | ✅ By design — handled outside template editor |
-| 8 of 16 NpaFieldType values unused | ✅ Fixed: checkbox_group now used (ops_adequacy, tp_certifications). 6 remaining (file_upload, table_grid, flowchart, repeatable, conditional, reference_link) are Phase 2 UI work |
-| Section I.2 Target Customer: flat | ✅ Fixed: Restructured with a-g sub-question children |
-| Section I.3 Commercialization: missing d, e | ✅ Fixed: Added sales_surveillance (d) and staff_training (e) |
-| Section II.1: only a-b | ✅ Fixed: Added c-j (ops adequacy, account controls, limits, manual fallback, collateral mgmt, custody, trade repository, SFEMC) |
-| Section II.5 BCM: 3 fields | ✅ Fixed: Expanded to 12 fields |
-| Section IV.A.3 Financial Crimes: missing | ✅ Fixed: Added 5 fields + tree node |
-| Section IV.A.D Funding Liquidity Risk: missing | ✅ Fixed: Added 5 fields + tree node |
-| Appendix 3: 7 fields | ✅ Fixed: Expanded to 19 fields across 4 sub-sections |
-| Appendix 6: 5 fields | ✅ Fixed: Expanded to 30 fields across 6 sub-sections |
-| Strategy comment inaccurate | ✅ Fixed: Updated to RULE=63, COPY=60, LLM=149, MANUAL=67 |
-| 40 orphan registry fields | ✅ Fixed: All fields now mapped to tree nodes |
-| Duplicate `valuation_model` in tree | ✅ Fixed: Renamed to `app5_valuation_model` for APP.5.4 |
+| Dify Agents Defined        | 18 in backend config — all 18 live on Dify Cloud (17 HEALTHY, 1 AUTOFILL ERROR expected) ✅                                                                                                                                                             |
+| Draft Builder Status       | 3-column layout refactored into 5 sub-components, field rendering working, 5 sign-off chat agents live                                                                                                                                                  |
+| Backend Endpoints          | ~15 routes operational                                                                                                                                                                                                                                  |
+| DB Tables                  | ~12 tables active                                                                                                                                                                                                                                       |
+| Agent Orchestration Waves  | W0→W1→W2→W3 pipeline coded (detail page)                                                                                                                                                                                                                |
+| Strategy Distribution      | RULE=63, COPY=60, LLM=149, MANUAL=67                                                                                                                                                                                                                    |
+| Fields with dependsOn      | 26 conditional fields                                                                                                                                                                                                                                   |
+| Fields marked required     | 7 (adequate for MVP)                                                                                                                                                                                                                                    |
+| Template tree coverage     | All registry fields now mapped to tree nodes ✅                                                                                                                                                                                                         |
 
 ---
 
-## Phase 1: Foundation — Golden Template Expansion *(Current Priority)*
+## Phase 4: Grounding & Citations _(New Priority — 2026-02-24)_
+
+> **Goal:** Ensure ALL agents (COO/NPA orchestrators, Ideation, Query Assistant, 5 sign-off agents) answer using **PDF + KB datasets only**, with **inline citations** (e.g. `[1]`) and a **Sources panel**, backed by deterministic gates and auditability.
+
+- [ ] Define a single response contract: `answer_markdown` + `citations[]` (doc_id/title/dataset/page/section/excerpt/confidence/chunk_id)
+- [ ] Enforce **RAG-only** grounding (no web, no uncited policy claims; “not found” → ask for upload)
+- [ ] Implement deterministic **Truth Table** gates (eligibility/prohibited/cross-border/required docs/sign-offs)
+- [ ] Implement **Automated Reasoning** (rule-based orchestration: next question, missing prerequisites, readiness state)
+- [ ] Implement **Weights** only for ranking evidence/confidence/prioritization (never for compliance decisions)
+- [ ] Persist citations per message in DB; render citations consistently across all chat surfaces + history
+- [ ] Add QA gates + strict mode flags (per agent) to prevent uncited compliance assertions
+
+**Checklist:** `docs/2026-02-24_Grounding_Citations_TruthTables_Checklist.md`
+
+### Phase 1 Audit — Gap Resolution (completed 2026-02-23)
+
+| Gap                                                | Resolution                                                                                                                                                                         |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Part A (13 fields) & Part B (routing table) absent | ✅ By design — handled outside template editor                                                                                                                                     |
+| 8 of 16 NpaFieldType values unused                 | ✅ Fixed: checkbox_group now used (ops_adequacy, tp_certifications). 6 remaining (file_upload, table_grid, flowchart, repeatable, conditional, reference_link) are Phase 2 UI work |
+| Section I.2 Target Customer: flat                  | ✅ Fixed: Restructured with a-g sub-question children                                                                                                                              |
+| Section I.3 Commercialization: missing d, e        | ✅ Fixed: Added sales_surveillance (d) and staff_training (e)                                                                                                                      |
+| Section II.1: only a-b                             | ✅ Fixed: Added c-j (ops adequacy, account controls, limits, manual fallback, collateral mgmt, custody, trade repository, SFEMC)                                                   |
+| Section II.5 BCM: 3 fields                         | ✅ Fixed: Expanded to 12 fields                                                                                                                                                    |
+| Section IV.A.3 Financial Crimes: missing           | ✅ Fixed: Added 5 fields + tree node                                                                                                                                               |
+| Section IV.A.D Funding Liquidity Risk: missing     | ✅ Fixed: Added 5 fields + tree node                                                                                                                                               |
+| Appendix 3: 7 fields                               | ✅ Fixed: Expanded to 19 fields across 4 sub-sections                                                                                                                              |
+| Appendix 6: 5 fields                               | ✅ Fixed: Expanded to 30 fields across 6 sub-sections                                                                                                                              |
+| Strategy comment inaccurate                        | ✅ Fixed: Updated to RULE=63, COPY=60, LLM=149, MANUAL=67                                                                                                                          |
+| 40 orphan registry fields                          | ✅ Fixed: All fields now mapped to tree nodes                                                                                                                                      |
+| Duplicate `valuation_model` in tree                | ✅ Fixed: Renamed to `app5_valuation_model` for APP.5.4                                                                                                                            |
+
+---
+
+## Phase 1: Foundation — Golden Template Expansion _(Current Priority)_
 
 > **Goal:** Align `npa-template-definition.ts` (87 fields) with the full NPA Template spec (250+ fields)
 
@@ -109,14 +125,14 @@
 - [x] **2.Model name & validation date** — 4 fields ✅
 - [x] **3.SIMM treatment** — 3 fields (incl. simm_backtesting) ✅ ADDED
 
-### 1.5 Section IV — Risk Analysis *(Most Complex)* (80+ fields, DONE)
+### 1.5 Section IV — Risk Analysis _(Most Complex)_ (80+ fields, DONE)
 
 - [x] **A.1 Legal & Compliance** — 9 fields covering a-g with MAS references ✅
 - [x] **A.2 Finance and Tax** — 12 fields ✅ EXPANDED:
   - [x] a-d basic fields ✅
   - [x] e. Service output fees — 3 fields (service_output_fees, service_fee_structure, service_fee_allocation) ✅ ADDED
   - [x] f. Tax considerations ✅
-  - [x] g. Regulatory matching — 4 fields (reg_matching_ifrs, _mas, _gst, _wht) ✅ ADDED
+  - [x] g. Regulatory matching — 4 fields (reg_matching_ifrs, \_mas, \_gst, \_wht) ✅ ADDED
 - [x] **A.3 Financial Crimes & Financial Security** — 5 fields ✅ NEW:
   - [x] a. Conduct considerations — `fc_conduct_considerations` ✅
   - [x] b. MAR assessment — `fc_mar_assessment` + `fc_mar_sub_items` (bullet_list) ✅
@@ -241,30 +257,30 @@
 
 ### 3.1 Dify Chat Agent Apps (Create in Dify)
 
-- [x] **AG_NPA_BIZ** — Business/Proposing Unit agent ✅ *Created on Dify Cloud, claude-sonnet-4-5, tested*
+- [x] **AG_NPA_BIZ** — Business/Proposing Unit agent ✅ _Created on Dify Cloud, claude-sonnet-4-5, tested_
   - Owns: Section I (Product Specs), Section VII (Trading Info)
   - Knowledge: Product catalogs, PAC minutes, market analysis
   - Capabilities: Product description drafting, market sizing, customer profiling
   - Backend config: ✅ `dify-agents.js` + env var `DIFY_KEY_AG_NPA_BIZ`
   - Dify app: `cloud.dify.ai/app/5ab6ddbc-1eb5-4d94-a761-227e7891818c`
-- [x] **AG_NPA_TECH_OPS** — Technology & Operations agent ✅ *Created on Dify Cloud, claude-sonnet-4-5, tested*
+- [x] **AG_NPA_TECH_OPS** — Technology & Operations agent ✅ _Created on Dify Cloud, claude-sonnet-4-5, tested_
   - Owns: Section II (Operational & Technology)
   - Knowledge: System architecture docs, BCP templates, DR runbooks
   - Capabilities: Operating model drafting, system impact assessment, BCM planning
   - Backend config: ✅ `dify-agents.js` + env var `DIFY_KEY_AG_NPA_TECH_OPS`
-- [x] **AG_NPA_FINANCE** — Finance agent ✅ *Created on Dify Cloud, claude-sonnet-4-5, tested*
+- [x] **AG_NPA_FINANCE** — Finance agent ✅ _Created on Dify Cloud, claude-sonnet-4-5, tested_
   - Owns: Section III (Pricing), Section V (Data Management)
   - Knowledge: Pricing models, SIMM docs, RDAR policies, PURE guidelines
   - Capabilities: Pricing methodology, model validation, tax impact analysis
   - Backend config: ✅ `dify-agents.js` + env var `DIFY_KEY_AG_NPA_FINANCE`
   - Dify app: `cloud.dify.ai/app/d256d4ed-0b0c-4262-ab46-45a60b56dfd1`
-- [x] **AG_NPA_RMG** — Risk Management Group agent ✅ *Created on Dify Cloud, claude-sonnet-4-5, tested*
+- [x] **AG_NPA_RMG** — Risk Management Group agent ✅ _Created on Dify Cloud, claude-sonnet-4-5, tested_
   - Owns: Section IV (Risk Analysis), Section VI (Other Risks)
   - Knowledge: MAS Notice 637, risk frameworks, capital calc methods, stress scenarios
   - Capabilities: Market risk assessment, credit risk analysis, liquidity risk, reputational risk
   - Backend config: ✅ `dify-agents.js` + env var `DIFY_KEY_AG_NPA_RMG`
   - Dify app: `cloud.dify.ai/app/b0eb2daf-6bd1-41db-9499-cea5f88207eb`
-- [x] **AG_NPA_LCS** — Legal, Compliance & Secretariat agent ✅ *Created on Dify Cloud, claude-sonnet-4-5, tested*
+- [x] **AG_NPA_LCS** — Legal, Compliance & Secretariat agent ✅ _Created on Dify Cloud, claude-sonnet-4-5, tested_
   - Owns: Appendix 1–6
   - Knowledge: Banking Act, AML/CFT regs, IP law, PDPA, sanctions lists
   - Capabilities: Legal opinion drafting, compliance checklists, financial crime assessment
@@ -425,76 +441,77 @@
 
 ## Implementation Priority Matrix
 
-| Phase | Effort | Impact | Priority | ETA |
-|-------|--------|--------|----------|-----|
-| **Phase 1:** Golden Template Expansion | High (3-5 days) | Critical | P0 — Do First | Week 1 |
-| **Phase 2:** UI Field Type Rendering | High (3-4 days) | Critical | P0 — Do First | Week 1-2 |
-| **Phase 3:** Sign-Off Party Agents | Medium (2-3 days) | High | P1 — Do Next | Week 2-3 |
-| **Phase 4:** Autofill Enhancement | Medium (2-3 days) | High | P1 — Do Next | Week 3 |
-| **Phase 5:** Advanced Features | High (5-7 days) | Medium | P2 — Plan | Week 4-5 |
-| **Phase 6:** Polish & Production | Medium (3-4 days) | Medium | P2 — Plan | Week 5-6 |
+| Phase                                  | Effort            | Impact   | Priority      | ETA      |
+| -------------------------------------- | ----------------- | -------- | ------------- | -------- |
+| **Phase 1:** Golden Template Expansion | High (3-5 days)   | Critical | P0 — Do First | Week 1   |
+| **Phase 2:** UI Field Type Rendering   | High (3-4 days)   | Critical | P0 — Do First | Week 1-2 |
+| **Phase 3:** Sign-Off Party Agents     | Medium (2-3 days) | High     | P1 — Do Next  | Week 2-3 |
+| **Phase 4:** Autofill Enhancement      | Medium (2-3 days) | High     | P1 — Do Next  | Week 3   |
+| **Phase 5:** Advanced Features         | High (5-7 days)   | Medium   | P2 — Plan     | Week 4-5 |
+| **Phase 6:** Polish & Production       | Medium (3-4 days) | Medium   | P2 — Plan     | Week 5-6 |
 
 ---
 
 ## File Impact Map
 
-| File | Phase | Changes |
-|------|-------|---------|
-| `src/app/lib/npa-template-definition.ts` | 1 | Expand from 87 to 250+ fields, add field type metadata |
-| `src/app/pages/npa-agent/npa-draft-builder/npa-draft-builder.component.ts` | 2, 3 | Add field type renderers, wire chat agents |
-| `src/app/pages/npa-agent/npa-draft-builder/npa-draft-builder.component.html` | 2 | Add templates for 14 field types |
-| `src/app/pages/npa-agent/npa-draft-builder/npa-draft-builder.component.css` | 2 | Styles for new field types |
-| `src/app/pages/npa-agent/npa-detail/npa-detail.component.ts` | 4 | Update autofill pipeline for new fields |
-| `src/app/services/dify/dify.service.ts` | 3 | Add 5 new agent IDs, conversation mgmt |
-| `src/app/services/dify/dify-agent.service.ts` | 3 | Register 5 chat agents in capability map |
-| `server/config/dify-agents.js` | 3 | Add API keys for 5 new agents |
-| `server/routes/dify-proxy.js` | 3 | Ensure chat proxy supports new agents |
-| `server/routes/npas.js` | 4 | Update prefill logic for 250+ fields |
-| `src/app/shared/icons/shared-icons.module.ts` | 2 | Add icons for new field types |
+| File                                                                         | Phase | Changes                                                |
+| ---------------------------------------------------------------------------- | ----- | ------------------------------------------------------ |
+| `src/app/lib/npa-template-definition.ts`                                     | 1     | Expand from 87 to 250+ fields, add field type metadata |
+| `src/app/pages/npa-agent/npa-draft-builder/npa-draft-builder.component.ts`   | 2, 3  | Add field type renderers, wire chat agents             |
+| `src/app/pages/npa-agent/npa-draft-builder/npa-draft-builder.component.html` | 2     | Add templates for 14 field types                       |
+| `src/app/pages/npa-agent/npa-draft-builder/npa-draft-builder.component.css`  | 2     | Styles for new field types                             |
+| `src/app/pages/npa-agent/npa-detail/npa-detail.component.ts`                 | 4     | Update autofill pipeline for new fields                |
+| `src/app/services/dify/dify.service.ts`                                      | 3     | Add 5 new agent IDs, conversation mgmt                 |
+| `src/app/services/dify/dify-agent.service.ts`                                | 3     | Register 5 chat agents in capability map               |
+| `server/config/dify-agents.js`                                               | 3     | Add API keys for 5 new agents                          |
+| `server/routes/dify-proxy.js`                                                | 3     | Ensure chat proxy supports new agents                  |
+| `server/routes/npas.js`                                                      | 4     | Update prefill logic for 250+ fields                   |
+| `src/app/shared/icons/shared-icons.module.ts`                                | 2     | Add icons for new field types                          |
 
 ---
 
 ## Quick Reference: Field Type Count by Section
 
-| Section | Text | Textarea | Dropdown | Multi-select | Yes/No | Checkbox | Bullet List | File Upload | Table Grid | Flowchart | Date | Repeatable | Conditional | Ref Link | **Total** |
-|---------|------|----------|----------|--------------|--------|----------|-------------|-------------|------------|-----------|------|------------|-------------|----------|-----------|
-| Part A | 8 | 1 | 2 | — | 1 | — | — | — | — | — | 1 | — | 1 | — | **14** |
-| Part B | 1 | — | — | — | — | 5 | — | — | — | — | — | — | — | — | **6** |
-| Sec I | 3 | 12 | 2 | 1 | 1 | — | 1 | 4 | — | — | — | 1 | 1 | — | **26** |
-| Sec II | 2 | 20 | 1 | — | 8 | 7 | — | — | 1 | 2 | — | — | — | 1 | **42** |
-| Sec III | 1 | 3 | — | — | 3 | — | — | — | — | — | 1 | — | — | — | **8** |
-| Sec IV | 2 | 35 | 3 | — | 15 | — | — | — | 2 | — | — | — | — | — | **57** |
-| Sec V | — | 5 | — | — | 3 | — | — | — | — | — | — | — | — | 2 | **10** |
-| Sec VI | — | 1 | — | — | — | — | — | — | — | — | — | — | — | — | **1** |
-| Sec VII | — | — | — | — | — | — | — | — | — | — | — | — | — | 1 | **1** |
-| App 1 | 5 | — | — | — | — | — | — | — | 1 | — | — | — | — | — | **6** |
-| App 2 | — | 1 | — | — | 3 | — | — | — | — | — | — | — | — | — | **4** |
-| App 3 | — | 8 | — | — | 9 | — | — | — | — | — | — | — | — | 1 | **18** |
-| App 4 | — | 2 | — | — | 2 | — | — | — | — | — | — | — | — | — | **4** |
-| App 5 | — | 8 | — | — | 5 | 2 | — | — | — | — | — | — | — | — | **15** |
-| App 6 | — | 12 | — | — | 15 | 2 | — | — | 1 | — | — | — | — | — | **30** |
-| **TOTAL** | **22** | **108** | **8** | **1** | **65** | **16** | **1** | **4** | **5** | **2** | **2** | **1** | **2** | **5** | **~242** |
+| Section   | Text   | Textarea | Dropdown | Multi-select | Yes/No | Checkbox | Bullet List | File Upload | Table Grid | Flowchart | Date  | Repeatable | Conditional | Ref Link | **Total** |
+| --------- | ------ | -------- | -------- | ------------ | ------ | -------- | ----------- | ----------- | ---------- | --------- | ----- | ---------- | ----------- | -------- | --------- |
+| Part A    | 8      | 1        | 2        | —            | 1      | —        | —           | —           | —          | —         | 1     | —          | 1           | —        | **14**    |
+| Part B    | 1      | —        | —        | —            | —      | 5        | —           | —           | —          | —         | —     | —          | —           | —        | **6**     |
+| Sec I     | 3      | 12       | 2        | 1            | 1      | —        | 1           | 4           | —          | —         | —     | 1          | 1           | —        | **26**    |
+| Sec II    | 2      | 20       | 1        | —            | 8      | 7        | —           | —           | 1          | 2         | —     | —          | —           | 1        | **42**    |
+| Sec III   | 1      | 3        | —        | —            | 3      | —        | —           | —           | —          | —         | 1     | —          | —           | —        | **8**     |
+| Sec IV    | 2      | 35       | 3        | —            | 15     | —        | —           | —           | 2          | —         | —     | —          | —           | —        | **57**    |
+| Sec V     | —      | 5        | —        | —            | 3      | —        | —           | —           | —          | —         | —     | —          | —           | 2        | **10**    |
+| Sec VI    | —      | 1        | —        | —            | —      | —        | —           | —           | —          | —         | —     | —          | —           | —        | **1**     |
+| Sec VII   | —      | —        | —        | —            | —      | —        | —           | —           | —          | —         | —     | —          | —           | 1        | **1**     |
+| App 1     | 5      | —        | —        | —            | —      | —        | —           | —           | 1          | —         | —     | —          | —           | —        | **6**     |
+| App 2     | —      | 1        | —        | —            | 3      | —        | —           | —           | —          | —         | —     | —          | —           | —        | **4**     |
+| App 3     | —      | 8        | —        | —            | 9      | —        | —           | —           | —          | —         | —     | —          | —           | 1        | **18**    |
+| App 4     | —      | 2        | —        | —            | 2      | —        | —           | —           | —          | —         | —     | —          | —           | —        | **4**     |
+| App 5     | —      | 8        | —        | —            | 5      | 2        | —           | —           | —          | —         | —     | —          | —           | —        | **15**    |
+| App 6     | —      | 12       | —        | —            | 15     | 2        | —           | —           | 1          | —         | —     | —          | —           | —        | **30**    |
+| **TOTAL** | **22** | **108**  | **8**    | **1**        | **65** | **16**   | **1**       | **4**       | **5**      | **2**     | **2** | **1**      | **2**       | **5**    | **~242**  |
 
 ---
 
 ## Dependencies & Prerequisites
 
-| Dependency | Status | Blocker For |
-|------------|--------|-------------|
-| Angular 20 dev server | ✅ Running (port 4200) | All frontend work |
-| Express backend | ✅ Running (port 3000) | API calls, autofill |
-| PostgreSQL DB | ✅ Active | Persistence |
-| Dify platform | ✅ Accessible | Agent chat, workflows |
-| SharedIconsModule | ✅ Fixed | Icon rendering |
-| NPA Template Specification | ✅ Extracted (250+ fields) | Phase 1 |
-| 5 Dify Chat Agent Apps | ✅ All 5 created on Dify Cloud, claude-sonnet-4-5, keys in .env, health-checked | Phase 3 |
-| MAS Notice 637 reference text | ❌ Not ingested | Phase 3 agent knowledge |
+| Dependency                    | Status                                                                          | Blocker For             |
+| ----------------------------- | ------------------------------------------------------------------------------- | ----------------------- |
+| Angular 20 dev server         | ✅ Running (port 4200)                                                          | All frontend work       |
+| Express backend               | ✅ Running (port 3000)                                                          | API calls, autofill     |
+| PostgreSQL DB                 | ✅ Active                                                                       | Persistence             |
+| Dify platform                 | ✅ Accessible                                                                   | Agent chat, workflows   |
+| SharedIconsModule             | ✅ Fixed                                                                        | Icon rendering          |
+| NPA Template Specification    | ✅ Extracted (250+ fields)                                                      | Phase 1                 |
+| 5 Dify Chat Agent Apps        | ✅ All 5 created on Dify Cloud, claude-sonnet-4-5, keys in .env, health-checked | Phase 3                 |
+| MAS Notice 637 reference text | ❌ Not ingested                                                                 | Phase 3 agent knowledge |
 
 ---
 
 ## Definition of Done (per Phase)
 
 ### Phase 1 Done When:
+
 - [x] `npa-template-definition.ts` has 240+ field definitions — **339 fields** ✅
 - [x] Every field has explicit `fieldType` property (not inferred) — **all 339** ✅
 - [x] Every field has `strategy` assignment (RULE/COPY/LLM/MANUAL) — **all 339** ✅
@@ -509,6 +526,7 @@
 - [x] All roadmap sections have corresponding fields — **all gaps filled** ✅
 
 ### Phase 2 Done When:
+
 - [x] All 14 field types render correctly in Draft Builder ✅ (14 of 16 fully implemented, 2 aliased to textarea)
 - [x] User can interact with every field type (edit, select, upload, add rows) ✅
 - [x] Field chrome (badges, tooltips, streaming) works for all types ✅
@@ -516,13 +534,15 @@
 - [x] Zero TypeScript errors during build ✅ (0 errors, 2 pre-existing budget warnings)
 
 ### Phase 3 Done When:
-- [x] 5 Dify Chat Agent apps created on Dify platform and responding ✅ *(All 5 on Dify Cloud, claude-sonnet-4-5, health-checked HEALTHY, chat-tested with real domain answers)*
+
+- [x] 5 Dify Chat Agent apps created on Dify platform and responding ✅ _(All 5 on Dify Cloud, claude-sonnet-4-5, health-checked HEALTHY, chat-tested with real domain answers)_
 - [x] Chat panel sends real messages to correct agent based on active section ✅
 - [x] Agent responses stream token-by-token with live text display ✅
 - [x] "Apply Suggestion" parses `@@NPA_META@@` and fills fields with Apply/Apply All buttons ✅
-- [ ] Conversation history persists across page refreshes *(in-memory only — deferred to Phase 6)*
+- [ ] Conversation history persists across page refreshes _(in-memory only — deferred to Phase 6)_
 
 ### Phase 4 Done When:
+
 - [ ] Phase 1 prefill (RULE+COPY) covers all applicable fields
 - [ ] Phase 2 autofill (LLM) generates content for all LLM strategy fields
 - [ ] Streaming autofill works in Draft Builder live view
@@ -530,6 +550,7 @@
 - [ ] Coverage percentage reaches 70%+ on autofill
 
 ### Phase 5 Done When:
+
 - [ ] NPA Lite track shows reduced field set
 - [ ] Document upload integrated into Draft Builder
 - [ ] Approval workflow routes to real sign-off parties
@@ -537,6 +558,7 @@
 - [ ] Audit trail captures all field changes
 
 ### Phase 6 Done When:
+
 - [ ] PDF export produces formatted NPA document
 - [ ] Auto-save prevents data loss
 - [ ] All unit tests pass
@@ -546,4 +568,4 @@
 
 ---
 
-*This roadmap is a living document. Update checkboxes as tasks are completed.*
+_This roadmap is a living document. Update checkboxes as tasks are completed._

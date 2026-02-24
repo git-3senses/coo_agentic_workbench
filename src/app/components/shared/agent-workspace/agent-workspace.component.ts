@@ -1176,6 +1176,8 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         this.npaService.create({ title, description, npa_type: payload.product_type || payload.npa_type || d.product_type || d.npa_type || 'STRUCTURED_PRODUCT' }).subscribe({
             next: (res) => {
                 const isNpaContext = this.config.context === 'NPA_AGENT';
+                // Re-run classification now that we have a real project_id so the workflow can persist results.
+                this.triggerClassifier(payload, res.id);
                 this.messages.push({
                     role: 'agent',
                     content: isNpaContext
@@ -1207,7 +1209,7 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
 
     // ─── CLASSIFIER Workflow ────────────────────────────────────
 
-    private triggerClassifier(payload?: any) {
+    private triggerClassifier(payload?: any, projectIdOverride?: string) {
         const d = payload?.data || {};
         const classifierInputs: Record<string, string> = {
             product_name: payload?.product_name || payload?.title || d.product_name || d.title || d.name || 'Untitled Product',
@@ -1217,11 +1219,23 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
             risk_features: payload?.risk_features || d.risk_features || '', jurisdictions: (payload?.jurisdictions || d.jurisdictions || []).join?.(', ') || '',
             notional_size: payload?.notional_size || payload?.notional || d.notional_size || d.notional || '', regulatory_framework: payload?.regulatory_framework || d.regulatory_framework || ''
         };
+        const projectId =
+            projectIdOverride
+            || payload?.project_id
+            || payload?.projectId
+            || payload?.npaId
+            || payload?.id
+            || d.project_id
+            || d.projectId
+            || '';
+        if (projectId) classifierInputs['project_id'] = String(projectId);
 
         this.difyService.runWorkflow('CLASSIFIER', classifierInputs).subscribe({
             next: (res) => {
                 if (res.data.status === 'succeeded') {
                     const classificationData = this.parseClassifierResponse(res.data.outputs);
+                    classificationData.workflowRunId = res.workflow_run_id;
+                    classificationData.taskId = res.task_id;
                     if (classificationData.prohibitedMatch?.matched) {
                         this.showGenerateButton = false;
                         this.messages.push({ role: 'agent', content: '**HARD STOP** — This product has been classified as **Prohibited**. NPA creation is blocked.', timestamp: new Date(), agentIdentity: this.AGENTS['CLASSIFIER'], cardType: 'HARD_STOP', cardData: classificationData });
@@ -1248,13 +1262,23 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
 
         let parsed: any;
         try { parsed = JSON.parse(rawResult); } catch {
-            return { type: 'NTG', track: 'Full NPA', scores: [], overallConfidence: 0, mandatorySignOffs: [] };
+            return {
+                type: 'NTG',
+                track: 'Full NPA',
+                scores: [],
+                overallConfidence: 0,
+                mandatorySignOffs: [],
+                analysisSummary: [
+                    'Classifier returned unstructured (non-JSON) output. Update the Dify workflow to return JSON-only to enable structured scoring.',
+                ],
+                rawOutput: rawResult
+            };
         }
 
         const trackMap: Record<string, string> = { 'FULL_NPA': 'Full NPA', 'NPA_LITE': 'NPA Lite', 'EVERGREEN': 'Evergreen', 'PROHIBITED': 'Prohibited', 'VARIATION': 'NPA Lite' };
         const typeMap: Record<string, string> = { 'FULL_NPA': 'NTG', 'NPA_LITE': 'Variation', 'EVERGREEN': 'Existing', 'PROHIBITED': 'NTG', 'VARIATION': 'Variation' };
 
-        const sc = parsed.scorecard || {};
+        const sc = parsed.scorecard || parsed.score_card || {};
         const ntgScore = sc.ntg_total_score || 0;
         const ntgMax = sc.ntg_max_score || 30;
 
@@ -1276,10 +1300,35 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         }
         const overallConfidence = ntgMax > 0 ? Math.round((1 - Math.abs(ntgScore - ntgMax / 2) / (ntgMax / 2)) * 100) : 80;
 
+        const analysisSummary: string[] = [];
+        const summary = parsed.analysis_summary || parsed.summary || {};
+        if (summary?.prohibited_check) analysisSummary.push(`Prohibited check: ${summary.prohibited_check}`);
+        if (summary?.cross_border !== undefined) analysisSummary.push(`Cross-border: ${summary.cross_border ? 'YES' : 'NO'}`);
+        if (summary?.similar_npas) analysisSummary.push(`Similar NPAs: ${summary.similar_npas}`);
+        if (summary?.product) analysisSummary.push(`Product: ${summary.product}`);
+
+        const ntgTriggers: { id: string; name: string; fired: boolean; reason?: string }[] = [];
+        const triggers = parsed.ntg_triggers || parsed.ntg_trigger_check || [];
+        if (Array.isArray(triggers)) {
+            for (const t of triggers) {
+                if (!t) continue;
+                ntgTriggers.push({
+                    id: String(t.id || t.trigger_id || ''),
+                    name: String(t.name || t.trigger || ''),
+                    fired: !!(t.fired ?? t.applies ?? t.is_true),
+                    reason: t.reason ? String(t.reason) : undefined
+                });
+            }
+        }
+
         return {
             type: (typeMap[parsed.classification_type] || 'NTG') as any,
             track: (trackMap[parsed.classification_type] || 'Full NPA') as any,
             scores, overallConfidence: Math.max(overallConfidence, 60),
+            ...(analysisSummary.length ? { analysisSummary } : {}),
+            ...(ntgTriggers.length ? { ntgTriggers } : {}),
+            rawOutput: outputs?.result || rawResult,
+            rawJson: parsed,
             prohibitedMatch: parsed.prohibited_check ? {
                 matched: parsed.prohibited_check.is_prohibited || false,
                 item: (parsed.prohibited_check.matched_items || [])[0] || undefined,

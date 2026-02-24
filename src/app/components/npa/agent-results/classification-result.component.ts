@@ -94,11 +94,68 @@ import { ClassificationResult } from '../../../lib/agent-interfaces';
           </span>
         </div>
       </div>
+
+      <!-- Explainability: Summary + Triggers -->
+      <div *ngIf="(result.analysisSummary && result.analysisSummary.length) || (result.ntgTriggers && result.ntgTriggers.length)"
+           class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <lucide-icon name="info" class="w-3.5 h-3.5 inline-block mr-1 -mt-0.5"></lucide-icon>
+            Rationale
+          </h4>
+          <div *ngIf="result.workflowRunId" class="text-[11px] text-slate-400 font-mono">
+            run: {{ result.workflowRunId }}
+          </div>
+        </div>
+
+        <ul *ngIf="result.analysisSummary && result.analysisSummary.length" class="list-disc pl-5 space-y-1 text-sm text-slate-700">
+          <li *ngFor="let line of result.analysisSummary">{{ line }}</li>
+        </ul>
+
+        <div *ngIf="result.ntgTriggers && result.ntgTriggers.length" class="mt-4">
+          <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">NTG Triggers</div>
+          <div class="space-y-1.5">
+            <div *ngFor="let t of result.ntgTriggers" class="flex items-start justify-between gap-3 text-sm">
+              <div class="text-slate-700">
+                <span class="font-mono text-[11px] text-slate-400 mr-2">{{ t.id }}</span>
+                <span class="font-medium">{{ t.name }}</span>
+                <span *ngIf="t.reason" class="text-slate-500"> — {{ t.reason }}</span>
+              </div>
+              <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold"
+                    [ngClass]="t.fired ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-50 text-slate-600 border border-slate-200'">
+                {{ t.fired ? 'FIRED' : 'NO' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full classifier output (for audit/debug and during prompt migration to JSON-only) -->
+      <div *ngIf="result.rawOutput"
+           class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <lucide-icon name="file-text" class="w-3.5 h-3.5 inline-block mr-1 -mt-0.5"></lucide-icon>
+            Full Output
+          </h4>
+          <button (click)="showFullOutput = !showFullOutput"
+                  class="text-xs font-medium text-slate-600 hover:text-slate-900 px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-50 transition-colors">
+            {{ showFullOutput ? 'Hide' : 'Show' }}
+          </button>
+        </div>
+        <div *ngIf="showFullOutput" class="mt-3">
+          <div class="text-xs text-slate-500 mb-2">
+            If this output is narrative text, update the Dify workflow to return JSON-only so the UI can render structured scoring/summary automatically.
+          </div>
+          <pre class="whitespace-pre-wrap text-[12px] leading-relaxed text-slate-800 bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-auto max-h-[420px]">{{ result.rawOutput }}</pre>
+        </div>
+      </div>
     </div>
   `
 })
 export class ClassificationResultComponent {
     @Input() result!: ClassificationResult;
+    showFullOutput = false;
 
     getTypeBadgeClass(type: string): string {
         switch (type) {

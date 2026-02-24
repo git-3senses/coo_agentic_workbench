@@ -76,14 +76,28 @@ const META_REGEX = /@@NPA_META@@(\{[\s\S]*\})$/;
 
 function buildDifyAppAliases() {
     const aliases = {};
+    const priority = {};
+
+    // Multiple internal agent IDs can point to the same Dify app (e.g. DILIGENCE + KB_SEARCH).
+    // Prefer the higher-priority agent (lower tier number). If tied, keep the first seen.
+    const setAlias = (key, id, tier) => {
+        if (!key) return;
+        const existingTier = priority[key];
+        if (existingTier === undefined || tier < existingTier) {
+            aliases[key] = id;
+            priority[key] = tier;
+        }
+    };
+
     for (const agent of AGENT_REGISTRY) {
         if (!agent?.id) continue;
         const id = String(agent.id);
+        const tier = typeof agent.tier === 'number' ? agent.tier : 99;
         const difyApp = agent.difyApp ? String(agent.difyApp) : null;
-        if (difyApp) aliases[difyApp] = id;
+        if (difyApp) setAlias(difyApp, id, tier);
         if (Array.isArray(agent.aliases)) {
             for (const a of agent.aliases) {
-                if (a) aliases[String(a)] = id;
+                if (a) setAlias(String(a), id, tier);
             }
         }
     }
