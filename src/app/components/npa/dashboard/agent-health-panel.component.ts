@@ -42,8 +42,7 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
              </div>
          </div>
 
-   // Template parts to update:
-         // Metric 2: Confidence Score
+         <!-- Metric 2: Confidence Score -->
          <div class="p-4 flex items-center gap-4">
              <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
                 <lucide-icon name="gauge" class="w-5 h-5"></lucide-icon>
@@ -59,7 +58,7 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
              </div>
          </div>
 
-          // Metric 3: Tools Used
+         <!-- Metric 3: Tools Used -->
          <div class="p-4 flex items-center gap-4">
              <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
                 <lucide-icon name="wrench" class="w-5 h-5"></lucide-icon>
@@ -71,7 +70,7 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
              </div>
          </div>
 
-         // Metric 4: KBs Connected
+         <!-- Metric 4: KBs Connected -->
          <div class="p-4 flex items-center gap-4">
              <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
                 <lucide-icon name="book-open" class="w-5 h-5"></lucide-icon>

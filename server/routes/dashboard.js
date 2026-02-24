@@ -89,7 +89,24 @@ router.get('/pipeline', async (req, res) => {
             FROM npa_projects
             WHERE status != 'Stopped'
             GROUP BY current_stage
-            ORDER BY FIELD(current_stage, 'DISCOVERY','INITIATION','DCE_REVIEW','RISK_ASSESSMENT','PENDING_SIGN_OFFS','PENDING_FINAL_APPROVAL','APPROVED','LAUNCHED','PROHIBITED')
+            ORDER BY FIELD(current_stage,
+              'INITIATION',
+              'DISCOVERY',
+              'DCE_REVIEW',
+              'REVIEW',
+              'RISK_ASSESSMENT',
+              'PENDING_SIGN_OFFS',
+              'SIGN_OFF',
+              'PENDING_FINAL_APPROVAL',
+              'LAUNCH_PREP',
+              'UAT',
+              'APPROVED',
+              'LAUNCH',
+              'LAUNCHED',
+              'PIR',
+              'MONITORING',
+              'PROHIBITED'
+            )
         `);
         res.json(rows);
     } catch (err) {

@@ -35,7 +35,7 @@ interface NpaItem {
     proposalPreparer: string;
     template: string;
     classification: 'Complex' | 'Standard' | 'Light';
-    stage: 'Discovery' | 'DCE Review' | 'Risk Assess' | 'Governance' | 'Sign-Off' | 'Launch';
+    stage: 'Initiation' | 'Discovery' | 'Review' | 'Sign-Off' | 'Pre Launch' | 'Launch' | 'PIR / Monitoring';
     status: 'On Track' | 'At Risk' | 'Delayed';
     ageDays: number;
 }
@@ -960,7 +960,7 @@ export class CooNpaDashboardComponent implements OnInit {
                     }
                 }
 
-                const stageOrder = ['Discovery', 'DCE Review', 'Risk Assess', 'Governance', 'Sign-Off', 'Launch'];
+                const stageOrder = ['Initiation', 'Discovery', 'Review', 'Sign-Off', 'Pre Launch', 'Launch', 'PIR / Monitoring'];
                 const staged = Array.from(stageAgg.values());
                 staged.sort((a, b) => {
                     const ia = stageOrder.indexOf(a.name);
@@ -1107,19 +1107,31 @@ export class CooNpaDashboardComponent implements OnInit {
 
     private mapStage(backendStage: string): any {
         const map: any = {
-            'INITIATION': 'Discovery',
+            'INITIATION': 'Initiation',
             'DISCOVERY': 'Discovery',
-            'REVIEW': 'DCE Review',
-            'RISK_ASSESSMENT': 'Risk Assess',
-            'DCE_REVIEW': 'DCE Review',
-            'GOVERNANCE': 'Governance',
+
+            // Maker/Checker editing + rework
+            'REVIEW': 'Review',
+            'DCE_REVIEW': 'Review',
+            'RETURNED_TO_MAKER': 'Review',
+
+            // Domain assessments and parallel SOP review
+            'RISK_ASSESSMENT': 'Sign-Off',
             'SIGN_OFF': 'Sign-Off',
             'PENDING_SIGN_OFFS': 'Sign-Off',
+
+            // Post sign-off activities before the first trade / first marketed offer
+            'GOVERNANCE': 'Pre Launch',
+            'PENDING_FINAL_APPROVAL': 'Pre Launch',
+            'APPROVED': 'Pre Launch',
+            'LAUNCH_PREP': 'Pre Launch',
+            'UAT': 'Pre Launch',
+
+            // Launch and after
             'LAUNCH': 'Launch',
-            'APPROVED': 'Launch',
             'LAUNCHED': 'Launch',
-            'MONITORING': 'Launch',
-            'RETURNED_TO_MAKER': 'Discovery'
+            'PIR': 'PIR / Monitoring',
+            'MONITORING': 'PIR / Monitoring'
         };
         return map[backendStage] || backendStage || 'Discovery';
     }
