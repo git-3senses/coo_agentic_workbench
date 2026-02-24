@@ -42,43 +42,44 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
              </div>
          </div>
 
-         <!-- Metric 2: Confidence Score -->
+   // Template parts to update:
+         // Metric 2: Confidence Score
          <div class="p-4 flex items-center gap-4">
              <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
                 <lucide-icon name="gauge" class="w-5 h-5"></lucide-icon>
              </div>
              <div>
-                <p class="text-2xl font-mono font-bold text-slate-900">{{ confidenceScore }}<span class="text-sm font-sans text-slate-500 font-normal ml-1">%</span></p>
+                <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.confidenceScore || 0 }}<span class="text-sm font-sans text-slate-500 font-normal ml-1">%</span></p>
                 <p class="text-xs text-slate-500 font-medium uppercase">Confidence Score</p>
                 <div class="flex items-center gap-1 mt-1">
-                   <div class="h-1.5 rounded-full" [style.width.%]="confidenceScore"
-                        [ngClass]="confidenceScore >= 80 ? 'bg-green-500' : confidenceScore >= 60 ? 'bg-amber-500' : 'bg-rose-500'"></div>
-                   <div class="h-1.5 bg-slate-200 rounded-full" [style.width.%]="100 - confidenceScore"></div>
+                   <div class="h-1.5 rounded-full" [style.width.%]="metrics.confidenceScore || 0"
+                        [ngClass]="(metrics.confidenceScore || 0) >= 80 ? 'bg-green-500' : (metrics.confidenceScore || 0) >= 60 ? 'bg-amber-500' : 'bg-rose-500'"></div>
+                   <div class="h-1.5 bg-slate-200 rounded-full" [style.width.%]="100 - (metrics.confidenceScore || 0)"></div>
                 </div>
              </div>
          </div>
 
-          <!-- Metric 3: Tools Used -->
+          // Metric 3: Tools Used
          <div class="p-4 flex items-center gap-4">
              <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
                 <lucide-icon name="wrench" class="w-5 h-5"></lucide-icon>
              </div>
              <div>
-                <p class="text-2xl font-mono font-bold text-slate-900">{{ toolsUsed }}</p>
+                <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.toolsUsed || 0 }}</p>
                 <p class="text-xs text-slate-500 font-medium uppercase">Tools Connected</p>
                 <p class="text-[10px] text-slate-400 mt-0.5">MCP, APIs, Workflows</p>
              </div>
          </div>
 
-         <!-- Metric 4: KBs Connected -->
+         // Metric 4: KBs Connected
          <div class="p-4 flex items-center gap-4">
              <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
                 <lucide-icon name="book-open" class="w-5 h-5"></lucide-icon>
              </div>
              <div>
-                <p class="text-2xl font-mono font-bold text-slate-900">{{ kbsConnected }}</p>
+                <p class="text-2xl font-mono font-bold text-slate-900">{{ metrics.kbsConnected || 0 }}</p>
                 <p class="text-xs text-slate-500 font-medium uppercase">KBs Connected</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">{{ kbRecords }} records indexed</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">{{ formatNumber(metrics.kbRecords || 0) }} records indexed</p>
              </div>
          </div>
 
@@ -88,13 +89,9 @@ import { HealthMetrics } from '../../../services/dify/dify-agent.service';
 })
 export class AgentHealthPanelComponent {
    @Input() metrics: HealthMetrics = {
-      status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0
+      status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0,
+      confidenceScore: 0, toolsUsed: 0, kbsConnected: 0, kbRecords: 0
    };
-
-   confidenceScore = 87;
-   toolsUsed = 54;
-   kbsConnected = 4;
-   kbRecords = '2.1k';
 
    formatNumber(num: number): string {
       if (num >= 1000) return (num / 1000).toFixed(1) + 'k';

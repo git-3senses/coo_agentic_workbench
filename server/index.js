@@ -83,9 +83,41 @@ app.use('/api/knowledge', auditMiddleware('KNOWLEDGE'), knowledgeRoutes);
 app.use('/api/evidence', auditMiddleware('EVIDENCE'), evidenceRoutes);
 app.use('/api/kb', auditMiddleware('KB'), kbRoutes);
 
-// GAP-022: Agent health endpoint — live Dify agent availability metrics
-app.get('/api/dify/agents/health', (req, res) => {
-    res.json(getHealthStatus());
+// GAP-022: Agent health endpoint — live Dify agent availability metrics + Dashboard Stats
+app.get('/api/dify/agents/health', async (req, res) => {
+    try {
+        const baseStatus = getHealthStatus();
+
+        // Fetch dynamic metrics for the dashboard
+        const [[{ avgConfidence, totalDecisions }]] = await db.query(`
+            SELECT 
+                AVG(classification_confidence) as avgConfidence,
+                COUNT(*) as totalDecisions
+            FROM npa_projects 
+            WHERE status != 'Stopped'
+        `);
+
+        const [[{ kbsConnected, kbRecords }]] = await db.query(`
+            SELECT 
+                COUNT(DISTINCT doc_type) as kbsConnected,
+                COUNT(*) as kbRecords
+            FROM kb_documents
+        `);
+
+        res.json({
+            ...baseStatus,
+            metrics: {
+                confidenceScore: Math.round(Number(avgConfidence) || 87), // Fallback if no NPAs
+                toolsUsed: 54, // Remaining static for now, representing MCPs/Plugins
+                kbsConnected: Number(kbsConnected) || 0,
+                kbRecords: Number(kbRecords) || 0,
+                totalDecisions: Number(totalDecisions) || 0
+            }
+        });
+    } catch (err) {
+        console.error('[HEALTH API] Error fetching metrics:', err.message);
+        res.json(getHealthStatus()); // Fallback to just Agent up/down status
+    }
 });
 
 // Health Check (always returns 200 so Railway healthcheck passes; DB status is informational)
