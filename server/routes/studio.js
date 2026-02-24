@@ -20,7 +20,13 @@ let upload;
 try {
     multer = require('multer');
 
-    const uploadRoot = path.join(__dirname, '..', '..', 'uploads', 'studio');
+    // NOTE: Render containers have ephemeral filesystems across deploys unless a Disk is attached.
+    // Support a persistent upload root via env var UPLOADS_DIR (recommended in prod).
+    // Example: UPLOADS_DIR=/var/data/uploads  (Render Disk mounted at /var/data)
+    const uploadsBase = process.env.UPLOADS_DIR
+        ? path.resolve(String(process.env.UPLOADS_DIR))
+        : path.join(__dirname, '..', '..', 'uploads');
+    const uploadRoot = path.join(uploadsBase, 'studio');
     if (!fs.existsSync(uploadRoot)) fs.mkdirSync(uploadRoot, { recursive: true });
 
     const storage = multer.diskStorage({
@@ -57,6 +63,40 @@ function sha256File(filePath) {
     const hash = crypto.createHash('sha256');
     hash.update(fs.readFileSync(filePath));
     return hash.digest('hex');
+}
+
+function resolveStudioFilePath(relPath) {
+    const repoRoot = path.join(__dirname, '..', '..'); // repo root
+    const uploadsInRepo = path.resolve(repoRoot, 'uploads');
+    const uploadsDirEnv = process.env.UPLOADS_DIR ? path.resolve(String(process.env.UPLOADS_DIR)) : null;
+
+    const rel = String(relPath || '').trim();
+    if (!rel) throw new Error('Invalid file path');
+
+    // Legacy format stored in DB: uploads/studio/<filename>
+    const candidates = [];
+    candidates.push(path.resolve(repoRoot, rel));
+    if (uploadsDirEnv && rel.startsWith('uploads' + path.posix.sep)) {
+        candidates.push(path.resolve(uploadsDirEnv, rel.slice(('uploads' + path.posix.sep).length)));
+    }
+
+    for (const abs of candidates) {
+        // prevent traversal
+        const absResolved = path.resolve(abs);
+        const okRepo = absResolved.startsWith(uploadsInRepo + path.sep) || absResolved === uploadsInRepo;
+        const okEnv = uploadsDirEnv
+            ? absResolved.startsWith(uploadsDirEnv + path.sep) || absResolved === uploadsDirEnv
+            : false;
+        if (!okRepo && !okEnv) continue;
+        if (fs.existsSync(absResolved)) return absResolved;
+    }
+
+    const hint = uploadsDirEnv
+        ? `File not found on disk. If you're on Render, attach a Disk and set UPLOADS_DIR=${uploadsDirEnv} so uploads persist across deploys.`
+        : `File not found on disk. If you're on Render, attach a Disk and set UPLOADS_DIR=/var/data/uploads so uploads persist across deploys.`;
+    const err = new Error(hint);
+    err.code = 'FILE_MISSING';
+    throw err;
 }
 
 function canAccessDoc(user, doc) {
@@ -279,8 +319,13 @@ router.get('/docs/:id/files/:fileId', requireAuth(), async (req, res) => {
         const file = rows[0];
         if (!file) return res.status(404).json({ error: 'File not found' });
 
-        const abs = path.join(__dirname, '..', '..', file.file_path);
-        if (!fs.existsSync(abs)) return res.status(404).json({ error: 'File missing on disk' });
+        let abs;
+        try {
+            abs = resolveStudioFilePath(file.file_path);
+        } catch (e) {
+            const msg = String(e?.message || 'File missing on disk');
+            return res.status(404).json({ error: msg });
+        }
         res.setHeader('Content-Type', file.mime_type || 'application/octet-stream');
         res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.filename)}"`);
         fs.createReadStream(abs).pipe(res);
@@ -312,10 +357,8 @@ router.delete('/docs/:id/files/:fileId', requireAuth(), async (req, res) => {
         await db.query('DELETE FROM studio_document_files WHERE id = ? AND studio_doc_id = ?', [file.id, doc.id]);
 
         try {
-            const rel = String(file.file_path || '').trim();
-            const abs = rel ? path.join(__dirname, '..', '..', rel) : null;
-            const uploadRoot = path.join(__dirname, '..', '..', 'uploads', 'studio');
-            if (abs && abs.startsWith(uploadRoot) && fs.existsSync(abs)) fs.unlinkSync(abs);
+            const abs = resolveStudioFilePath(file.file_path);
+            if (abs && fs.existsSync(abs)) fs.unlinkSync(abs);
         } catch {
             // Best-effort: file might already be missing; DB is the source of truth.
         }

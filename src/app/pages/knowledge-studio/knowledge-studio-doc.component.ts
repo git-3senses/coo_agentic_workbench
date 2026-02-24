@@ -351,6 +351,21 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
           this.selectedPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
         },
         error: (e) => {
+          const maybeBlob = e?.error;
+          if (maybeBlob instanceof Blob) {
+            maybeBlob.text().then((txt) => {
+              try {
+                const parsed = JSON.parse(txt || '{}');
+                this.previewError = String(parsed?.error || parsed?.message || e?.message || 'Failed to load PDF preview');
+              } catch {
+                this.previewError = String(txt || e?.message || 'Failed to load PDF preview');
+              }
+            }).catch(() => {
+              this.previewError = String(e?.message || 'Failed to load PDF preview');
+            });
+            return;
+          }
+
           const msg = e?.error?.error || e?.message || 'Failed to load PDF preview';
           this.previewError = String(msg);
         }
