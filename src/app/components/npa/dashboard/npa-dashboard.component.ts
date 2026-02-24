@@ -340,72 +340,25 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
               </div>
               
               <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex-1 flex flex-col">
-                 <div class="divide-y divide-slate-100">
-                    <!-- Item 1 -->
-                    <div class="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group">
+                 <div class="divide-y divide-slate-100 min-h-[160px]">
+                    <div *ngIf="difyKbs.length === 0" class="p-6 text-center text-slate-500 text-sm flex flex-col items-center gap-2">
+                       <lucide-icon name="loader-2" class="w-6 h-6 animate-spin text-slate-300"></lucide-icon>
+                       Loading Knowledge Bases...
+                    </div>
+                    
+                    <div *ngFor="let kb of difyKbs | slice:0:4" class="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group">
                        <div class="flex items-center gap-4">
                           <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
                              <lucide-icon name="database" class="w-5 h-5"></lucide-icon>
                           </div>
                           <div>
-                             <h4 class="text-sm font-bold text-slate-900 group-hover:text-indigo-600">Historical NPAs</h4>
-                             <p class="text-xs text-slate-500">1,784 records • Vector Embeddings • Updated 2h ago</p>
+                             <h4 class="text-sm font-bold text-slate-900 group-hover:text-indigo-600" [title]="kb.name">{{ kb.name | slice:0:30 }}{{ kb.name.length > 30 ? '...' : '' }}</h4>
+                             <p class="text-xs text-slate-500">{{ kb.document_count || kb.total_documents || 0 }} records • {{ kb.provider || 'Dify' }}</p>
                           </div>
                        </div>
                        <div class="flex items-center gap-3">
                           <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">SYNCED</span>
                           <lucide-icon name="chevron-right" class="w-4 h-4 text-slate-300 group-hover:text-indigo-400"></lucide-icon>
-                       </div>
-                    </div>
-
-                    <!-- Item 2 -->
-                    <div class="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group">
-                       <div class="flex items-center gap-4">
-                          <div class="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100">
-                             <lucide-icon name="file-text" class="w-5 h-5"></lucide-icon>
-                          </div>
-                          <div>
-                             <h4 class="text-sm font-bold text-slate-900 group-hover:text-orange-600">Policy Documents</h4>
-                             <p class="text-xs text-slate-500">MAS 656, DBS Risk Framework • 200+ Docs</p>
-                          </div>
-                       </div>
-                       <div class="flex items-center gap-3">
-                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">SYNCED</span>
-                          <lucide-icon name="chevron-right" class="w-4 h-4 text-slate-300 group-hover:text-orange-400"></lucide-icon>
-                       </div>
-                    </div>
-
-                    <!-- Item 3 -->
-                    <div class="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group">
-                       <div class="flex items-center gap-4">
-                          <div class="w-10 h-10 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center border border-cyan-100">
-                             <lucide-icon name="layout" class="w-5 h-5"></lucide-icon>
-                          </div>
-                          <div>
-                             <h4 class="text-sm font-bold text-slate-900 group-hover:text-cyan-600">Templates Library</h4>
-                             <p class="text-xs text-slate-500">15 Forms • Auto-fill ready (60+ fields)</p>
-                          </div>
-                       </div>
-                       <div class="flex items-center gap-3">
-                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">SYNCED</span>
-                          <lucide-icon name="chevron-right" class="w-4 h-4 text-slate-300 group-hover:text-cyan-400"></lucide-icon>
-                       </div>
-                    </div>
-
-                     <!-- Item 4 (Missing Gap): Product Classifications -->
-                    <div class="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group">
-                       <div class="flex items-center gap-4">
-                          <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-                             <lucide-icon name="tag" class="w-5 h-5"></lucide-icon>
-                          </div>
-                          <div>
-                             <h4 class="text-sm font-bold text-slate-900 group-hover:text-emerald-600">Product Classifications</h4>
-                             <p class="text-xs text-slate-500">Taxonomy, Asset Classes • Updated Today</p>
-                          </div>
-                       </div>
-                       <div class="flex items-center gap-3">
-                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">SYNCED</span>
-                          <lucide-icon name="chevron-right" class="w-4 h-4 text-slate-300 group-hover:text-emerald-400"></lucide-icon>
                        </div>
                     </div>
                  </div>

@@ -71,7 +71,7 @@ import { HealthMetrics, DifyAgentService } from '../../../services/dify/dify-age
          </div>
 
          <!-- Metric 4: KBs Connected -->
-         <div class="p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50" (click)="showKbs = !showKbs">
+         <div class="p-4 flex items-center gap-4 hover:bg-slate-50">
              <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
                 <lucide-icon name="book-open" class="w-5 h-5"></lucide-icon>
              </div>
@@ -81,27 +81,9 @@ import { HealthMetrics, DifyAgentService } from '../../../services/dify/dify-age
                    <p class="text-xs text-slate-500 font-medium uppercase">KBs Connected</p>
                    <p class="text-[10px] text-slate-400 mt-0.5">{{ formatNumber(totalKbRecords || metrics.kbRecords || 0) }} records indexed</p>
                 </div>
-                <lucide-icon [name]="showKbs ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 text-slate-400"></lucide-icon>
              </div>
          </div>
 
-      </div>
-
-      <!-- KBs List Expanded Area -->
-      <div *ngIf="showKbs" class="border-t border-slate-100 bg-slate-50 p-4 max-h-60 overflow-y-auto">
-         <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-2">Connected Datasets (Dify API)</h4>
-         <div *ngIf="kbs.length === 0" class="text-sm text-slate-500 px-2">No KBs found or failed to load.</div>
-         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div *ngFor="let kb of kbs" class="bg-white p-3 rounded border border-slate-200 flex items-start gap-3">
-               <div class="w-8 h-8 rounded shrink-0 flex items-center justify-center text-slate-500 bg-slate-100">
-                  <lucide-icon name="database" class="w-4 h-4"></lucide-icon>
-               </div>
-               <div>
-                  <h5 class="text-sm font-medium text-slate-900 leading-tight mb-1" [title]="kb.name">{{ kb.name | slice:0:30 }}{{ kb.name.length > 30 ? '...' : '' }}</h5>
-                  <p class="text-[10px] text-slate-500">{{ formatNumber(kb.document_count || kb.total_documents || 0) }} indexed docs • {{ kb.provider || 'Dify' }}</p>
-               </div>
-            </div>
-         </div>
       </div>
     </div>
   `
@@ -114,7 +96,6 @@ export class AgentHealthPanelComponent implements OnInit {
 
    kbs: any[] = [];
    totalKbRecords = 0;
-   showKbs = false;
 
    constructor(private difyService: DifyAgentService) { }
 
