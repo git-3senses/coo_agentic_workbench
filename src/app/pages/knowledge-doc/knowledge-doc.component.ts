@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -137,7 +137,7 @@ type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; t
   </div>
   `
 })
-export class KnowledgeDocComponent implements OnInit {
+export class KnowledgeDocComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   router = inject(Router);
   private http = inject(HttpClient);
@@ -147,6 +147,7 @@ export class KnowledgeDocComponent implements OnInit {
   docId = '';
   doc: any = null;
   pdfUrl: SafeResourceUrl | null = null;
+  private objectUrl: string | null = null;
 
   selectedAgent: 'KB_SEARCH' | 'DILIGENCE' | 'MASTER_COO' = 'KB_SEARCH';
   messages: ChatMsg[] = [];
@@ -158,20 +159,56 @@ export class KnowledgeDocComponent implements OnInit {
     this.loadDoc();
   }
 
+  ngOnDestroy(): void {
+    this.revokeObjectUrl();
+  }
+
+  private revokeObjectUrl(): void {
+    if (this.objectUrl) {
+      try { URL.revokeObjectURL(this.objectUrl); } catch { /* ignore */ }
+      this.objectUrl = null;
+    }
+  }
+
   private loadDoc() {
     this.http.get<any>(`/api/kb/${encodeURIComponent(this.docId)}`).subscribe({
       next: (doc) => {
         this.doc = doc;
-        if (doc?.file_path) {
-          const url = `/api/kb/${encodeURIComponent(this.docId)}/file`;
-          this.pdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
-        } else {
+        // Important: do NOT iframe directly to /api/kb/:id/file because the Authorization
+        // header from our JWT interceptor is not attached to <iframe> requests.
+        // Instead, fetch as a blob via HttpClient (auth header included), then display
+        // using a safe object URL.
+        if (doc?.file_path) this.loadPdfBlob();
+        else {
+          this.revokeObjectUrl();
           this.pdfUrl = null;
         }
       },
       error: () => {
         this.doc = null;
+        this.revokeObjectUrl();
         this.pdfUrl = null;
+      }
+    });
+  }
+
+  private loadPdfBlob(): void {
+    const url = `/api/kb/${encodeURIComponent(this.docId)}/file`;
+    this.http.get(url, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        this.revokeObjectUrl();
+        this.objectUrl = URL.createObjectURL(blob);
+        this.pdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+      },
+      error: (err) => {
+        this.revokeObjectUrl();
+        this.pdfUrl = null;
+        const msg = err?.error?.error || err?.message || 'Failed to load PDF';
+        this.messages.push({
+          role: 'agent',
+          content: `Document viewer error: ${String(msg)}\n\nIf this is a permissions issue, please log in again and retry.`,
+          ts: Date.now()
+        });
       }
     });
   }
