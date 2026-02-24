@@ -1107,7 +1107,7 @@ router.get('/datasets', async (req, res) => {
             headers: {
                 'Authorization': `Bearer ${apiKey}`
             },
-            timeout: 10000
+            timeout: 30000
         });
 
         res.json(response.data);
