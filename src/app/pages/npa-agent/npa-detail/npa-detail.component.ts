@@ -1088,11 +1088,11 @@ export class NpaDetailComponent implements OnInit {
       this.mlPrediction = null;
       this.riskAssessmentResult = null;
       this.agentErrors = {};
-      this.runAgentAnalysis();
+      this.runAgentAnalysis(true); // Force run when user explicitly clicks Refresh
    }
 
-   private runAgentAnalysis(): void {
-      if (this._agentsLaunched) return;
+   private runAgentAnalysis(forceRun: boolean = false): void {
+      if (this._agentsLaunched && !forceRun) return;
       const inputs = this.buildWorkflowInputs();
       if (!inputs['project_id']) return;
 
@@ -1126,13 +1126,12 @@ export class NpaDetailComponent implements OnInit {
       this.waveContext = {};
 
       const shouldRun: Record<string, boolean> = {
-         RISK: !hasRisk,
-         CLASSIFIER: !hasClassification,
-         // Avoid "ML Prediction loop" on every reload when we already have a synthesized prediction.
-         ML_PREDICT: !hasMlPredict,
-         GOVERNANCE: !hasGovernance,
-         DOC_LIFECYCLE: !hasDocs,
-         MONITORING: !this.monitoringResult,
+         RISK: forceRun ? !hasRisk : false,
+         CLASSIFIER: forceRun ? !hasClassification : false,
+         ML_PREDICT: forceRun ? !hasMlPredict : false,
+         GOVERNANCE: forceRun ? !hasGovernance : false,
+         DOC_LIFECYCLE: forceRun ? !hasDocs : false,
+         MONITORING: forceRun ? !this.monitoringResult : false,
       };
       Object.keys(shouldRun).forEach(a => {
          this.agentLoading[a] = !!shouldRun[a];
