@@ -1043,7 +1043,7 @@ export class NpaDetailComponent implements OnInit {
       };
       const productDesc = d.description || d.title || fieldValue('product_description', '') || fieldValue('business_rationale', 'NPA Product');
       return {
-         project_id: d.id || this.projectId || '',
+         project_id: d.id || this.projectId || 'DRAFT',
          product_description: productDesc,
          product_category: fieldValue('product_category', '') || fieldValue('product_type', '') || d.product_category || d.npa_type || '',
          underlying_asset: fieldValue('underlying_asset', ''),
@@ -1094,7 +1094,6 @@ export class NpaDetailComponent implements OnInit {
    private runAgentAnalysis(forceRun: boolean = false): void {
       if (this._agentsLaunched && !forceRun) return;
       const inputs = this.buildWorkflowInputs();
-      if (!inputs['project_id']) return;
 
       const dedupKey = `_npa_agents_running_${inputs['project_id']}`;
       const dedupTs = sessionStorage.getItem(dedupKey);
