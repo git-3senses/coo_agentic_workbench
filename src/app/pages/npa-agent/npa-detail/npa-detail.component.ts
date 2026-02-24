@@ -662,6 +662,20 @@ export class NpaDetailComponent implements OnInit {
                   confidence: f.confidence_score
                };
             });
+      } else {
+         // Fallback for newly created drafts where formData hasn't been generated yet
+         this.productAttributes = [
+            { label: 'Product Name', value: data.title || 'Untitled', confidence: 100 },
+            { label: 'Product Type', value: data.npa_type || 'Unknown Type', confidence: 100 },
+            { label: 'Current Stage', value: data.current_stage || 'INITIATION', confidence: 100 }
+         ];
+         if (data.description) {
+            this.productAttributes.push({
+               label: 'Description',
+               value: data.description.length > 80 ? data.description.substring(0, 80) + '...' : data.description,
+               confidence: 100
+            });
+         }
       }
 
       // Pre-populate governanceState from DB signoffs
