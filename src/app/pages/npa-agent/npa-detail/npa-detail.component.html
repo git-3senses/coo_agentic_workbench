@@ -56,9 +56,9 @@
       </div>
 
       <div class="flex items-center gap-3">
-         <button *ngIf="dbDataSufficient" (click)="refreshAgentAnalysis()"
+         <button (click)="refreshAgentAnalysis()"
             class="px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200 hover:border-indigo-300 flex items-center gap-2"
-            title="Re-run all AI agents with live Dify analysis">
+            title="Run AI agents for missing analysis or refresh with live Dify analysis">
             <lucide-icon name="refresh-cw" class="w-4 h-4"></lucide-icon>
             Refresh Analysis
          </button>
@@ -324,17 +324,25 @@
                      </h4>
                      <app-classification-result [result]="classificationResult"></app-classification-result>
                   </div>
-                  <div *ngIf="!classificationResult && agentLoading['CLASSIFIER']"
-                     class="mt-8 pt-8 border-t border-slate-200">
+                  <div *ngIf="!classificationResult" class="mt-8 pt-8 border-t border-slate-200">
                      <h4
                         class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                         <lucide-icon name="git-branch" class="w-4 h-4 text-purple-500"></lucide-icon>
                         Classification Agent
                      </h4>
                      <div class="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center">
-                        <lucide-icon name="loader-2"
-                           class="w-6 h-6 mx-auto mb-2 text-slate-400 animate-spin"></lucide-icon>
-                        <p class="text-sm font-medium text-slate-500">Classification agent analyzing product type...</p>
+                        <ng-container *ngIf="agentLoading['CLASSIFIER']">
+                           <lucide-icon name="loader-2"
+                              class="w-6 h-6 mx-auto mb-2 text-indigo-400 animate-spin"></lucide-icon>
+                           <p class="text-sm font-medium text-slate-500">Classification agent analyzing product type...
+                           </p>
+                        </ng-container>
+                        <ng-container *ngIf="!agentLoading['CLASSIFIER']">
+                           <lucide-icon name="bot" class="w-8 h-8 mx-auto mb-3 text-slate-300"></lucide-icon>
+                           <p class="text-sm font-medium text-slate-500">Classification analysis not yet available.</p>
+                           <p class="text-xs text-slate-400 mt-1">Click <strong>Refresh Analysis</strong> above to run
+                              the agent.</p>
+                        </ng-container>
                      </div>
                   </div>
                </div>
@@ -354,10 +362,17 @@
                      <app-doc-completeness *ngIf="docCompleteness" [result]="docCompleteness"></app-doc-completeness>
                      <div *ngIf="!docCompleteness"
                         class="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center text-slate-500">
-                        <lucide-icon name="loader-2"
-                           class="w-6 h-6 mx-auto mb-2 text-slate-400 animate-spin"></lucide-icon>
-                        <p class="text-sm font-medium">Document completeness analysis will appear once the agent runs.
-                        </p>
+                        <ng-container *ngIf="agentLoading['DOC_LIFECYCLE']">
+                           <lucide-icon name="loader-2"
+                              class="w-6 h-6 mx-auto mb-2 text-teal-400 animate-spin"></lucide-icon>
+                           <p class="text-sm font-medium">Document completeness analysis in progress...</p>
+                        </ng-container>
+                        <ng-container *ngIf="!agentLoading['DOC_LIFECYCLE']">
+                           <lucide-icon name="bot" class="w-8 h-8 mx-auto mb-3 text-slate-300"></lucide-icon>
+                           <p class="text-sm font-medium">Document completeness analysis not yet available.</p>
+                           <p class="text-xs text-slate-400 mt-1">Click <strong>Refresh Analysis</strong> to run the
+                              agent.</p>
+                        </ng-container>
                      </div>
                   </div>
                </div>
@@ -393,10 +408,17 @@
                      </div>
                      <div *ngIf="riskAssessments.length === 0"
                         class="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center text-slate-500">
-                        <lucide-icon name="shield-alert" class="w-8 h-8 mx-auto mb-3 text-slate-300"></lucide-icon>
-                        <p class="text-sm font-medium">Risk analysis data not yet available.</p>
-                        <p class="text-xs text-slate-400 mt-1">The RISK agent will populate this section when it runs.
-                        </p>
+                        <ng-container *ngIf="agentLoading['RISK']">
+                           <lucide-icon name="loader-2"
+                              class="w-6 h-6 mx-auto mb-2 text-slate-400 animate-spin"></lucide-icon>
+                           <p class="text-sm font-medium">Risk agent analyzing proposition...</p>
+                        </ng-container>
+                        <ng-container *ngIf="!agentLoading['RISK']">
+                           <lucide-icon name="shield-alert" class="w-8 h-8 mx-auto mb-3 text-slate-300"></lucide-icon>
+                           <p class="text-sm font-medium">Risk analysis data not yet available.</p>
+                           <p class="text-xs text-slate-400 mt-1">Click <strong>Refresh Analysis</strong> to populate
+                              this section.</p>
+                        </ng-container>
                      </div>
                   </div>
 
@@ -443,9 +465,17 @@
                      <app-ml-prediction-result *ngIf="mlPrediction" [result]="mlPrediction"></app-ml-prediction-result>
                      <div *ngIf="!mlPrediction"
                         class="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center text-slate-500">
-                        <lucide-icon name="loader-2"
-                           class="w-6 h-6 mx-auto mb-2 text-slate-400 animate-spin"></lucide-icon>
-                        <p class="text-sm font-medium">ML Prediction results will appear here once the agent runs.</p>
+                        <ng-container *ngIf="agentLoading['ML_PREDICT']">
+                           <lucide-icon name="loader-2"
+                              class="w-6 h-6 mx-auto mb-2 text-amber-500 animate-spin"></lucide-icon>
+                           <p class="text-sm font-medium">ML Prediction analyzing historical trends...</p>
+                        </ng-container>
+                        <ng-container *ngIf="!agentLoading['ML_PREDICT']">
+                           <lucide-icon name="bot" class="w-8 h-8 mx-auto mb-3 text-slate-300"></lucide-icon>
+                           <p class="text-sm font-medium">ML Prediction results not yet available.</p>
+                           <p class="text-xs text-slate-400 mt-1">Click <strong>Refresh Analysis</strong> to run the
+                              agent.</p>
+                        </ng-container>
                      </div>
                   </div>
 
