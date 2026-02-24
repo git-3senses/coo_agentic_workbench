@@ -113,23 +113,38 @@ export class KnowledgeBaseComponent implements OnInit {
     this.isLoading = true;
     this.http.get<any[]>('/api/knowledge').subscribe({
       next: (docs) => {
-        // Map kb_documents UI columns to expected template fields
-        const mapDoc = (d: any) => ({
-          ...d,
-          icon: d.icon_name || d.icon || 'file-text',
-          desc: d.description,
-          agent: d.agent_target,
-          type: d.doc_type || d.doc_format || d.type || null,
-          date: d.display_date || (d.last_synced ? new Date(d.last_synced).toLocaleDateString() : 'N/A')
-        });
+        const list = Array.isArray(docs) ? docs : [];
 
-        const universal = docs.filter(d => d.category === 'UNIVERSAL').map(mapDoc);
-        const agent = docs.filter(d => d.category === 'AGENT').map(mapDoc);
-        const workflow = docs.filter(d => d.category === 'WORKFLOW').map(mapDoc);
+        // Normalize + map kb_documents UI columns to expected template fields
+        const mapDoc = (d: any) => {
+          const category = String(d?.category || d?.ui_category || '').trim().toUpperCase();
+          return {
+            ...d,
+            category,
+            icon: d.icon_name || d.icon || 'file-text',
+            desc: d.description,
+            agent: d.agent_target,
+            type: d.doc_type || d.doc_format || d.type || null,
+            date: d.display_date || (d.last_synced ? new Date(d.last_synced).toLocaleDateString() : 'N/A')
+          };
+        };
 
-        if (universal.length) this.universalDocs = universal;
-        if (agent.length) this.agentDocs = agent;
-        if (workflow.length) this.workflowDocs = workflow;
+        const mapped = list.map(mapDoc);
+
+        const universal = mapped.filter(d => d.category === 'UNIVERSAL');
+        const agent = mapped.filter(d => d.category === 'AGENT');
+        const workflow = mapped.filter(d => d.category === 'WORKFLOW');
+
+        // If DB returns any docs at all, prefer DB truth. Only fall back when API is unreachable/empty.
+        if (mapped.length > 0) {
+          this.universalDocs = universal;
+          this.agentDocs = agent;
+          this.workflowDocs = workflow;
+        } else {
+          this.universalDocs = [...this.fallbackUniversalDocs];
+          this.agentDocs = [...this.fallbackAgentDocs];
+          this.workflowDocs = [...this.fallbackWorkflowDocs];
+        }
 
         this.isLoading = false;
       },
