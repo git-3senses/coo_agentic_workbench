@@ -944,13 +944,36 @@ export class CooNpaDashboardComponent implements OnInit {
                 this.mapKpis(data.kpis);
 
                 // Pipeline stages
-                this.pipelineStages = data.pipeline.map(s => ({
-                    name: this.mapStage(s.stage),
-                    count: s.count,
-                    avgTime: '--',
-                    risk: s.risk_count || 0,
-                    status: (s.risk_count || 0) > 0 ? 'danger' : (s.count > 10 ? 'warning' : 'normal')
-                }));
+                // Backend may return both INITIATION and DISCOVERY (etc). After mapping to UI labels,
+                // merge duplicates so the overview does not show repeated stages (e.g. "Discovery" twice).
+                const stageAgg = new Map<string, { name: string; count: number; avgTime: string; risk: number; status: string }>();
+                for (const s of data.pipeline) {
+                    const name = this.mapStage(s.stage);
+                    const prev = stageAgg.get(name);
+                    const count = Number(s.count || 0);
+                    const risk = Number(s.risk_count || 0);
+                    if (!prev) {
+                        stageAgg.set(name, { name, count, risk, avgTime: '--', status: 'normal' });
+                    } else {
+                        prev.count += count;
+                        prev.risk += risk;
+                    }
+                }
+
+                const stageOrder = ['Discovery', 'DCE Review', 'Risk Assess', 'Governance', 'Sign-Off', 'Launch'];
+                const staged = Array.from(stageAgg.values());
+                staged.sort((a, b) => {
+                    const ia = stageOrder.indexOf(a.name);
+                    const ib = stageOrder.indexOf(b.name);
+                    if (ia === -1 && ib === -1) return a.name.localeCompare(b.name);
+                    if (ia === -1) return 1;
+                    if (ib === -1) return -1;
+                    return ia - ib;
+                });
+                for (const st of staged) {
+                    st.status = st.risk > 0 ? 'danger' : (st.count > 10 ? 'warning' : 'normal');
+                }
+                this.pipelineStages = staged;
 
                 // Ageing buckets → bar chart
                 const maxCount = Math.max(...data.ageing.map(a => a.count), 1);
