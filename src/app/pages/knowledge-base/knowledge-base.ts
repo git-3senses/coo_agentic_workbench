@@ -69,7 +69,21 @@ export class KnowledgeBaseComponent implements OnInit {
   uploadError: string | null = null;
   showDifySyncModal = false;
   difySyncError: string | null = null;
-  difySyncResult: any = null;
+
+  difySyncResult: {
+    dataset_id: string;
+    imported: number;
+    skipped: number;
+    errors: number;
+    docs: Array<{
+      doc_id: string;
+      title: string;
+      status: 'IMPORTED' | 'SKIPPED' | 'ERROR';
+      reason?: string;
+      downloaded_pdf?: boolean;
+      source_url?: boolean;
+    }>;
+  } | null = null;
   difySyncForm = {
     dataset_id: '',
     ui_category: 'UNIVERSAL' as 'UNIVERSAL' | 'AGENT' | 'WORKFLOW',
@@ -174,6 +188,10 @@ export class KnowledgeBaseComponent implements OnInit {
     this.showDifySyncModal = false;
     this.difySyncError = null;
     this.difySyncResult = null;
+  }
+
+  get difySyncDocs() {
+    return this.difySyncResult?.docs || [];
   }
 
   submitDifySync() {

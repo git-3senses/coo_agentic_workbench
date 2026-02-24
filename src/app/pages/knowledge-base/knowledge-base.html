@@ -384,10 +384,10 @@
                     Errors: <span class="font-mono">{{ difySyncResult.errors }}</span>
                 </div>
 
-                <div *ngIf="difySyncResult?.docs?.length" class="text-xs">
+                <div *ngIf="difySyncDocs.length" class="text-xs">
                     <div class="font-semibold text-slate-700 mb-2">Details (first 8)</div>
                     <div class="space-y-2 max-h-44 overflow-y-auto pr-1">
-                        <div *ngFor="let d of (difySyncResult.docs | slice:0:8)"
+                        <div *ngFor="let d of (difySyncDocs | slice:0:8)"
                             class="border border-slate-200 rounded-xl p-2 bg-white">
                             <div class="flex items-center justify-between">
                                 <div class="font-mono text-[11px] text-slate-700">{{ d.doc_id }}</div>
