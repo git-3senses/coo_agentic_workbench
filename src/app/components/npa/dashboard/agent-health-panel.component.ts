@@ -79,7 +79,7 @@ import { HealthMetrics, DifyAgentService } from '../../../services/dify/dify-age
                 <div>
                    <p class="text-2xl font-mono font-bold text-slate-900">{{ kbs.length || metrics.kbsConnected || 0 }}</p>
                    <p class="text-xs text-slate-500 font-medium uppercase">KBs Connected</p>
-                   <p class="text-[10px] text-slate-400 mt-0.5">{{ formatNumber(metrics.kbRecords || 0) }} records indexed</p>
+                   <p class="text-[10px] text-slate-400 mt-0.5">{{ formatNumber(totalKbRecords || metrics.kbRecords || 0) }} records indexed</p>
                 </div>
                 <lucide-icon [name]="showKbs ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 text-slate-400"></lucide-icon>
              </div>
@@ -97,7 +97,7 @@ import { HealthMetrics, DifyAgentService } from '../../../services/dify/dify-age
                   <lucide-icon name="database" class="w-4 h-4"></lucide-icon>
                </div>
                <div>
-                  <h5 class="text-sm font-medium text-slate-900 leading-tight mb-1">{{ kb.name }}</h5>
+                  <h5 class="text-sm font-medium text-slate-900 leading-tight mb-1" [title]="kb.name">{{ kb.name | slice:0:30 }}{{ kb.name.length > 30 ? '...' : '' }}</h5>
                   <p class="text-[10px] text-slate-500">{{ formatNumber(kb.document_count || kb.total_documents || 0) }} indexed docs • {{ kb.provider || 'Dify' }}</p>
                </div>
             </div>
@@ -113,6 +113,7 @@ export class AgentHealthPanelComponent implements OnInit {
    };
 
    kbs: any[] = [];
+   totalKbRecords = 0;
    showKbs = false;
 
    constructor(private difyService: DifyAgentService) { }
@@ -120,6 +121,7 @@ export class AgentHealthPanelComponent implements OnInit {
    ngOnInit() {
       this.difyService.getConnectedKnowledgeBases().subscribe(kbs => {
          this.kbs = kbs;
+         this.totalKbRecords = kbs.reduce((sum, kb) => sum + (kb.document_count || kb.total_documents || 0), 0);
       });
    }
 
