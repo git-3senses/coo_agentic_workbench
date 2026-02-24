@@ -383,6 +383,30 @@
                     Skipped: <span class="font-mono">{{ difySyncResult.skipped }}</span> •
                     Errors: <span class="font-mono">{{ difySyncResult.errors }}</span>
                 </div>
+
+                <div *ngIf="difySyncResult?.docs?.length" class="text-xs">
+                    <div class="font-semibold text-slate-700 mb-2">Details (first 8)</div>
+                    <div class="space-y-2 max-h-44 overflow-y-auto pr-1">
+                        <div *ngFor="let d of (difySyncResult.docs | slice:0:8)"
+                            class="border border-slate-200 rounded-xl p-2 bg-white">
+                            <div class="flex items-center justify-between">
+                                <div class="font-mono text-[11px] text-slate-700">{{ d.doc_id }}</div>
+                                <div class="text-[11px] font-semibold"
+                                    [class.text-emerald-700]="d.status==='IMPORTED'"
+                                    [class.text-rose-700]="d.status==='ERROR'"
+                                    [class.text-slate-500]="d.status==='SKIPPED'">
+                                    {{ d.status }}
+                                </div>
+                            </div>
+                            <div class="text-[11px] text-slate-600 mt-0.5">{{ d.title }}</div>
+                            <div *ngIf="d.reason" class="text-[11px] text-rose-700 mt-1 whitespace-pre-wrap">{{ d.reason }}</div>
+                            <div *ngIf="d.status==='IMPORTED'" class="text-[11px] text-slate-500 mt-1">
+                                PDF: <span class="font-mono">{{ d.downloaded_pdf ? 'yes' : 'no' }}</span> •
+                                Source URL: <span class="font-mono">{{ d.source_url ? 'yes' : 'no' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2">

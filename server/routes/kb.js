@@ -75,6 +75,19 @@ async function downloadToFile(url, destPath) {
     return { size: stat.size, contentType: resp.headers?.['content-type'] };
 }
 
+function formatAxiosError(e) {
+    const status = e?.response?.status;
+    const data = e?.response?.data;
+    const snippet =
+        typeof data === 'string'
+            ? data.slice(0, 300)
+            : data
+              ? JSON.stringify(data).slice(0, 300)
+              : '';
+    const base = e?.message || 'Request failed';
+    return status ? `${base} (HTTP ${status})${snippet ? `: ${snippet}` : ''}` : base;
+}
+
 function resolveKbPath(relPath) {
     const baseDir = path.join(__dirname, '..', '..'); // repo root
     const abs = path.resolve(baseDir, relPath);
@@ -309,7 +322,7 @@ router.post('/dify/sync', requireAuth(), async (req, res) => {
         const limit = 50;
         for (;;) {
             const r = await client.get(`/datasets/${encodeURIComponent(datasetId)}/documents`, { params: { page, limit } });
-            const items = r?.data?.data || r?.data?.documents || r?.data || [];
+            const items = r?.data?.data || r?.data?.documents || [];
             if (!Array.isArray(items) || items.length === 0) break;
             collected.push(...items);
             if (items.length < limit) break;
@@ -324,41 +337,61 @@ router.post('/dify/sync', requireAuth(), async (req, res) => {
 
         for (const doc of collected) {
             const difyDocId = String(doc?.id || doc?.document_id || doc?.documentId || '').trim();
-            const name = String(doc?.name || doc?.title || doc?.file_name || difyDocId || 'document').trim();
+            const name = String(doc?.name || doc?.title || difyDocId || 'document').trim();
             if (!difyDocId) {
                 results.skipped += 1;
                 continue;
             }
 
             try {
-                // Fetch a fresh download URL for the document file
-                const u = await client.get(`/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(difyDocId)}/upload-file`);
-                const data = u?.data?.data || u?.data || {};
-                const downloadUrl = String(data?.download_url || data?.downloadUrl || data?.url || '').trim();
-                const fileName = String(data?.name || data?.file_name || `${name}.pdf`).trim();
-
-                if (!downloadUrl) {
-                    results.skipped += 1;
-                    results.docs.push({ doc_id: `DIFY-${difyDocId}`, title: name, status: 'SKIPPED', reason: 'No download_url' });
-                    continue;
-                }
-
-                const ext = path.extname(fileName).toLowerCase() || '.pdf';
-                if (ext !== '.pdf') {
-                    results.skipped += 1;
-                    results.docs.push({ doc_id: `DIFY-${difyDocId}`, title: name, status: 'SKIPPED', reason: 'Not a PDF' });
-                    continue;
-                }
+                // Get document detail (includes data_source_info, indexing_status, etc.)
+                const detailResp = await client.get(`/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(difyDocId)}`);
+                const detail = detailResp?.data || {};
+                const dataSourceInfo = detail?.data_source_info || detail?.data_source_info || {};
+                const dataSourceType = String(detail?.data_source_type || detail?.data_source_type || '').toLowerCase();
 
                 const stableDocId = `DIFY-${difyDocId}`;
-                const safeBase = path.basename(fileName, ext).replace(/[^a-zA-Z0-9_-]/g, '_') || 'document';
-                const localName = `${stableDocId}__${safeBase}__${Date.now()}${ext}`;
-                const absPath = path.join(uploadRoot, localName);
-                const relPath = path.posix.join('uploads', 'kb', localName);
-
-                const dl = await downloadToFile(downloadUrl, absPath);
-                const sha256 = sha256File(absPath);
                 const now = new Date();
+
+                // Attempt to download the original PDF if Dify exposes a file_id.
+                // Note: Dify Knowledge API does not always provide a file download endpoint.
+                // If we cannot fetch bytes, we still register metadata + source_url (if any).
+                let relPath = null;
+                let mimeType = null;
+                let fileSize = null;
+                let sha256 = null;
+
+                const candidateUrl =
+                    (typeof dataSourceInfo?.url === 'string' && dataSourceInfo.url.trim()) ||
+                    (typeof detail?.source_url === 'string' && detail.source_url.trim()) ||
+                    null;
+
+                const fileId =
+                    (typeof dataSourceInfo?.file_id === 'string' && dataSourceInfo.file_id.trim()) ||
+                    (typeof dataSourceInfo?.fileId === 'string' && dataSourceInfo.fileId.trim()) ||
+                    null;
+
+                if (fileId) {
+                    try {
+                        // This is documented for message/workflow uploads; may or may not work for KB docs.
+                        const safeBase = String(name).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'document';
+                        const localName = `${stableDocId}__${safeBase}__${Date.now()}.pdf`;
+                        const absPath = path.join(uploadRoot, localName);
+                        const rel = path.posix.join('uploads', 'kb', localName);
+                        const dl = await downloadToFile(`${baseUrl.replace(/\/v1$/, '')}/v1/files/${encodeURIComponent(fileId)}/preview?as_attachment=true`, absPath);
+                        const ct = (dl.contentType || 'application/pdf').split(';')[0];
+                        if (ct !== 'application/pdf') {
+                            try { fs.unlinkSync(absPath); } catch { /* ignore */ }
+                        } else {
+                            relPath = rel;
+                            mimeType = ct;
+                            fileSize = dl.size;
+                            sha256 = sha256File(absPath);
+                        }
+                    } catch (e) {
+                        // fall back to metadata only
+                    }
+                }
 
                 await db.query(
                     `INSERT INTO kb_documents
@@ -384,30 +417,36 @@ router.post('/dify/sync', requireAuth(), async (req, res) => {
                        visibility=VALUES(visibility)`,
                     [
                         stableDocId,
-                        fileName,
+                        detail?.name || name,
                         docType,
                         `${datasetId}:${difyDocId}`,
                         now,
-                        name.replace(/\.pdf$/i, ''),
-                        `Synced from Dify dataset ${datasetId}`,
+                        String(detail?.name || name).replace(/\.pdf$/i, ''),
+                        `Synced from Dify KB ${datasetId} (${dataSourceType || 'source'}).`,
                         uiCategory,
                         agentTarget,
                         iconName,
                         null,
-                        null,
+                        candidateUrl,
                         relPath,
-                        (dl.contentType || 'application/pdf').split(';')[0],
-                        dl.size,
+                        mimeType,
+                        fileSize,
                         sha256,
                         visibility
                     ]
                 );
 
                 results.imported += 1;
-                results.docs.push({ doc_id: stableDocId, title: name, status: 'IMPORTED' });
+                results.docs.push({
+                    doc_id: stableDocId,
+                    title: name,
+                    status: 'IMPORTED',
+                    downloaded_pdf: !!relPath,
+                    source_url: !!candidateUrl
+                });
             } catch (e) {
                 results.errors += 1;
-                results.docs.push({ doc_id: `DIFY-${difyDocId}`, title: name, status: 'ERROR', reason: String(e?.message || e) });
+                results.docs.push({ doc_id: `DIFY-${difyDocId}`, title: name, status: 'ERROR', reason: formatAxiosError(e) });
             }
         }
 
