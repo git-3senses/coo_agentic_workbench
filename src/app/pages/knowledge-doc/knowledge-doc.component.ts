@@ -6,13 +6,14 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
 import { DifyService, StreamEvent } from '../../services/dify/dify.service';
+import { MarkdownModule } from 'ngx-markdown';
 
 type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; ts: number };
 
 @Component({
   selector: 'app-knowledge-doc',
   standalone: true,
-  imports: [CommonModule, FormsModule, SharedIconsModule],
+  imports: [CommonModule, FormsModule, SharedIconsModule, MarkdownModule],
   template: `
   <div class="h-full w-full flex flex-col bg-slate-50">
     <!-- Header -->
@@ -69,6 +70,10 @@ type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; t
           </div>
 
           <iframe *ngIf="pdfUrl" class="w-full h-full" [src]="pdfUrl"></iframe>
+
+          <div *ngIf="markdownText" class="w-full h-full overflow-y-auto p-4 prose prose-slate max-w-none">
+            <markdown [data]="markdownText"></markdown>
+          </div>
 
           <div *ngIf="!pdfUrl && doc?.source_url" class="h-full flex items-center justify-center text-center p-8">
             <div class="max-w-sm">
@@ -147,7 +152,9 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
   docId = '';
   doc: any = null;
   pdfUrl: SafeResourceUrl | null = null;
+  markdownText: string | null = null;
   private objectUrl: string | null = null;
+  private mermaidInitialized = false;
 
   selectedAgent: 'KB_SEARCH' | 'DILIGENCE' | 'MASTER_COO' = 'KB_SEARCH';
   messages: ChatMsg[] = [];
@@ -174,11 +181,12 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
     this.http.get<any>(`/api/kb/${encodeURIComponent(this.docId)}`).subscribe({
       next: (doc) => {
         this.doc = doc;
+        this.markdownText = null;
         // Important: do NOT iframe directly to /api/kb/:id/file because the Authorization
         // header from our JWT interceptor is not attached to <iframe> requests.
         // Instead, fetch as a blob via HttpClient (auth header included), then display
         // using a safe object URL.
-        if (doc?.file_path) this.loadPdfBlob();
+        if (doc?.file_path) this.loadFileBlob();
         else {
           this.revokeObjectUrl();
           this.pdfUrl = null;
@@ -188,21 +196,49 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
         this.doc = null;
         this.revokeObjectUrl();
         this.pdfUrl = null;
+        this.markdownText = null;
       }
     });
   }
 
-  private loadPdfBlob(): void {
+  private loadFileBlob(): void {
     const url = `/api/kb/${encodeURIComponent(this.docId)}/file`;
     this.http.get(url, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         this.revokeObjectUrl();
-        this.objectUrl = URL.createObjectURL(blob);
-        this.pdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+        const mime = (blob.type || '').toLowerCase();
+        const isPdf = mime.includes('pdf') || String(this.doc?.mime_type || '').toLowerCase().includes('pdf');
+        const isMarkdown =
+          mime.includes('text/') ||
+          String(this.doc?.mime_type || '').toLowerCase().includes('markdown') ||
+          String(this.doc?.filename || '').toLowerCase().endsWith('.md') ||
+          String(this.doc?.filename || '').toLowerCase().endsWith('.mmd');
+
+        if (isPdf) {
+          this.markdownText = null;
+          this.objectUrl = URL.createObjectURL(blob);
+          this.pdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+          return;
+        }
+
+        if (isMarkdown) {
+          this.pdfUrl = null;
+          blob.text().then((text) => {
+            this.markdownText = text;
+            // Render mermaid blocks if present
+            setTimeout(() => this.tryRenderMermaid(), 0);
+          });
+          return;
+        }
+
+        // Unknown file type: treat as missing preview
+        this.pdfUrl = null;
+        this.markdownText = null;
       },
       error: (err) => {
         this.revokeObjectUrl();
         this.pdfUrl = null;
+        this.markdownText = null;
         const msg = err?.error?.error || err?.message || 'Failed to load PDF';
         this.messages.push({
           role: 'agent',
@@ -211,6 +247,40 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
         });
       }
     });
+  }
+
+  private async tryRenderMermaid(): Promise<void> {
+    if (!this.markdownText) return;
+
+    const host = document.querySelector('app-knowledge-doc');
+    if (!host) return;
+
+    // Find mermaid code blocks produced by markdown renderer: <pre><code class="language-mermaid">...</code></pre>
+    const codeBlocks = Array.from(host.querySelectorAll('pre > code.language-mermaid'));
+    if (codeBlocks.length === 0) return;
+
+    // Replace <pre><code> with <div class="mermaid">...</div>
+    for (const code of codeBlocks) {
+      const pre = code.parentElement;
+      if (!pre) continue;
+      const div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = code.textContent || '';
+      pre.replaceWith(div);
+    }
+
+    // Lazy-load mermaid only when needed
+    const mermaid = (await import('mermaid')).default;
+    if (!this.mermaidInitialized) {
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+      this.mermaidInitialized = true;
+    }
+
+    try {
+      await mermaid.run({ querySelector: 'div.mermaid' });
+    } catch {
+      // Non-fatal: leave code blocks as-is if render fails
+    }
   }
 
   openSource() {

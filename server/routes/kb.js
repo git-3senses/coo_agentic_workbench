@@ -42,7 +42,9 @@ try {
 
     const fileFilter = (_req, file, cb) => {
         const ext = path.extname(file.originalname || '').toLowerCase();
-        if (ext !== '.pdf') return cb(new Error('Only PDF uploads are supported for Knowledge Base.'));
+        if (!['.pdf', '.md', '.mmd'].includes(ext)) {
+            return cb(new Error('Only PDF or Markdown (.md/.mmd) uploads are supported for Knowledge Base.'));
+        }
         cb(null, true);
     };
 
@@ -212,7 +214,10 @@ router.post('/upload', requireAuth(), (req, res) => {
                     displayDate,
                     sourceUrl,
                     relPath,
-                    req.file.mimetype || 'application/pdf',
+                    req.file.mimetype ||
+                        (path.extname(req.file.originalname || '').toLowerCase() === '.pdf'
+                            ? 'application/pdf'
+                            : 'text/markdown'),
                     req.file.size,
                     hash,
                     visibility
