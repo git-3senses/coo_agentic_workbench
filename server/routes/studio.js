@@ -79,6 +79,15 @@ async function listFiles(studioDocId) {
     return rows;
 }
 
+function maybeSchemaMissing(err) {
+    const msg = String(err?.message || '');
+    return (
+        err?.code === 'ER_NO_SUCH_TABLE' ||
+        msg.includes('studio_documents') ||
+        msg.includes('studio_document_files')
+    );
+}
+
 // ─── List ────────────────────────────────────────────────────────────────────
 
 // GET /api/studio/docs?scope=my|submitted|all
@@ -109,6 +118,13 @@ router.get('/docs', requireAuth(), async (req, res) => {
         res.json({ docs: rows });
     } catch (err) {
         console.error('[STUDIO] list docs error:', err.message);
+        if (maybeSchemaMissing(err)) {
+            return res.status(409).json({
+                error:
+                    'Knowledge Studio DB schema is missing. Apply DB migrations: ' +
+                    'database/migrations/014_add_knowledge_studio.sql and 015_expand_studio_documents.sql, then retry.'
+            });
+        }
         res.status(500).json({ error: 'Failed to list studio docs' });
     }
 });
@@ -137,6 +153,13 @@ router.post('/docs', requireAuth(), async (req, res) => {
         res.json({ id });
     } catch (err) {
         console.error('[STUDIO] create doc error:', err.message);
+        if (maybeSchemaMissing(err)) {
+            return res.status(409).json({
+                error:
+                    'Knowledge Studio DB schema is missing. Apply DB migrations: ' +
+                    'database/migrations/014_add_knowledge_studio.sql and 015_expand_studio_documents.sql, then retry.'
+            });
+        }
         res.status(500).json({ error: 'Failed to create studio doc' });
     }
 });
@@ -189,6 +212,13 @@ router.get('/docs/:id', requireAuth(), async (req, res) => {
         res.json({ doc, files });
     } catch (err) {
         console.error('[STUDIO] get doc error:', err.message);
+        if (maybeSchemaMissing(err)) {
+            return res.status(409).json({
+                error:
+                    'Knowledge Studio DB schema is missing. Apply DB migrations: ' +
+                    'database/migrations/014_add_knowledge_studio.sql and 015_expand_studio_documents.sql, then retry.'
+            });
+        }
         res.status(500).json({ error: 'Failed to load studio doc' });
     }
 });
