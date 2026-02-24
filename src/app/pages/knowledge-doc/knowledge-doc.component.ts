@@ -30,26 +30,31 @@ type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; t
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <input #fileInput type="file" accept="application/pdf"
-          class="hidden" (change)="onUploadFile($event)">
-        <button (click)="fileInput.click()"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">
-          <lucide-icon name="upload" class="w-4 h-4"></lucide-icon>
-          Upload PDF
-        </button>
-        <button *ngIf="doc?.source_url" (click)="openSource()"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold">
-          <lucide-icon name="external-link" class="w-4 h-4"></lucide-icon>
-          Open Source
-        </button>
-      </div>
-    </header>
+	      <div class="flex items-center gap-2">
+	        <input #fileInput type="file" accept=".pdf,.md,.mmd,application/pdf,text/markdown"
+	          class="hidden" (change)="onUploadFile($event)">
+	        <button (click)="fileInput.click()"
+	          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">
+	          <lucide-icon name="upload" class="w-4 h-4"></lucide-icon>
+	          Upload Document
+	        </button>
+	        <button (click)="openEditModal()" *ngIf="doc"
+	          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 text-sm font-semibold">
+	          <lucide-icon name="pencil" class="w-4 h-4"></lucide-icon>
+	          Edit Details
+	        </button>
+	        <button *ngIf="doc?.source_url" (click)="openSource()"
+	          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold">
+	          <lucide-icon name="external-link" class="w-4 h-4"></lucide-icon>
+	          Open Source
+	        </button>
+	      </div>
+	    </header>
 
     <!-- Split view -->
     <div class="flex-1 min-h-0 flex">
-      <!-- Left: PDF -->
-      <section class="w-1/2 min-w-0 border-r border-slate-200 bg-white flex flex-col">
+	      <!-- Left: Document -->
+	      <section class="w-1/2 min-w-0 border-r border-slate-200 bg-white flex flex-col">
         <div class="flex-none px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <div class="text-sm font-semibold text-slate-800 flex items-center gap-2">
             <lucide-icon name="file-text" class="w-4 h-4 text-slate-500"></lucide-icon>
@@ -59,15 +64,15 @@ type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; t
         </div>
 
         <div class="flex-1 min-h-0">
-          <div *ngIf="!pdfUrl && !doc?.source_url" class="h-full flex items-center justify-center text-center p-8">
-            <div class="max-w-sm">
-              <div class="w-12 h-12 rounded-xl bg-slate-100 mx-auto flex items-center justify-center mb-4">
-                <lucide-icon name="help-circle" class="w-6 h-6 text-slate-500"></lucide-icon>
-              </div>
-              <div class="text-sm font-semibold text-slate-800">No PDF uploaded yet</div>
-              <div class="text-xs text-slate-500 mt-1">Upload a PDF to view it here and chat against it.</div>
-            </div>
-          </div>
+	          <div *ngIf="!pdfUrl && !markdownText && !doc?.source_url" class="h-full flex items-center justify-center text-center p-8">
+	            <div class="max-w-sm">
+	              <div class="w-12 h-12 rounded-xl bg-slate-100 mx-auto flex items-center justify-center mb-4">
+	                <lucide-icon name="help-circle" class="w-6 h-6 text-slate-500"></lucide-icon>
+	              </div>
+	              <div class="text-sm font-semibold text-slate-800">No document uploaded yet</div>
+	              <div class="text-xs text-slate-500 mt-1">Upload a PDF or Markdown file to view it here and chat against it.</div>
+	            </div>
+	          </div>
 
           <iframe *ngIf="pdfUrl" class="w-full h-full" [src]="pdfUrl"></iframe>
 
@@ -139,8 +144,131 @@ type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; t
         </div>
       </section>
     </div>
-  </div>
-  `
+	  </div>
+
+	  <!-- Edit Details Modal -->
+	  <div *ngIf="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center">
+	    <div class="absolute inset-0 bg-slate-900/40" (click)="closeEditModal()"></div>
+	    <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+	      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+	        <div>
+	          <div class="text-xs text-slate-500">Knowledge Base</div>
+	          <div class="text-lg font-bold text-slate-900">Edit Document Details</div>
+	        </div>
+	        <button class="p-2 rounded-lg hover:bg-slate-100 text-slate-600" (click)="closeEditModal()">
+	          <lucide-icon name="x" class="w-5 h-5"></lucide-icon>
+	        </button>
+	      </div>
+
+	      <div class="p-6 space-y-4">
+	        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Doc ID (read-only)</label>
+	            <input [value]="docId" readonly class="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 text-slate-700">
+	          </div>
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Linked Dify (read-only)</label>
+	            <input [value]="difyLinkLabel || '—'" readonly class="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 text-slate-700">
+	          </div>
+	        </div>
+
+	        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Title</label>
+	            <input [(ngModel)]="editForm.title" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+	          </div>
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Agent Target (optional)</label>
+	            <input [(ngModel)]="editForm.agent_target" type="text" placeholder="e.g. CF_NPA_LCS"
+	              class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+	          </div>
+	        </div>
+
+	        <div>
+	          <label class="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+	          <textarea [(ngModel)]="editForm.description" rows="4"
+	            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"></textarea>
+	        </div>
+
+	        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Category</label>
+	            <select [(ngModel)]="editForm.ui_category" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+	              <option value="UNIVERSAL">UNIVERSAL</option>
+	              <option value="AGENT">AGENT</option>
+	              <option value="WORKFLOW">WORKFLOW</option>
+	            </select>
+	          </div>
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Doc Type</label>
+	            <input [(ngModel)]="editForm.doc_type" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+	          </div>
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Visibility</label>
+	            <select [(ngModel)]="editForm.visibility" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+	              <option value="INTERNAL">INTERNAL</option>
+	              <option value="PUBLIC">PUBLIC</option>
+	            </select>
+	          </div>
+	        </div>
+
+	        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Display date (optional)</label>
+	            <input [(ngModel)]="editForm.display_date" type="text" placeholder="e.g. Jan 2026"
+	              class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+	          </div>
+	          <div>
+	            <label class="block text-xs font-semibold text-slate-600 mb-1">Source URL (optional)</label>
+	            <input [(ngModel)]="editForm.source_url" type="text" placeholder="https://…"
+	              class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+	          </div>
+	        </div>
+
+	        <div class="flex items-center gap-3 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+	          <input type="checkbox" [(ngModel)]="propagateToDify">
+	          <div class="flex-1 min-w-0">
+	            <div class="font-semibold text-slate-800">Propagate title to Dify (best-effort)</div>
+	            <div class="text-slate-500">Requires a linked Dify doc and a local file copy (we re-upload the same content with the new name).</div>
+	          </div>
+	        </div>
+
+	        <div *ngIf="difyKpis" class="border border-slate-200 rounded-2xl p-4">
+	          <div class="text-xs font-semibold text-slate-600 mb-2">Dify KPIs</div>
+	          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+	            <div>
+	              <div class="text-[11px] text-slate-500">Words</div>
+	              <div class="text-sm font-bold text-slate-900">{{ difyKpis.word_count ?? '—' }}</div>
+	            </div>
+	            <div>
+	              <div class="text-[11px] text-slate-500">Tokens</div>
+	              <div class="text-sm font-bold text-slate-900">{{ difyKpis.tokens ?? '—' }}</div>
+	            </div>
+	            <div>
+	              <div class="text-[11px] text-slate-500">Chunks</div>
+	              <div class="text-sm font-bold text-slate-900">{{ difyKpis.chunks ?? '—' }}</div>
+	            </div>
+	            <div>
+	              <div class="text-[11px] text-slate-500">Indexing</div>
+	              <div class="text-sm font-bold text-slate-900">{{ difyKpis.indexing_status ?? '—' }}</div>
+	            </div>
+	          </div>
+	        </div>
+	      </div>
+
+	      <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-white">
+	        <button (click)="closeEditModal()"
+	          class="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-sm font-semibold text-slate-700">
+	          Cancel
+	        </button>
+	        <button (click)="saveMeta()"
+	          class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">
+	          Save
+	        </button>
+	      </div>
+	    </div>
+	  </div>
+	  `
 })
 export class KnowledgeDocComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
@@ -160,6 +288,22 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
   messages: ChatMsg[] = [];
   userInput = '';
   isThinking = false;
+
+  showEditModal = false;
+  propagateToDify = false;
+  editForm: any = {
+    title: '',
+    description: '',
+    ui_category: 'UNIVERSAL',
+    doc_type: 'REGULATORY',
+    agent_target: '',
+    icon_name: 'file-text',
+    display_date: '',
+    visibility: 'INTERNAL',
+    source_url: ''
+  };
+  difyLinkLabel: string | null = null;
+  difyKpis: any | null = null;
 
   ngOnInit() {
     this.docId = String(this.route.snapshot.paramMap.get('id') || '');
@@ -182,6 +326,7 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
       next: (doc) => {
         this.doc = doc;
         this.markdownText = null;
+        this.refreshDifyKpis();
         // Important: do NOT iframe directly to /api/kb/:id/file because the Authorization
         // header from our JWT interceptor is not attached to <iframe> requests.
         // Instead, fetch as a blob via HttpClient (auth header included), then display
@@ -197,6 +342,81 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
         this.revokeObjectUrl();
         this.pdfUrl = null;
         this.markdownText = null;
+        this.difyLinkLabel = null;
+        this.difyKpis = null;
+      }
+    });
+  }
+
+  private refreshDifyKpis(): void {
+    this.difyKpis = null;
+    this.difyLinkLabel = null;
+    const embedding = String(this.doc?.embedding_id || '').trim();
+    const m = embedding.match(/^([0-9a-f-]{36}):([0-9a-f-]{36})$/i);
+    if (!m) return;
+    const datasetId = m[1];
+    const documentId = m[2];
+    this.difyLinkLabel = `${datasetId}:${documentId}`;
+    this.http.get<any>(`/api/dify/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}`).subscribe({
+      next: (detail) => {
+        // These keys vary a bit by Dify version; we normalize to a small KPI card.
+        const d = detail?.document || detail || {};
+        this.difyKpis = {
+          word_count: d.word_count ?? d.words ?? null,
+          tokens: d.tokens ?? d.token_count ?? null,
+          chunks: d.chunk_count ?? d.chunks ?? null,
+          indexing_status: d.indexing_status ?? d.status ?? null,
+        };
+      },
+      error: () => {
+        this.difyKpis = null;
+      }
+    });
+  }
+
+  openEditModal(): void {
+    if (!this.doc) return;
+    this.showEditModal = true;
+    this.propagateToDify = false;
+    this.editForm = {
+      title: this.doc?.title || '',
+      description: this.doc?.description || '',
+      ui_category: this.doc?.ui_category || this.doc?.category || 'UNIVERSAL',
+      doc_type: this.doc?.doc_type || 'REGULATORY',
+      agent_target: this.doc?.agent_target || '',
+      icon_name: this.doc?.icon_name || 'file-text',
+      display_date: this.doc?.display_date || '',
+      visibility: this.doc?.visibility || 'INTERNAL',
+      source_url: this.doc?.source_url || ''
+    };
+  }
+
+  closeEditModal(): void {
+    this.showEditModal = false;
+  }
+
+  saveMeta(): void {
+    const payload = {
+      title: String(this.editForm.title || '').trim(),
+      description: String(this.editForm.description || '').trim(),
+      ui_category: String(this.editForm.ui_category || '').trim().toUpperCase(),
+      doc_type: String(this.editForm.doc_type || '').trim().toUpperCase(),
+      agent_target: String(this.editForm.agent_target || '').trim(),
+      icon_name: String(this.editForm.icon_name || '').trim(),
+      display_date: String(this.editForm.display_date || '').trim(),
+      visibility: String(this.editForm.visibility || '').trim().toUpperCase(),
+      source_url: String(this.editForm.source_url || '').trim(),
+      propagate_to_dify: this.propagateToDify
+    };
+    this.http.patch<any>(`/api/kb/${encodeURIComponent(this.docId)}/meta`, payload).subscribe({
+      next: (res) => {
+        this.doc = res?.doc || this.doc;
+        this.showEditModal = false;
+        this.refreshDifyKpis();
+      },
+      error: (e) => {
+        const msg = e?.error?.error || e?.message || 'Failed to save';
+        alert(String(msg));
       }
     });
   }
@@ -343,7 +563,7 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
     const form = new FormData();
     form.append('file', file);
     form.append('doc_id', this.docId || '');
-    form.append('title', this.doc?.title || file.name.replace(/\.pdf$/i, ''));
+    form.append('title', this.doc?.title || file.name.replace(/\.(pdf|md|mmd)$/i, ''));
     form.append('description', this.doc?.description || '');
     form.append('doc_type', this.doc?.doc_type || 'REGULATORY');
     form.append('ui_category', this.doc?.ui_category || '');

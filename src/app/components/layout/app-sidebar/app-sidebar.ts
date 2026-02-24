@@ -177,15 +177,19 @@ import { AuthService } from '../../../services/auth.service';
           <!-- Section: Knowledge & Evidence -->
           <div>
             <h3 *ngIf="!isCollapsed()" class="px-3 mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider truncate">Knowledge & Evidence</h3>
-            <div class="space-y-0.5">
-                <a routerLink="/knowledge/base" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
-                    <lucide-icon name="book-open" class="w-4 h-4 flex-none"></lucide-icon>
-                    <span *ngIf="!isCollapsed()" class="truncate">Knowledge Base</span>
-                </a>
-                <a routerLink="/knowledge/evidence" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
-                    <lucide-icon name="library" class="w-4 h-4 flex-none"></lucide-icon>
-                    <span *ngIf="!isCollapsed()" class="truncate">Evidence Library</span>
-                </a>
+	            <div class="space-y-0.5">
+	                <a routerLink="/knowledge/base" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+	                    <lucide-icon name="book-open" class="w-4 h-4 flex-none"></lucide-icon>
+	                    <span *ngIf="!isCollapsed()" class="truncate">Knowledge Base</span>
+	                </a>
+	                <a routerLink="/knowledge/studio" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+	                    <lucide-icon name="file-text" class="w-4 h-4 flex-none"></lucide-icon>
+	                    <span *ngIf="!isCollapsed()" class="truncate">Knowledge Studio</span>
+	                </a>
+	                <a routerLink="/knowledge/evidence" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
+	                    <lucide-icon name="library" class="w-4 h-4 flex-none"></lucide-icon>
+	                    <span *ngIf="!isCollapsed()" class="truncate">Evidence Library</span>
+	                </a>
                  <a [routerLink]="['/knowledge/evidence']" [queryParams]="{ tab: 'patterns' }" routerLinkActive="bg-black/5 font-semibold text-black" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-black/5 transition-colors" [class.justify-center]="isCollapsed()">
                     <lucide-icon name="file-stack" class="w-4 h-4 flex-none"></lucide-icon>
                     <span *ngIf="!isCollapsed()" class="truncate">Precedents & Patterns</span>

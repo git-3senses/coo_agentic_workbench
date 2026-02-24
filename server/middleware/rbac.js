@@ -15,6 +15,14 @@ const ROLE_HIERARCHY = {
     MAKER: 1,
 };
 
+function normalizeRole(role) {
+    const r = String(role || '').trim().toUpperCase();
+    // Frontend uses granular APPROVER_* roles; server treats them as APPROVER.
+    if (r === 'APPROVER') return 'APPROVER';
+    if (r.startsWith('APPROVER_')) return 'APPROVER';
+    return r;
+}
+
 /**
  * Express middleware: checks req.user.role against allowed roles.
  * Must be used AFTER authMiddleware() and requireAuth().
@@ -27,14 +35,15 @@ function rbac(...allowedRoles) {
             return res.status(401).json({ error: 'Authentication required' });
         }
 
-        const userRole = req.user.role;
-        if (allowedRoles.includes(userRole)) {
+        const userRole = normalizeRole(req.user.role);
+        const normalizedAllowed = allowedRoles.map(normalizeRole);
+        if (normalizedAllowed.includes(userRole)) {
             return next();
         }
 
         return res.status(403).json({
             error: 'Insufficient permissions',
-            required_roles: allowedRoles,
+            required_roles: normalizedAllowed,
             your_role: userRole,
         });
     };
@@ -47,7 +56,9 @@ function rbac(...allowedRoles) {
  * @returns {boolean}
  */
 function hasMinimumRole(userRole, minimumRole) {
-    return (ROLE_HIERARCHY[userRole] || 0) >= (ROLE_HIERARCHY[minimumRole] || 0);
+    const u = normalizeRole(userRole);
+    const m = normalizeRole(minimumRole);
+    return (ROLE_HIERARCHY[u] || 0) >= (ROLE_HIERARCHY[m] || 0);
 }
 
-module.exports = { rbac, hasMinimumRole, ROLE_HIERARCHY };
+module.exports = { rbac, hasMinimumRole, ROLE_HIERARCHY, normalizeRole };

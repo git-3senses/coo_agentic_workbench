@@ -49,6 +49,7 @@ const documentsRoutes = require('./routes/documents');
 const knowledgeRoutes = require('./routes/knowledge');
 const evidenceRoutes = require('./routes/evidence');
 const kbRoutes = require('./routes/kb');
+const studioRoutes = require('./routes/studio');
 const { startMonitor: startSlaMonitor } = require('./jobs/sla-monitor');
 const { startHealthMonitor, getHealthStatus } = require('./jobs/agent-health');
 const { auditMiddleware } = require('./middleware/audit');
@@ -82,6 +83,7 @@ app.use('/api/documents', auditMiddleware('DOCUMENT'), documentsRoutes);
 app.use('/api/knowledge', auditMiddleware('KNOWLEDGE'), knowledgeRoutes);
 app.use('/api/evidence', auditMiddleware('EVIDENCE'), evidenceRoutes);
 app.use('/api/kb', auditMiddleware('KB'), kbRoutes);
+app.use('/api/studio', auditMiddleware('STUDIO'), studioRoutes);
 
 // GAP-022: Agent health endpoint — live Dify agent availability metrics + Dashboard Stats
 app.get('/api/dify/agents/health', async (req, res) => {

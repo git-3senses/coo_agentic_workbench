@@ -105,6 +105,15 @@ export class KnowledgeBaseComponent implements OnInit {
   };
   uploadFile: File | null = null;
 
+  // ─── Dify Manage modal state ─────────────────────────────────
+  showDifyManageModal = false;
+  difyManageError: string | null = null;
+  difyDatasets: any[] = [];
+  selectedDifyDataset: any | null = null;
+  selectedDatasetDocuments: any[] = [];
+  isEditingDataset = false;
+  datasetEditForm = { name: '', description: '' };
+
   ngOnInit() {
     this.fetchData();
   }
@@ -205,6 +214,93 @@ export class KnowledgeBaseComponent implements OnInit {
     this.difySyncResult = null;
   }
 
+  // ─── Dify Manage (datasets + documents) ─────────────────────
+
+  openDifyManageModal() {
+    this.showDifyManageModal = true;
+    this.difyManageError = null;
+    this.difyDatasets = [];
+    this.selectedDifyDataset = null;
+    this.selectedDatasetDocuments = [];
+    this.isEditingDataset = false;
+    this.datasetEditForm = { name: '', description: '' };
+    this.loadDifyDatasets();
+  }
+
+  closeDifyManageModal() {
+    this.showDifyManageModal = false;
+    this.difyManageError = null;
+    this.isEditingDataset = false;
+  }
+
+  loadDifyDatasets() {
+    this.difyManageError = null;
+    this.http.get<any>('/api/dify/datasets').subscribe({
+      next: (res) => {
+        const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        this.difyDatasets = items;
+      },
+      error: (err) => {
+        const msg = err?.error?.error || err?.message || 'Failed to fetch datasets';
+        this.difyManageError = String(msg);
+        this.difyDatasets = [];
+      }
+    });
+  }
+
+  selectDifyDataset(ds: any) {
+    this.selectedDifyDataset = ds;
+    this.selectedDatasetDocuments = [];
+    this.isEditingDataset = false;
+    this.loadSelectedDatasetDocuments();
+  }
+
+  loadSelectedDatasetDocuments() {
+    if (!this.selectedDifyDataset?.id) return;
+    const datasetId = String(this.selectedDifyDataset.id);
+    this.http.get<any>(`/api/dify/datasets/${encodeURIComponent(datasetId)}/documents`, { params: { page: 1, limit: 50 } }).subscribe({
+      next: (res) => {
+        const items = Array.isArray(res?.data) ? res.data : Array.isArray(res?.documents) ? res.documents : [];
+        this.selectedDatasetDocuments = items;
+      },
+      error: () => {
+        this.selectedDatasetDocuments = [];
+      }
+    });
+  }
+
+  startEditSelectedDataset() {
+    if (!this.selectedDifyDataset) return;
+    this.isEditingDataset = true;
+    this.datasetEditForm = {
+      name: String(this.selectedDifyDataset?.name || ''),
+      description: String(this.selectedDifyDataset?.description || ''),
+    };
+  }
+
+  cancelEditSelectedDataset() {
+    this.isEditingDataset = false;
+  }
+
+  saveSelectedDataset() {
+    if (!this.selectedDifyDataset?.id) return;
+    const datasetId = String(this.selectedDifyDataset.id);
+    this.http.patch<any>(`/api/dify/datasets/${encodeURIComponent(datasetId)}`, {
+      name: (this.datasetEditForm.name || '').trim(),
+      description: (this.datasetEditForm.description || '').trim()
+    }).subscribe({
+      next: () => {
+        this.selectedDifyDataset = { ...this.selectedDifyDataset, name: this.datasetEditForm.name, description: this.datasetEditForm.description };
+        this.isEditingDataset = false;
+        this.loadDifyDatasets();
+      },
+      error: (err) => {
+        const msg = err?.error?.error || err?.message || 'Failed to update dataset';
+        this.difyManageError = String(msg);
+      }
+    });
+  }
+
   get difySyncDocs() {
     return this.difySyncResult?.docs || [];
   }
@@ -246,11 +342,11 @@ export class KnowledgeBaseComponent implements OnInit {
   submitUpload() {
     this.uploadError = null;
     if (!this.uploadFile) {
-      this.uploadError = 'Please choose a PDF file.';
+      this.uploadError = 'Please choose a PDF or Markdown file.';
       return;
     }
 
-    const inferredTitle = this.uploadFile.name.replace(/\.pdf$/i, '');
+    const inferredTitle = this.uploadFile.name.replace(/\.(pdf|md|mmd)$/i, '');
     const form = new FormData();
     form.append('file', this.uploadFile);
     form.append('title', (this.uploadForm.title || inferredTitle).trim());

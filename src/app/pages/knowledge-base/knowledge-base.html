@@ -15,27 +15,33 @@
             </p>
         </div>
 
-        <div class="flex items-center gap-3">
-            <div class="relative group">
+	        <div class="flex items-center gap-3">
+	            <div class="relative group">
                 <lucide-icon name="search"
                     class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></lucide-icon>
                 <input type="text" placeholder="Search policies, tags, or IDs..."
                     class="pl-9 pr-4 py-2 w-64 bg-slate-100 hover:bg-slate-200/60 focus:bg-white border border-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 text-sm rounded-lg transition-all outline-none">
             </div>
-            <button
-                (click)="openDifySyncModal()"
-                class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-sm font-semibold rounded-lg shadow-sm transition-all">
-                <lucide-icon name="refresh-cw" class="w-4 h-4"></lucide-icon>
-                Sync from Dify
-            </button>
-            <button
-                (click)="openUploadModal()"
-                class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm shadow-blue-600/20 transition-all">
-                <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
-                Upload Document
-            </button>
-        </div>
-    </header>
+	            <button
+	                (click)="openDifySyncModal()"
+	                class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-sm font-semibold rounded-lg shadow-sm transition-all">
+	                <lucide-icon name="refresh-cw" class="w-4 h-4"></lucide-icon>
+	                Sync from Dify
+	            </button>
+	            <button
+	                (click)="openDifyManageModal()"
+	                class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-sm font-semibold rounded-lg shadow-sm transition-all">
+	                <lucide-icon name="settings" class="w-4 h-4"></lucide-icon>
+	                Manage Dify KBs
+	            </button>
+	            <button
+	                (click)="openUploadModal()"
+	                class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm shadow-blue-600/20 transition-all">
+	                <lucide-icon name="upload-cloud" class="w-4 h-4"></lucide-icon>
+	                Upload Document
+	            </button>
+	        </div>
+	    </header>
 
     <!-- Main Content Area -->
     <div class="flex-1 overflow-y-auto p-6 scrollbar-hide">
@@ -281,24 +287,24 @@
                     </div>
                 </div>
 
-                <div class="border border-dashed border-slate-300 rounded-2xl p-4 bg-slate-50">
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="min-w-0">
-                            <div class="text-sm font-semibold text-slate-800">PDF file</div>
-                            <div class="text-xs text-slate-500 truncate">
-                                {{ uploadFile?.name || 'No file selected' }}
-                            </div>
-                        </div>
-                        <div class="shrink-0">
-                            <input #kbFile type="file" accept="application/pdf" class="hidden"
-                                (change)="onUploadFileSelected($event)">
-                            <button (click)="kbFile.click()"
-                                class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-sm font-semibold text-slate-700">
-                                Choose PDF
-                            </button>
-                        </div>
-                    </div>
-                </div>
+	                <div class="border border-dashed border-slate-300 rounded-2xl p-4 bg-slate-50">
+	                    <div class="flex items-center justify-between gap-3">
+	                        <div class="min-w-0">
+	                            <div class="text-sm font-semibold text-slate-800">Document file (PDF / Markdown)</div>
+	                            <div class="text-xs text-slate-500 truncate">
+	                                {{ uploadFile?.name || 'No file selected' }}
+	                            </div>
+	                        </div>
+	                        <div class="shrink-0">
+	                            <input #kbFile type="file" accept=".pdf,.md,.mmd,application/pdf,text/markdown" class="hidden"
+	                                (change)="onUploadFileSelected($event)">
+	                            <button (click)="kbFile.click()"
+	                                class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-sm font-semibold text-slate-700">
+	                                Choose File
+	                            </button>
+	                        </div>
+	                    </div>
+	                </div>
 
                 <div *ngIf="uploadError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
                     {{ uploadError }}
@@ -318,15 +324,146 @@
         </div>
     </div>
 
-    <!-- Dify Sync Modal -->
-    <div *ngIf="showDifySyncModal" class="fixed inset-0 z-50 flex items-center justify-center">
+	    <!-- Dify Sync Modal -->
+	    <div *ngIf="showDifySyncModal" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="absolute inset-0 bg-slate-900/40" (click)="closeDifySyncModal()"></div>
         <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
                     <div class="text-xs text-slate-500">Knowledge Base</div>
                     <div class="text-lg font-bold text-slate-900">Sync PDFs from Dify Dataset</div>
-                </div>
+	    </div>
+
+	    <!-- Dify Manage Modal -->
+	    <div *ngIf="showDifyManageModal" class="fixed inset-0 z-50 flex items-center justify-center">
+	        <div class="absolute inset-0 bg-slate-900/40" (click)="closeDifyManageModal()"></div>
+	        <div class="relative w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+	            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+	                <div>
+	                    <div class="text-xs text-slate-500">Knowledge Base</div>
+	                    <div class="text-lg font-bold text-slate-900">Manage Dify Knowledge Bases</div>
+	                    <div class="text-xs text-slate-500 mt-0.5">Edit KB name/description, view UUID and KPIs, and browse documents inside each KB.</div>
+	                </div>
+	                <button class="p-2 rounded-lg hover:bg-slate-100 text-slate-600" (click)="closeDifyManageModal()">
+	                    <lucide-icon name="x" class="w-5 h-5"></lucide-icon>
+	                </button>
+	            </div>
+
+	            <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-[520px]">
+	                <!-- Left: Dataset list -->
+	                <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex flex-col">
+	                    <div class="px-4 py-3 border-b border-slate-200 bg-white flex items-center justify-between">
+	                        <div class="text-sm font-semibold text-slate-800">Knowledge Bases</div>
+	                        <button (click)="loadDifyDatasets()"
+	                            class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700">
+	                            Refresh
+	                        </button>
+	                    </div>
+	                    <div class="flex-1 min-h-0 overflow-y-auto">
+	                        <button *ngFor="let ds of difyDatasets" (click)="selectDifyDataset(ds)"
+	                            class="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-white"
+	                            [class.bg-white]="selectedDifyDataset?.id===ds.id">
+	                            <div class="text-sm font-bold text-slate-900 truncate">{{ ds.name }}</div>
+	                            <div class="text-[11px] text-slate-500 truncate">{{ ds.id }}</div>
+	                            <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-600">
+	                                <span class="px-2 py-0.5 rounded-full border border-slate-200 bg-white">{{ ds.indexing_technique || '—' }}</span>
+	                                <span *ngIf="ds.document_count !== undefined" class="px-2 py-0.5 rounded-full border border-slate-200 bg-white">{{ ds.document_count }} docs</span>
+	                                <span *ngIf="ds.word_count !== undefined" class="px-2 py-0.5 rounded-full border border-slate-200 bg-white">{{ ds.word_count }} words</span>
+	                            </div>
+	                        </button>
+	                        <div *ngIf="difyDatasets.length===0 && !difyManageError" class="p-4 text-xs text-slate-500">
+	                            No datasets found (or DIFY_DATASET_API_KEY not configured).
+	                        </div>
+	                        <div *ngIf="difyManageError" class="p-4 text-xs text-red-600 bg-red-50 border-t border-red-100">
+	                            {{ difyManageError }}
+	                        </div>
+	                    </div>
+	                </div>
+
+	                <!-- Middle: Dataset details / edit -->
+	                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col">
+	                    <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+	                        <div class="text-sm font-semibold text-slate-800">KB Details</div>
+	                        <button *ngIf="selectedDifyDataset" (click)="startEditSelectedDataset()"
+	                            class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700">
+	                            Edit
+	                        </button>
+	                    </div>
+	                    <div class="flex-1 min-h-0 overflow-y-auto p-4">
+	                        <div *ngIf="!selectedDifyDataset" class="text-xs text-slate-500">Select a Knowledge Base to view details.</div>
+	                        <div *ngIf="selectedDifyDataset" class="space-y-4">
+	                            <div>
+	                                <label class="block text-xs font-semibold text-slate-600 mb-1">UUID (read-only)</label>
+	                                <input [value]="selectedDifyDataset.id" readonly
+	                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 text-slate-700">
+	                            </div>
+
+	                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+	                                <div>
+	                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Documents</label>
+	                                    <div class="text-sm font-bold text-slate-900">{{ selectedDifyDataset.document_count ?? '—' }}</div>
+	                                </div>
+	                                <div>
+	                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Words (proxy for tokens/chunks)</label>
+	                                    <div class="text-sm font-bold text-slate-900">{{ selectedDifyDataset.word_count ?? '—' }}</div>
+	                                </div>
+	                            </div>
+
+	                            <div *ngIf="isEditingDataset" class="space-y-3 border border-slate-200 rounded-2xl p-4 bg-slate-50">
+	                                <div>
+	                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Name</label>
+	                                    <input [(ngModel)]="datasetEditForm.name" type="text"
+	                                        class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+	                                </div>
+	                                <div>
+	                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+	                                    <textarea [(ngModel)]="datasetEditForm.description" rows="4"
+	                                        class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"></textarea>
+	                                </div>
+	                                <div class="flex items-center justify-end gap-2">
+	                                    <button (click)="cancelEditSelectedDataset()"
+	                                        class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-sm font-semibold text-slate-700">
+	                                        Cancel
+	                                    </button>
+	                                    <button (click)="saveSelectedDataset()"
+	                                        class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">
+	                                        Save
+	                                    </button>
+	                                </div>
+	                            </div>
+	                        </div>
+	                    </div>
+	                </div>
+
+	                <!-- Right: Documents inside dataset -->
+	                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col">
+	                    <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+	                        <div class="text-sm font-semibold text-slate-800">Documents</div>
+	                        <button *ngIf="selectedDifyDataset" (click)="loadSelectedDatasetDocuments()"
+	                            class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700">
+	                            Refresh
+	                        </button>
+	                    </div>
+	                    <div class="flex-1 min-h-0 overflow-y-auto">
+	                        <div *ngIf="!selectedDifyDataset" class="p-4 text-xs text-slate-500">Select a KB to browse its documents.</div>
+	                        <div *ngIf="selectedDifyDataset">
+	                            <button *ngFor="let d of selectedDatasetDocuments"
+	                                class="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50">
+	                                <div class="text-sm font-semibold text-slate-900 truncate">{{ d.name || d.title || d.id }}</div>
+	                                <div class="text-[11px] text-slate-500 truncate">{{ d.id }}</div>
+	                                <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-600">
+	                                    <span *ngIf="d.word_count !== undefined" class="px-2 py-0.5 rounded-full border border-slate-200 bg-white">{{ d.word_count }} words</span>
+	                                    <span *ngIf="d.tokens !== undefined" class="px-2 py-0.5 rounded-full border border-slate-200 bg-white">{{ d.tokens }} tokens</span>
+	                                    <span *ngIf="d.indexing_status" class="px-2 py-0.5 rounded-full border border-slate-200 bg-white">{{ d.indexing_status }}</span>
+	                                </div>
+	                            </button>
+	                            <div *ngIf="selectedDatasetDocuments.length===0" class="p-4 text-xs text-slate-500">No documents found.</div>
+	                        </div>
+	                    </div>
+	                </div>
+	            </div>
+	        </div>
+	    </div>
                 <button class="p-2 rounded-lg hover:bg-slate-100 text-slate-600" (click)="closeDifySyncModal()">
                     <lucide-icon name="x" class="w-5 h-5"></lucide-icon>
                 </button>

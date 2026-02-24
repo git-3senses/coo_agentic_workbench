@@ -17,6 +17,8 @@
 
 const express = require('express');
 const axios = require('axios');
+const { requireAuth } = require('../middleware/auth');
+const { rbac } = require('../middleware/rbac');
 const { DIFY_BASE_URL, getAgent, getAllAgents } = require('../config/dify-agents');
 const path = require('path');
 const AGENT_REGISTRY = require(path.resolve(__dirname, '..', '..', 'shared', 'agent-registry.json'));
@@ -1116,6 +1118,99 @@ router.get('/datasets', async (req, res) => {
         const status = err.response?.status || 500;
         res.status(status).json({
             error: 'Failed to fetch datasets',
+            detail: err.response?.data?.message || err.message
+        });
+    }
+});
+
+/**
+ * GET /api/dify/datasets/:datasetId/documents
+ * List documents inside a Dify Knowledge Base.
+ */
+router.get('/datasets/:datasetId/documents', requireAuth(), async (req, res) => {
+    try {
+        const apiKey = process.env.DIFY_DATASET_API_KEY;
+        if (!apiKey) return res.status(400).json({ error: 'Missing server env: DIFY_DATASET_API_KEY' });
+
+        const datasetId = String(req.params.datasetId || '').trim();
+        const page = Number(req.query.page || 1);
+        const limit = Number(req.query.limit || 20);
+
+        const response = await axios.get(`${DIFY_BASE_URL}/datasets/${encodeURIComponent(datasetId)}/documents`, {
+            params: { page, limit },
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            timeout: 30000
+        });
+
+        res.json(response.data);
+    } catch (err) {
+        console.error('[DIFY PROXY] Failed to list dataset documents:', err.response?.data || err.message);
+        const status = err.response?.status || 500;
+        res.status(status).json({
+            error: 'Failed to fetch dataset documents',
+            detail: err.response?.data?.message || err.message
+        });
+    }
+});
+
+/**
+ * GET /api/dify/datasets/:datasetId/documents/:documentId
+ * Fetch Dify Knowledge Base document details (includes KPIs like tokens/words/indexing status).
+ */
+router.get('/datasets/:datasetId/documents/:documentId', requireAuth(), async (req, res) => {
+    try {
+        const apiKey = process.env.DIFY_DATASET_API_KEY;
+        if (!apiKey) return res.status(400).json({ error: 'Missing server env: DIFY_DATASET_API_KEY' });
+
+        const datasetId = String(req.params.datasetId || '').trim();
+        const documentId = String(req.params.documentId || '').trim();
+
+        const response = await axios.get(
+            `${DIFY_BASE_URL}/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}`,
+            { headers: { 'Authorization': `Bearer ${apiKey}` }, timeout: 30000 }
+        );
+
+        res.json(response.data);
+    } catch (err) {
+        console.error('[DIFY PROXY] Failed to get document detail:', err.response?.data || err.message);
+        const status = err.response?.status || 500;
+        res.status(status).json({
+            error: 'Failed to fetch document detail',
+            detail: err.response?.data?.message || err.message
+        });
+    }
+});
+
+/**
+ * PATCH /api/dify/datasets/:datasetId
+ * Update Dify Knowledge Base (dataset) name/description.
+ */
+router.patch('/datasets/:datasetId', requireAuth(), rbac('APPROVER', 'COO', 'ADMIN'), async (req, res) => {
+    try {
+        const apiKey = process.env.DIFY_DATASET_API_KEY;
+        if (!apiKey) return res.status(400).json({ error: 'Missing server env: DIFY_DATASET_API_KEY' });
+
+        const datasetId = String(req.params.datasetId || '').trim();
+        const name = req.body?.name !== undefined ? String(req.body.name || '').trim() : undefined;
+        const description = req.body?.description !== undefined ? String(req.body.description || '').trim() : undefined;
+
+        const payload = {};
+        if (name !== undefined) payload.name = name;
+        if (description !== undefined) payload.description = description;
+
+        if (Object.keys(payload).length === 0) return res.status(400).json({ error: 'Nothing to update' });
+
+        const response = await axios.patch(`${DIFY_BASE_URL}/datasets/${encodeURIComponent(datasetId)}`, payload, {
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            timeout: 30000
+        });
+
+        res.json(response.data);
+    } catch (err) {
+        console.error('[DIFY PROXY] Failed to update dataset:', err.response?.data || err.message);
+        const status = err.response?.status || 500;
+        res.status(status).json({
+            error: 'Failed to update dataset',
             detail: err.response?.data?.message || err.message
         });
     }

@@ -18,6 +18,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { requireAuth } = require('../middleware/auth');
 const axios = require('axios');
+const FormData = require('form-data');
 
 // ─── Storage ────────────────────────────────────────────────────────────────
 
@@ -247,6 +248,107 @@ router.post('/upload', requireAuth(), (req, res) => {
             res.status(500).json({ error: 'Failed to register KB document in DB' });
         }
     });
+});
+
+// PATCH /api/kb/:docId/meta — update KB metadata in our DB (optionally propagate to Dify if linked + file exists)
+router.patch('/:docId/meta', requireAuth(), async (req, res) => {
+    try {
+        const docId = String(req.params.docId || '').trim();
+        if (!docId) return res.status(400).json({ error: 'docId is required' });
+
+        const [rows] = await db.query('SELECT * FROM kb_documents WHERE doc_id = ?', [docId]);
+        const doc = rows[0];
+        if (!doc) return res.status(404).json({ error: 'KB doc not found' });
+
+        const patch = {
+            title: req.body.title !== undefined ? String(req.body.title || '').trim() : undefined,
+            description: req.body.description !== undefined ? String(req.body.description || '').trim() : undefined,
+            ui_category: req.body.ui_category !== undefined ? String(req.body.ui_category || '').trim().toUpperCase() : undefined,
+            doc_type: req.body.doc_type !== undefined ? String(req.body.doc_type || '').trim().toUpperCase() : undefined,
+            agent_target: req.body.agent_target !== undefined ? (String(req.body.agent_target || '').trim() || null) : undefined,
+            icon_name: req.body.icon_name !== undefined ? String(req.body.icon_name || '').trim() : undefined,
+            visibility: req.body.visibility !== undefined ? String(req.body.visibility || '').trim().toUpperCase() : undefined,
+            display_date: req.body.display_date !== undefined ? (String(req.body.display_date || '').trim() || null) : undefined,
+            source_url: req.body.source_url !== undefined ? (String(req.body.source_url || '').trim() || null) : undefined,
+        };
+
+        const sets = [];
+        const values = [];
+        for (const [k, v] of Object.entries(patch)) {
+            if (v === undefined) continue;
+            sets.push(`${k} = ?`);
+            values.push(v);
+        }
+        if (sets.length > 0) {
+            values.push(docId);
+            await db.query(`UPDATE kb_documents SET ${sets.join(', ')} WHERE doc_id = ?`, values);
+        }
+
+        // Optional: propagate name changes back to Dify (best-effort).
+        // Requires kb_documents.embedding_id formatted like "<dataset_uuid>:<document_uuid>" AND a local file copy.
+        const propagate = req.body.propagate_to_dify === true || String(req.body.propagate_to_dify || '').toLowerCase() === 'true';
+        let dify = null;
+        if (propagate) {
+            const embedding = String(doc.embedding_id || '').trim();
+            const m = embedding.match(/^([0-9a-f-]{36}):([0-9a-f-]{36})$/i);
+            if (m) {
+                const datasetId = m[1];
+                const difyDocId = m[2];
+                const apiKey = String(process.env.DIFY_DATASET_API_KEY || '').trim();
+                const baseUrl = String(process.env.DIFY_API_BASE || 'https://api.dify.ai/v1').trim();
+                const newName = patch.title !== undefined ? patch.title : (String(doc.title || '').trim() || null);
+
+                try {
+                    if (!apiKey) throw new Error('Missing server env: DIFY_DATASET_API_KEY');
+                    if (!newName) throw new Error('title is required to propagate to Dify');
+
+                    const rel = String(doc.file_path || '').trim();
+                    const abs = rel ? path.join(__dirname, '..', '..', rel) : null;
+                    const mime = String(doc.mime_type || '').toLowerCase();
+                    const filename = String(doc.filename || '').toLowerCase();
+                    const isMarkdown = mime.includes('markdown') || filename.endsWith('.md') || filename.endsWith('.mmd');
+                    const isPdf = mime.includes('pdf') || filename.endsWith('.pdf');
+
+                    if (!abs || !fs.existsSync(abs)) {
+                        throw new Error('Cannot propagate: local file is missing for this doc');
+                    }
+
+                    if (isMarkdown) {
+                        const text = fs.readFileSync(abs, 'utf8');
+                        await axios.post(
+                            `${baseUrl}/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(difyDocId)}/update_by_text`,
+                            { name: newName, text, process_rule: { mode: 'automatic' } },
+                            { headers: { Authorization: `Bearer ${apiKey}` }, timeout: 60_000 }
+                        );
+                        dify = { ok: true, mode: 'update_by_text' };
+                    } else if (isPdf) {
+                        const form = new FormData();
+                        form.append('file', fs.createReadStream(abs), { filename: path.basename(abs) });
+                        form.append('data', JSON.stringify({ name: newName, indexing_technique: 'high_quality', process_rule: { mode: 'automatic' } }));
+                        await axios.post(
+                            `${baseUrl}/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(difyDocId)}/update-by-file`,
+                            form,
+                            { headers: { ...form.getHeaders(), Authorization: `Bearer ${apiKey}` }, timeout: 120_000 }
+                        );
+                        dify = { ok: true, mode: 'update-by-file' };
+                    } else {
+                        throw new Error('Cannot propagate: unsupported mime_type for Dify update');
+                    }
+                } catch (e) {
+                    const detail = e?.response?.data ? JSON.stringify(e.response.data).slice(0, 800) : (e?.message || 'Dify update failed');
+                    dify = { ok: false, error: detail };
+                }
+            } else {
+                dify = { ok: false, error: 'No linked Dify embedding_id (expected dataset_uuid:document_uuid)' };
+            }
+        }
+
+        const [updatedRows] = await db.query('SELECT * FROM kb_documents WHERE doc_id = ?', [docId]);
+        res.json({ doc: updatedRows[0], dify });
+    } catch (err) {
+        console.error('[KB] meta update failed:', err.message);
+        res.status(500).json({ error: 'Failed to update KB doc metadata' });
+    }
 });
 
 // POST /api/kb/dify/sync — import PDFs from a Dify Dataset into kb_documents + local /uploads/kb

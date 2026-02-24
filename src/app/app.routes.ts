@@ -102,6 +102,14 @@ export const routes: Routes = [
                 loadComponent: () => import('./pages/knowledge-base/knowledge-base').then(m => m.KnowledgeBaseComponent)
             },
             {
+                path: 'knowledge/studio',
+                loadComponent: () => import('./pages/knowledge-studio/knowledge-studio').then(m => m.KnowledgeStudioComponent)
+            },
+            {
+                path: 'knowledge/studio/:id',
+                loadComponent: () => import('./pages/knowledge-studio/knowledge-studio-doc.component').then(m => m.KnowledgeStudioDocComponent)
+            },
+            {
                 path: 'knowledge/base/:id',
                 loadComponent: () => import('./pages/knowledge-doc/knowledge-doc.component').then(m => m.KnowledgeDocComponent)
             },
