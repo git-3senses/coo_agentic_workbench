@@ -239,8 +239,8 @@ router.post('/dify/sync', requireAuth(), async (req, res) => {
         const baseUrl = String(process.env.DIFY_API_BASE || 'https://api.dify.ai/v1').trim();
         if (!apiKey) return res.status(400).json({ error: 'Missing server env: DIFY_DATASET_API_KEY' });
 
-        const datasetId = String(req.body?.dataset_id || '').trim();
-        if (!datasetId) return res.status(400).json({ error: 'dataset_id is required' });
+        const datasetRefRaw = String(req.body?.dataset_id || '').trim();
+        if (!datasetRefRaw) return res.status(400).json({ error: 'dataset_id is required' });
 
         const uiCategory = String(req.body?.ui_category || 'UNIVERSAL').trim().toUpperCase();
         const docType = String(req.body?.doc_type || 'REGULATORY').trim().toUpperCase();
@@ -253,6 +253,56 @@ router.post('/dify/sync', requireAuth(), async (req, res) => {
             headers: { Authorization: `Bearer ${apiKey}` },
             timeout: 30_000
         });
+
+        const isUuid = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+
+        // Dify API expects dataset_id to be a UUID. If caller provides a name, resolve via GET /datasets?keyword=...
+        let datasetId = datasetRefRaw;
+        if (!isUuid(datasetId)) {
+            // Common mistake: pasting API key/token (dat-...) or masked dataset-* string.
+            if (/^(dat|dataset)-/i.test(datasetId)) {
+                return res.status(400).json({
+                    error:
+                        'Invalid dataset_id. Dify dataset_id must be a UUID (not a token starting with dat-/dataset-). ' +
+                        'Please paste the Knowledge Base UUID from Dify (or enter the KB name and we will resolve it).'
+                });
+            }
+
+            const resolved = [];
+            let page = 1;
+            const limit = 100;
+            for (;;) {
+                const r = await client.get('/datasets', { params: { keyword: datasetRefRaw, page, limit } });
+                const items = r?.data?.data || [];
+                if (Array.isArray(items)) resolved.push(...items);
+                if (!r?.data?.has_more || !Array.isArray(items) || items.length < limit) break;
+                page += 1;
+                if (page > 10) break; // safety cap
+            }
+
+            const exact = resolved.filter(d => String(d?.name || '').trim().toLowerCase() === datasetRefRaw.toLowerCase());
+            const candidates = (exact.length ? exact : resolved).slice(0, 5);
+
+            if (!candidates.length) {
+                return res.status(404).json({
+                    error:
+                        'Knowledge Base not found in Dify for the given dataset_id/name. ' +
+                        'Please paste the KB UUID (recommended) or the exact KB name.',
+                });
+            }
+
+            if (candidates.length > 1 && !exact.length) {
+                return res.status(409).json({
+                    error: 'Multiple knowledge bases matched. Please paste the KB UUID or use an exact name.',
+                    candidates: candidates.map(c => ({ id: c.id, name: c.name }))
+                });
+            }
+
+            datasetId = String(candidates[0].id || '').trim();
+            if (!isUuid(datasetId)) {
+                return res.status(400).json({ error: 'Failed to resolve dataset UUID from Dify.' });
+            }
+        }
 
         const collected = [];
         let page = 1;
