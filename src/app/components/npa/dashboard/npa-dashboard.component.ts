@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Output, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { DifyAgentService, AgentCapability, AgentWorkItem, HealthMetrics } from '../../../services/dify/dify-agent.service';
 import { CapabilityCardComponent } from './capability-card.component';
 import { WorkItemListComponent } from './work-item-list.component';
@@ -79,9 +79,9 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
             </div>
           </div>
 
-           <!-- Primary CTA (Only for MAKER) -->
+           <!-- Primary CTA -->
           <div class="flex flex-col gap-3 w-full md:w-auto">
-             <button *ngIf="userRole() === 'MAKER'" (click)="onCreateNew()" class="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-dbs-primary hover:bg-dbs-primary-hover text-white rounded-xl font-bold text-lg shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 focus:ring-4 focus:ring-blue-100">
+             <button (click)="onCreateNew()" class="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-dbs-primary hover:bg-dbs-primary-hover text-white rounded-xl font-bold text-lg shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 focus:ring-4 focus:ring-blue-100">
                 <lucide-icon name="message-square" class="w-6 h-6"></lucide-icon>
                 Chat with Agent
                 <span class="absolute right-0 top-0 -mt-1 -mr-1 flex h-3 w-3">
@@ -90,21 +90,15 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
                 </span>
              </button>
              
-             <!-- Alternative CTA for CHECKER/APPROVER -->
-             <div *ngIf="userRole() !== 'MAKER'" class="px-6 py-4 bg-slate-100/50 rounded-xl border border-slate-200 text-center">
-                <p class="text-sm font-semibold text-slate-500">You are in {{ userRole() }} mode.</p>
-                <p class="text-xs text-slate-400">Creation is disabled.</p>
-             </div>
-             <div class="grid grid-cols-3 gap-2">
-                <button (click)="onContinueDraft()" class="px-4 py-2 bg-white border border-dbs-border text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
+             <div class="grid grid-cols-2 gap-2">
+                <button *ngIf="userRole() === 'MAKER'" (click)="onContinueDraft()" class="px-4 py-2 bg-white border border-dbs-border text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
                    <lucide-icon name="file-edit" class="w-3.5 h-3.5"></lucide-icon> Continue Draft
                 </button>
-                <button class="px-4 py-2 bg-white border border-dbs-border text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
-                   <lucide-icon name="search" class="w-3.5 h-3.5"></lucide-icon> Search KB
+                <button *ngIf="userRole() !== 'MAKER'" (click)="onOpenWorkspaceInbox()" class="px-4 py-2 bg-white border border-dbs-border text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
+                   <lucide-icon name="inbox" class="w-3.5 h-3.5"></lucide-icon> My Inbox
                 </button>
-                <button (click)="onSeedDemo()" [disabled]="seedingDemo" class="px-4 py-2 bg-dbs-primary text-white rounded-lg text-sm font-semibold hover:bg-dbs-primary-hover transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-60">
-                   <lucide-icon [name]="seedingDemo ? 'loader-2' : 'sparkles'" class="w-3.5 h-3.5" [ngClass]="{'animate-spin': seedingDemo}"></lucide-icon>
-                   {{ seedingDemo ? 'Seeding...' : 'Demo NPA' }}
+                <button (click)="onSearchKb()" class="px-4 py-2 bg-white border border-dbs-border text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
+                   <lucide-icon name="search" class="w-3.5 h-3.5"></lucide-icon> Search KB
                 </button>
              </div>
           </div>
@@ -554,6 +548,7 @@ export class NpaDashboardComponent implements OnInit {
    private userService = inject(UserService);
    private dashboardService = inject(DashboardService);
    private npaService = inject(NpaService);
+   private router = inject(Router);
 
    userRole = () => this.userService.currentUser().role;
 
@@ -578,10 +573,14 @@ export class NpaDashboardComponent implements OnInit {
    tier4Agents: AgentDefinition[] = AGENT_REGISTRY.filter(a => a.tier === 4);
    orchestratorAgents: AgentDefinition[] = AGENT_REGISTRY.filter(a => a.tier === 1 || a.tier === 2);
 
+   // Live Dify KBs
+   difyKbs: any[] = [];
+
    constructor() { }
 
    ngOnInit() {
       this.loadHeroStats();
+      this.loadDifyKbs();
    }
 
    private loadHeroStats() {
@@ -606,12 +605,33 @@ export class NpaDashboardComponent implements OnInit {
       });
    }
 
+   private loadDifyKbs() {
+      this.difyService.getConnectedKnowledgeBases().subscribe({
+         next: (kbs) => {
+            this.difyKbs = kbs || [];
+         },
+         error: (err) => console.warn('[NpaDashboard] Failed to load Dify KBs', err)
+      });
+   }
+
    onCreateNew() {
       this.navigateToCreate.emit();
    }
 
    onContinueDraft() {
       this.navigateToDraft.emit();
+   }
+
+   onSearchKb() {
+      this.router.navigate(['/knowledge/base']);
+   }
+
+   onOpenWorkspaceDrafts() {
+      this.router.navigate(['/workspace/drafts']);
+   }
+
+   onOpenWorkspaceInbox() {
+      this.router.navigate(['/workspace/inbox']);
    }
 
    onSeedDemo() {
