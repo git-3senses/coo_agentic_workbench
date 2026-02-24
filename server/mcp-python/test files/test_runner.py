@@ -273,6 +273,63 @@ CTX["DOCUMENT_ID"] = DOCUMENT_ID
 print(f"  Using document ID: {DOCUMENT_ID}")
 print()
 
+# Additional fixtures for tools with stricter preconditions (bundling / evergreen / doc lifecycle).
+print("--- Setup: Creating bundling + evergreen fixtures ---")
+
+# Bundling requires a parent product already in LAUNCHED stage.
+parent_resp = post(f"{TOOLS_URL}/ideation_create_npa", {
+    "title": "Python Test Parent Product (Bundling)",
+    "npa_type": "Existing",
+    "risk_level": "LOW",
+    "product_category": "FX",
+    "currency": "USD",
+    "notional_amount": 1000000,
+    "submitted_by": "Test-Script",
+    "initial_stage": "LAUNCHED",
+})
+BUNDLING_PARENT_ID = extract(parent_resp, "data", "npa_id")
+CTX["BUNDLING_PARENT_ID"] = BUNDLING_PARENT_ID
+
+child_resp = post(f"{TOOLS_URL}/ideation_create_npa", {
+    "title": "Python Test Child Product (Bundling)",
+    "npa_type": "Variation",
+    "risk_level": "LOW",
+    "product_category": "FX",
+    "currency": "USD",
+    "notional_amount": 900000,
+    "submitted_by": "Test-Script",
+})
+BUNDLING_CHILD_ID = extract(child_resp, "data", "npa_id")
+CTX["BUNDLING_CHILD_ID"] = BUNDLING_CHILD_ID
+
+# Bundling condition #8 expects an approved Operations signoff on the parent.
+ops_signoffs = [{"party": "Operations", "department": "TECH_OPS", "approver_name": "Ops Approver", "sla_hours": 24}]
+post(f"{TOOLS_URL}/governance_create_signoff_matrix", {"project_id": BUNDLING_PARENT_ID, "signoffs_json": json.dumps(ops_signoffs)})
+ops_list = post(f"{TOOLS_URL}/governance_get_signoffs", {"project_id": BUNDLING_PARENT_ID})
+OPS_SIGNOFF_ID = extract(ops_list, "data", "signoffs", 0, "id")
+if OPS_SIGNOFF_ID:
+    post(f"{TOOLS_URL}/governance_record_decision", {"signoff_id": OPS_SIGNOFF_ID, "decision": "APPROVED", "comments": "Approved via test runner"})
+
+# Evergreen usage requires approval_track=EVERGREEN.
+evergreen_resp = post(f"{TOOLS_URL}/ideation_create_npa", {
+    "title": "Python Test Evergreen Product",
+    "npa_type": "Existing",
+    "risk_level": "LOW",
+    "product_category": "FX",
+    "currency": "USD",
+    "notional_amount": 5000000,
+    "submitted_by": "Test-Script",
+})
+EVERGREEN_ID = extract(evergreen_resp, "data", "npa_id")
+CTX["EVERGREEN_ID"] = EVERGREEN_ID
+if EVERGREEN_ID:
+    post(f"{TOOLS_URL}/update_npa_project", {"project_id": EVERGREEN_ID, "updates_json": json.dumps({"approval_track": "EVERGREEN", "notional_amount": 5000000})})
+
+print(f"  Bundling parent: {BUNDLING_PARENT_ID}")
+print(f"  Bundling child:  {BUNDLING_CHILD_ID}")
+print(f"  Evergreen NPA:   {EVERGREEN_ID}")
+print()
+
 # ═══════════════════════════════════════════════════════════════════
 #  2. IDEATION (smoke)
 # ═══════════════════════════════════════════════════════════════════
@@ -563,7 +620,53 @@ all_tool_names = [t.get("name") for t in tools if isinstance(t, dict) and t.get(
 remaining = sorted({n for n in all_tool_names if isinstance(n, str)} - set(EXECUTED))
 if remaining:
     print(f"--- Catch-all Tools ({len(remaining)}) ---")
-    for name in remaining:
+    # Special-case tools that require very specific IDs or structured JSON payloads.
+    # Keep them out of the generic schema-driven payload builder.
+    remaining_set = set(remaining)
+
+    if "bundling_assess" in remaining_set:
+        # Ensure assess runs before apply (alphabetical ordering would run apply first).
+        child_id = CTX.get("BUNDLING_CHILD_ID") or CTX.get("NPA_ID")
+        parent_id = CTX.get("BUNDLING_PARENT_ID") or CTX.get("NPA_ID")
+        assess = test_tool("bundling_assess", {"child_id": child_id, "parent_id": parent_id})
+        remaining_set.discard("bundling_assess")
+        # Only apply if assessment succeeded.
+        if assess.get("success") is True and "bundling_apply" in remaining_set:
+            test_tool("bundling_apply", {"child_id": child_id, "parent_id": parent_id, "actor_name": "Test Runner"})
+            remaining_set.discard("bundling_apply")
+    # If apply is still remaining (e.g., assess wasn't part of remaining), skip it.
+    if "bundling_apply" in remaining_set:
+        skip_tool("bundling_apply", "requires successful bundling_assess first")
+        remaining_set.discard("bundling_apply")
+
+    if "evergreen_record_usage" in remaining_set:
+        eg_id = CTX.get("EVERGREEN_ID")
+        if eg_id:
+            test_tool("evergreen_record_usage", {
+                "project_id": eg_id,
+                "volume": 100000,
+                "pnl": 1234.56,
+                "counterparty_exposure": 50000,
+                "var_utilization": 25,
+            })
+        else:
+            skip_tool("evergreen_record_usage", "could not create EVERGREEN fixture project")
+        remaining_set.discard("evergreen_record_usage")
+
+    if "doc_lifecycle_validate" in remaining_set:
+        if CTX.get("DOCUMENT_ID"):
+            validations = [{
+                "document_id": CTX["DOCUMENT_ID"],
+                "validation_status": "VALID",
+                "validation_stage": "AUTOMATED",
+            }]
+            test_tool("doc_lifecycle_validate", {"project_id": CTX.get("NPA_ID"), "validations_json": json.dumps(validations)})
+        else:
+            skip_tool("doc_lifecycle_validate", "no document fixture available")
+        remaining_set.discard("doc_lifecycle_validate")
+
+    # Run anything else with schema-driven payloads.
+    for name in sorted(remaining_set):
         schema = schema_for_tool(openapi, name)
         payload = build_payload(schema, CTX)
         test_tool(name, payload)
