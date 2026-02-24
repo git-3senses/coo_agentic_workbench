@@ -293,6 +293,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
     showGenerateButton = false;
     routingPayload: any = null;
     private sessionDirty = false;
+    private sessionId: string | null = null;
 
     // 13-AGENT REGISTRY (data-driven from AGENT_REGISTRY)
     readonly AGENTS: Record<string, AgentIdentity> = {};
@@ -345,6 +346,7 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
             this.startConversation();
             return;
         }
+        this.sessionId = session.id;
 
         // Restore messages
         this.messages = session.messages.map((m: any) => ({
@@ -874,15 +876,21 @@ export class OrchestratorChatComponent implements OnInit, AfterViewChecked, OnDe
         this.isDraftReady = false;
         this.showGenerateButton = false;
         this.activeAgents.forEach((_, key) => this.activeAgents.set(key, 'idle'));
+        this.sessionId = null;
         this.startConversation();
     }
 
     private autoSaveSession(): void {
         if (this.messages.length === 0 || !this.sessionDirty) return;
-        this.chatSessionService.saveSession(
+
+        const isNew = !this.sessionId;
+
+        this.sessionId = this.chatSessionService.saveSessionFor(
+            this.sessionId,
             this.messages,
             this.difyService.activeAgentId || this.currentAgent?.id,
-            this.currentAgent
+            this.currentAgent,
+            { makeActive: isNew }
         );
     }
 

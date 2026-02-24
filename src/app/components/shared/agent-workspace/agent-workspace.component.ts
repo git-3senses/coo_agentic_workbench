@@ -677,6 +677,13 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
             this.viewMode = 'CHAT';
             this.chatTab = 'TEMPLATES';
             this.registerChatModeWithLayout();
+
+            // Auto-restore the active session so navigating away/back doesn't look like
+            // the conversation was "destroyed" until the user clicks it again.
+            this.tryAutoRestoreActiveSession();
+            // Sessions hydrate asynchronously from DB; retry a couple times.
+            setTimeout(() => this.tryAutoRestoreActiveSession(), 500);
+            setTimeout(() => this.tryAutoRestoreActiveSession(), 1500);
         }
 
         this.activitySub = this.difyService.getAgentActivity().subscribe(update => {
@@ -692,6 +699,7 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         this.activitySub?.unsubscribe();
         this.currentSubscription?.unsubscribe();
         this.stopThinkingTimer();
+        this.autoSaveSession();
         // Always exit chat mode and restore sidebar on destroy
         this.layoutService.exitChatMode();
         this.layoutService.setSidebarVisible(true);
@@ -954,6 +962,7 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         const hasCard = !!cardType && cardType !== 'DOMAIN_ROUTE';
         if (hasContent || hasCard) {
             this.messages.push({ role: 'agent', content: res.answer, timestamp: new Date(), agentIdentity: identity, cardType, cardData, agentAction: action });
+            this.sessionDirty = true;
         }
 
         // Instant agent switch with local greeting + context forwarding
@@ -989,6 +998,7 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                     cardType: 'INFO',
                     cardData: { title, description }
                 });
+                this.sessionDirty = true;
 
                 // Auto-send the orchestrator's last response and user messages as context to the new agent
                 this.isThinking = true;
@@ -1019,6 +1029,7 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                 const intentLine = intent ? `\n\nI understand you'd like to **${intent}**. ` : '\n\n';
                 const localGreeting = `**${agentName}** is ready.${intentLine}Go ahead and describe your product idea or requirement — I'll guide you through the process step by step.`;
                 this.messages.push({ role: 'agent', content: localGreeting, timestamp: new Date(), agentIdentity: greetIdentity });
+                this.sessionDirty = true;
                 this.isThinking = false;
                 this.stopThinkingTimer();
             }
@@ -1043,6 +1054,9 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
     // ─── Session Management ──────────────────────────────────────
 
     private sessionDirty = false;
+    private didAutoRestoreSession = false;
+    private sessionLoadSeq = 0;
+    private sessionId: string | null = null;
 
     /**
      * Build a concise context message to send to the delegated agent.
@@ -1062,22 +1076,37 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
 
     private autoSaveSession(): void {
         if (this.messages.length === 0 || !this.sessionDirty) return;
-        this.chatSessionService.saveSession(this.messages, this.difyService.activeAgentId, this.activeDomainAgent);
+
+        // If we don't have a session ID yet, we should make the new one active
+        // But if we're just updating an existing session in the background, don't change global state.
+        const isNew = !this.sessionId;
+
+        this.sessionId = this.chatSessionService.saveSessionFor(
+            this.sessionId,
+            this.messages,
+            this.difyService.activeAgentId,
+            this.activeDomainAgent,
+            { makeActive: isNew }
+        );
     }
 
     newChatFromSidebar(): void {
         this.autoSaveSession();
         this.resetChat();
+        this.sessionId = null;
         this.chatSessionService.startNewSession();
     }
 
     async loadSession(session: ChatSession): Promise<void> {
+        const loadSeq = ++this.sessionLoadSeq;
         this.autoSaveSession();
         this.difyService.reset();
         this.activeAgents.forEach((_, key) => this.activeAgents.set(key, 'idle'));
         this.showGenerateButton = false;
 
         const fullSession = await this.chatSessionService.fetchSessionWithMessages(session.id);
+        // Ignore out-of-order async completions when the user clicks multiple sessions quickly.
+        if (loadSeq !== this.sessionLoadSeq) return;
         const msgs = fullSession?.messages || session.messages || [];
 
         this.messages = msgs.map((m: any) => ({
@@ -1096,10 +1125,25 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         }
 
         this.chatSessionService.setActiveSession(session.id);
+        this.sessionId = session.id;
         this.chatTab = 'CHAT';
         this.isThinking = false;
         this.stopThinkingTimer();
         this.sessionDirty = false;
+    }
+
+    private tryAutoRestoreActiveSession(): void {
+        if (this.didAutoRestoreSession) return;
+        const activeId = this.chatSessionService.activeSessionId();
+        if (!activeId) return;
+
+        // Prefer local cache first to avoid flashing; fetchSessionWithMessages will hydrate.
+        const cached = this.chatSessionService.getSession(activeId);
+        if (!cached) return;
+
+        this.didAutoRestoreSession = true;
+        this.sessionId = activeId;
+        void this.loadSession(cached);
     }
 
     navigateToDomain(route: string) {
@@ -1146,6 +1190,8 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                         conversationId: this.difyService.getConversationId()
                     }
                 });
+                this.sessionDirty = true;
+                this.autoSaveSession();
             },
             error: (err) => {
                 console.error('[NPA] Creation failed:', err);
@@ -1153,6 +1199,8 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                     role: 'agent', content: 'NPA record creation failed — the draft data has been captured and you can create it manually from the NPA Dashboard.',
                     timestamp: new Date(), agentIdentity: this.AGENTS['NPA_ORCHESTRATOR'], agentAction: 'SHOW_ERROR'
                 });
+                this.sessionDirty = true;
+                this.autoSaveSession();
             }
         });
     }
@@ -1180,11 +1228,15 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                     } else {
                         this.messages.push({ role: 'agent', content: 'Classification analysis complete.', timestamp: new Date(), agentIdentity: this.AGENTS['CLASSIFIER'], cardType: 'CLASSIFICATION', cardData: classificationData });
                     }
+                    this.sessionDirty = true;
+                    this.autoSaveSession();
                 }
             },
             error: (err) => {
                 console.error('[CLASSIFIER] Workflow failed:', err);
                 this.messages.push({ role: 'agent', content: 'Classification workflow encountered an error. You can still proceed with the NPA draft manually.', timestamp: new Date(), agentIdentity: this.AGENTS['CLASSIFIER'], agentAction: 'SHOW_ERROR' });
+                this.sessionDirty = true;
+                this.autoSaveSession();
             }
         });
     }
