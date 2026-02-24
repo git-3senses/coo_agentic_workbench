@@ -20,9 +20,11 @@ export interface PipelineStage {
 }
 
 export interface ClassificationMix {
-    type: string;
+    type?: string;
+    label?: string;
     count: number;
-    percentage: number;
+    percentage?: number;
+    color?: string;
 }
 
 export interface AgeingBucket {

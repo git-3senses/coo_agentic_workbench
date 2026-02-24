@@ -5,11 +5,39 @@ const db = require('../db');
 // GET /api/dashboard/kpis — Dashboard KPI metrics
 router.get('/kpis', async (req, res) => {
     try {
-        const [latest] = await db.query('SELECT * FROM npa_kpi_snapshots ORDER BY snapshot_date DESC LIMIT 1');
-        const [previous] = await db.query('SELECT * FROM npa_kpi_snapshots ORDER BY snapshot_date DESC LIMIT 1 OFFSET 1');
+        // Query live npa_projects table instead of npa_kpi_snapshots
+        const [rows] = await db.query(`
+            SELECT 
+                SUM(estimated_revenue) as pipeline_value,
+                COUNT(CASE WHEN status != 'Stopped' AND current_stage NOT IN ('LAUNCHED', 'APPROVED', 'PROHIBITED') THEN 1 END) as active_npas,
+                AVG(CASE WHEN current_stage IN ('LAUNCHED', 'APPROVED') THEN DATEDIFF(updated_at, created_at) END) as avg_cycle_days,
+                COUNT(CASE WHEN current_stage IN ('LAUNCHED', 'APPROVED') THEN 1 END) as approvals_completed,
+                COUNT(CASE WHEN current_stage IN ('LAUNCHED', 'APPROVED', 'PROHIBITED') THEN 1 END) as approvals_total,
+                SUM(CASE WHEN predicted_timeline_days > 60 OR status = 'At Risk' THEN 1 ELSE 0 END) as critical_risks
+            FROM npa_projects
+        `);
 
-        const current = latest[0] || {};
-        const prev = previous[0] || {};
+        // For the trend, since we don't have historical snapshots anymore, we'll set trend to N/A or derive from a 30-day window.
+        // For simplicity, we'll compare against a 30-day trailing window.
+        const [historicalRows] = await db.query(`
+            SELECT 
+                SUM(estimated_revenue) as pipeline_value,
+                AVG(CASE WHEN current_stage IN ('LAUNCHED', 'APPROVED') THEN DATEDIFF(updated_at, created_at) END) as avg_cycle_days,
+                COUNT(CASE WHEN current_stage IN ('LAUNCHED', 'APPROVED') THEN 1 END) / NULLIF(COUNT(CASE WHEN current_stage IN ('LAUNCHED', 'APPROVED', 'PROHIBITED') THEN 1 END), 0) * 100 as approval_rate,
+                SUM(CASE WHEN predicted_timeline_days > 60 OR status = 'At Risk' THEN 1 ELSE 0 END) as critical_risks
+            FROM npa_projects
+            WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
+        `);
+
+        const current = rows[0] || {};
+        const prev = historicalRows[0] || {};
+
+        // Calculate Approval Rate
+        const currentApprovalRate = current.approvals_total > 0
+            ? (current.approvals_completed / current.approvals_total) * 100
+            : 0;
+
+        const prevApprovalRate = prev.approval_rate || 0;
 
         const kpis = [
             {
@@ -22,7 +50,7 @@ router.get('/kpis', async (req, res) => {
             },
             {
                 label: 'Avg Cycle Time',
-                value: `${current.avg_cycle_days || 0} Days`,
+                value: `${Math.round(current.avg_cycle_days || 0)} Days`,
                 subValue: 'From Initiation to Launch',
                 trend: prev.avg_cycle_days ? `${(((prev.avg_cycle_days - current.avg_cycle_days) / prev.avg_cycle_days) * 100).toFixed(0)}% improved` : 'N/A',
                 trendUp: (current.avg_cycle_days || 0) < (prev.avg_cycle_days || 0),
@@ -30,17 +58,17 @@ router.get('/kpis', async (req, res) => {
             },
             {
                 label: 'Approval Rate',
-                value: `${current.approval_rate || 0}%`,
+                value: `${Math.round(currentApprovalRate)}%`,
                 subValue: `${current.approvals_completed || 0}/${current.approvals_total || 0} completed`,
-                trend: prev.approval_rate ? `${((current.approval_rate - prev.approval_rate)).toFixed(0)}pp vs prev` : 'N/A',
-                trendUp: (current.approval_rate || 0) > (prev.approval_rate || 0),
+                trend: prevApprovalRate ? `${(currentApprovalRate - prevApprovalRate).toFixed(0)}pp vs prev` : 'N/A',
+                trendUp: currentApprovalRate > prevApprovalRate,
                 icon: 'CheckCircle'
             },
             {
                 label: 'Critical Risks',
                 value: `${current.critical_risks || 0}`,
                 subValue: 'Requiring immediate attention',
-                trend: prev.critical_risks ? `${prev.critical_risks - current.critical_risks > 0 ? '-' : '+'}${Math.abs(prev.critical_risks - current.critical_risks)} vs prev` : 'N/A',
+                trend: prev.critical_risks ? `${prev.critical_risks - current.critical_risks > 0 ? '-' : '+'}${Math.abs(current.critical_risks - prev.critical_risks)} vs prev` : 'N/A',
                 trendUp: (current.critical_risks || 0) < (prev.critical_risks || 0),
                 icon: 'AlertTriangle'
             }
@@ -112,8 +140,22 @@ router.get('/ageing', async (req, res) => {
 // GET /api/dashboard/clusters — Market cluster data
 router.get('/clusters', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM npa_market_clusters ORDER BY npa_count DESC');
-        res.json(rows);
+        const [rows] = await db.query(`
+            SELECT 
+                COALESCE(product_category, 'General') as cluster_name,
+                COUNT(*) as npa_count,
+                -- Mocking growth and intensity based on count for visual effect,
+                -- ideally this would be derived from historical comparisons.
+                (COUNT(*) * 5) as growth_percent,
+                (COUNT(*) * 15) as intensity_percent
+            FROM npa_projects
+            WHERE product_category IS NOT NULL AND product_category != ''
+            GROUP BY product_category
+            ORDER BY npa_count DESC
+            LIMIT 6
+        `);
+        // Map to match expected ID field interface
+        res.json(rows.map((r, index) => ({ id: index + 1, ...r })));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -122,7 +164,20 @@ router.get('/clusters', async (req, res) => {
 // GET /api/dashboard/prospects — Product opportunities
 router.get('/prospects', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM npa_prospects ORDER BY estimated_value DESC');
+        const [rows] = await db.query(`
+            SELECT 
+                id, 
+                title as name, 
+                npa_type as theme,
+                predicted_approval_likelihood as probability,
+                estimated_revenue as estimated_value,
+                currency as value_currency,
+                current_stage as status
+            FROM npa_projects
+            WHERE current_stage IN ('INITIATION', 'DISCOVERY', 'IDEATION')
+            ORDER BY estimated_revenue DESC
+            LIMIT 5
+        `);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });

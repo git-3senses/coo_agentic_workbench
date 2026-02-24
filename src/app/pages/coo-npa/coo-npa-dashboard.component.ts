@@ -239,36 +239,22 @@ interface NpaItem {
                  <div class="flex-1 flex flex-col items-center justify-center relative">
                      <!-- CSS Donut Chart -->
                      <div class="w-40 h-40 rounded-full relative" 
-                          style="background: conic-gradient(#8b5cf6 0% 28%, #3b82f6 28% 86%, #10b981 86% 100%)">
+                          [style.background]="classificationGradient">
                          <!-- Inner Circle -->
                          <div class="absolute inset-4 bg-white rounded-full flex flex-col items-center justify-center">
-                             <span class="text-3xl font-bold text-slate-900">42</span>
+                             <span class="text-3xl font-bold text-slate-900">{{ classificationTotal }}</span>
                              <span class="text-[10px] font-bold text-slate-400 uppercase">Total Active</span>
                          </div>
                      </div>
                  </div>
 
                  <div class="mt-6 space-y-3">
-                     <div class="flex items-center justify-between text-xs">
+                     <div *ngFor="let cm of classificationMix" class="flex items-center justify-between text-xs">
                          <div class="flex items-center gap-2">
-                             <div class="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
-                             <span class="font-medium text-slate-600">Complex (L1)</span>
+                             <div class="w-2.5 h-2.5 rounded-full" [style.background-color]="cm.color"></div>
+                             <span class="font-medium text-slate-600">{{ cm.type }}</span>
                          </div>
-                         <span class="font-bold text-slate-900">28%</span>
-                     </div>
-                     <div class="flex items-center justify-between text-xs">
-                         <div class="flex items-center gap-2">
-                             <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-                             <span class="font-medium text-slate-600">Standard (L2)</span>
-                         </div>
-                         <span class="font-bold text-slate-900">58%</span>
-                     </div>
-                     <div class="flex items-center justify-between text-xs">
-                         <div class="flex items-center gap-2">
-                             <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                             <span class="font-medium text-slate-600">Light (L3)</span>
-                         </div>
-                         <span class="font-bold text-slate-900">14%</span>
+                         <span class="font-bold text-slate-900">{{ cm.percentage }}%</span>
                      </div>
                  </div>
              </div>
@@ -899,6 +885,9 @@ export class CooNpaDashboardComponent implements OnInit {
     ageing: any[] = [];
     topRevenue: any[] = [];
     npaPool: NpaItem[] = [];
+    classificationMix: any[] = [];
+    classificationTotal = 0;
+    classificationGradient = 'conic-gradient(#e2e8f0 0% 100%)';
     clusters: any[] = [];
     prospects: any[] = [];
     launchedNpas: any[] = [];
@@ -940,7 +929,7 @@ export class CooNpaDashboardComponent implements OnInit {
             error: (err) => console.error('[COO] Failed to load NPA pool', err)
         });
 
-        // 2. Dashboard KPIs + Pipeline + Ageing + Clusters + Prospects + Revenue (parallel)
+        // 2. Dashboard KPIs + Pipeline + Ageing + Clusters + Prospects + Revenue + Classification (parallel)
         forkJoin({
             kpis: this.dashboardService.getKpis(),
             pipeline: this.dashboardService.getPipeline(),
@@ -948,6 +937,7 @@ export class CooNpaDashboardComponent implements OnInit {
             clusters: this.dashboardService.getClusters(),
             prospects: this.dashboardService.getProspects(),
             revenue: this.dashboardService.getRevenue(),
+            classification: this.dashboardService.getClassificationMix(),
         }).subscribe({
             next: (data) => {
                 // KPIs → header stats + KPI cards
@@ -996,6 +986,30 @@ export class CooNpaDashboardComponent implements OnInit {
                     revenue: '$' + this.formatValue(r.estimated_revenue),
                     progress: Math.min(100, Math.round((r.estimated_revenue / 50000000) * 100))
                 }));
+
+                // Classification Mix
+                this.classificationTotal = data.classification.reduce((sum, c) => sum + c.count, 0);
+                this.classificationMix = data.classification.map(c => ({
+                    type: c.type || c.label, // API returns label
+                    count: c.count,
+                    percentage: this.classificationTotal > 0 ? Math.round((c.count / this.classificationTotal) * 100) : 0,
+                    color: c.color
+                }));
+
+                // Build gradient
+                if (this.classificationTotal > 0) {
+                    let gradient = 'conic-gradient(';
+                    let currentPct = 0;
+                    this.classificationMix.forEach((c, i) => {
+                        const nextPct = currentPct + c.percentage;
+                        gradient += `${c.color} ${currentPct}% ${nextPct}%${i < this.classificationMix.length - 1 ? ', ' : ''}`;
+                        currentPct = nextPct;
+                    });
+                    gradient += ')';
+                    this.classificationGradient = gradient;
+                } else {
+                    this.classificationGradient = 'conic-gradient(#e2e8f0 0% 100%)';
+                }
             },
             error: (err) => console.error('[COO] Failed to load dashboard data', err)
         });
