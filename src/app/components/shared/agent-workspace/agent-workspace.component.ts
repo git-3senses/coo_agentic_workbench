@@ -1183,6 +1183,41 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                 const isNpaContext = this.config.context === 'NPA_AGENT';
                 // Re-run classification now that we have a real project_id so the workflow can persist results.
                 this.triggerClassifier(payload, res.id);
+
+                // Extract all data from payload to populate initial Product Attributes
+                const excludeKeys = ['data', 'target_agent', 'uiRoute', 'projectId', 'intent', 'project_id', 'npaId', 'id', 'title', 'description', 'npa_type'];
+                const formData: any[] = [];
+                const sourceData = { ...(payload.data || {}), ...payload };
+
+                for (const [key, value] of Object.entries(sourceData)) {
+                    if (excludeKeys.includes(key) || value === null || value === undefined || value === '') continue;
+                    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                        formData.push({
+                            field_key: key,
+                            field_value: String(value),
+                            lineage: 'AUTO'
+                        });
+                    } else if (Array.isArray(value)) {
+                        formData.push({
+                            field_key: key,
+                            field_value: value.join(', '),
+                            lineage: 'AUTO'
+                        });
+                    }
+                }
+
+                // Ensure minimum fields are present
+                if (!formData.find(f => f.field_key === 'risk_level')) {
+                    formData.push({ field_key: 'risk_level', field_value: payload.risk_level || d.risk_level || 'MEDIUM', lineage: 'AUTO' });
+                }
+                if (!formData.find(f => f.field_key === 'is_cross_border')) {
+                    formData.push({ field_key: 'is_cross_border', field_value: (payload.is_cross_border || d.is_cross_border) ? 'true' : 'false', lineage: 'AUTO' });
+                }
+
+                this.npaService.update(res.id, { formData }).subscribe({
+                    next: () => console.log(`[AgentWorkspace] Initial data persisted for ${res.id}`),
+                    error: (err) => console.warn('[AgentWorkspace] Failed to persist initial formData', err)
+                });
                 this.messages.push({
                     role: 'agent',
                     content: isNpaContext

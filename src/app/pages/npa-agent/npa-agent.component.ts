@@ -126,12 +126,37 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
                console.log(`[NPAAgent] Created new NPA: ${newId}`);
 
                // Prepare any extra initial data (classification, etc)
-               const updatePayload = {
-                  formData: [
-                     { field_key: 'risk_level', field_value: payload.risk_level || 'MEDIUM', lineage: 'AUTO' },
-                     { field_key: 'is_cross_border', field_value: payload.is_cross_border ? 'true' : 'false', lineage: 'AUTO' }
-                  ]
-               };
+               // Extract all data from payload to populate initial Product Attributes
+               const excludeKeys = ['data', 'target_agent', 'uiRoute', 'projectId', 'intent', 'project_id', 'npaId', 'id', 'title', 'description', 'npa_type'];
+               const formData: any[] = [];
+               const sourceData = { ...(payload.data || {}), ...payload };
+
+               for (const [key, value] of Object.entries(sourceData)) {
+                  if (excludeKeys.includes(key) || value === null || value === undefined || value === '') continue;
+                  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                     formData.push({
+                        field_key: key,
+                        field_value: String(value),
+                        lineage: 'AUTO'
+                     });
+                  } else if (Array.isArray(value)) {
+                     formData.push({
+                        field_key: key,
+                        field_value: value.join(', '),
+                        lineage: 'AUTO'
+                     });
+                  }
+               }
+
+               // Ensure minimum fields are present
+               if (!formData.find(f => f.field_key === 'risk_level')) {
+                  formData.push({ field_key: 'risk_level', field_value: payload.risk_level || 'MEDIUM', lineage: 'AUTO' });
+               }
+               if (!formData.find(f => f.field_key === 'is_cross_border')) {
+                  formData.push({ field_key: 'is_cross_border', field_value: payload.is_cross_border ? 'true' : 'false', lineage: 'AUTO' });
+               }
+
+               const updatePayload = { formData };
 
                this.npaService.update(newId, updatePayload).subscribe({
                   next: () => {
