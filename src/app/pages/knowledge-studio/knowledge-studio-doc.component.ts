@@ -82,6 +82,15 @@ type StudioFile = {
       </div>
     </header>
 
+    <div *ngIf="uploadMsg || uploadError" class="px-6 pt-4">
+      <div *ngIf="uploadMsg" class="text-sm text-green-700 bg-green-50 border border-green-100 rounded-xl px-3 py-2">
+        {{ uploadMsg }}
+      </div>
+      <div *ngIf="uploadError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+        {{ uploadError }}
+      </div>
+    </div>
+
     <div class="flex-1 min-h-0 flex gap-4 p-6">
       <!-- Left: Sources -->
       <section class="w-[28%] min-w-[280px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col">
@@ -90,7 +99,12 @@ type StudioFile = {
             <lucide-icon name="paperclip" class="w-4 h-4 text-slate-500"></lucide-icon>
             Sources
           </div>
-          <div class="text-xs text-slate-500">{{ files.length }}</div>
+          <div class="text-xs text-slate-500">
+            <span *ngIf="isUploading" class="inline-flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Uploading…
+            </span>
+            <span *ngIf="!isUploading">{{ files.length }}</span>
+          </div>
         </div>
         <div class="flex-1 min-h-0 overflow-y-auto">
           <button *ngFor="let f of files" (click)="selectFile(f)"
@@ -243,6 +257,10 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
   genError: string | null = null;
   generateForm = { agent_id: 'KB_SEARCH', preset: 'report', instruction: '', context: '' };
 
+  isUploading = false;
+  uploadMsg: string | null = null;
+  uploadError: string | null = null;
+
   private sub: any;
 
   ngOnInit(): void {
@@ -271,6 +289,10 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
     const files = Array.from(input.files || []);
     if (!files.length) return;
 
+    this.isUploading = true;
+    this.uploadMsg = null;
+    this.uploadError = null;
+
     const form = new FormData();
     for (const f of files) form.append('files', f);
 
@@ -278,10 +300,14 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.files = Array.isArray(res?.files) ? res.files : this.files;
         input.value = '';
+        this.isUploading = false;
+        this.uploadMsg = `Uploaded ${files.length} source file${files.length === 1 ? '' : 's'}.`;
       },
-      error: () => {
+      error: (e) => {
         input.value = '';
-        alert('Upload failed');
+        this.isUploading = false;
+        const msg = e?.error?.error || e?.message || 'Upload failed';
+        this.uploadError = String(msg);
       }
     });
   }
@@ -364,4 +390,3 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
     });
   }
 }
-

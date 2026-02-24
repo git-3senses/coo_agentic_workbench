@@ -12,6 +12,8 @@ import { PirManagementComponent } from '../pir-management/pir-management.compone
 import { BundlingAssessmentComponent } from '../bundling-assessment/bundling-assessment.component';
 import { DocumentManagerComponent } from '../document-manager/document-manager.component';
 import { EvergreenDashboardComponent } from '../evergreen-dashboard/evergreen-dashboard.component';
+import { DifyAgentService } from '../../services/dify/dify-agent.service';
+import { KbListOverlayComponent } from '../../components/npa/dashboard/kb-list-overlay.component';
 
 interface KpiMetric {
     label: string;
@@ -43,7 +45,7 @@ interface NpaItem {
 @Component({
     selector: 'app-coo-npa-dashboard',
     standalone: true,
-    imports: [CommonModule, LucideAngularModule, EscalationQueueComponent, PirManagementComponent, BundlingAssessmentComponent, DocumentManagerComponent, EvergreenDashboardComponent],
+    imports: [CommonModule, LucideAngularModule, EscalationQueueComponent, PirManagementComponent, BundlingAssessmentComponent, DocumentManagerComponent, EvergreenDashboardComponent, KbListOverlayComponent],
     template: `
     <div class="h-full w-full bg-slate-50/50 flex flex-col font-sans text-slate-900 group/dashboard relative overflow-hidden">
 
@@ -537,6 +539,55 @@ interface NpaItem {
              </div>
          </div>
 
+         <!-- 5. KNOWLEDGE BASES (Linked KBs) -->
+         <div class="mt-6">
+            <section class="flex flex-col">
+               <div class="flex items-center justify-between mb-6">
+                  <div class="flex items-center gap-3">
+                     <div class="p-2 bg-purple-100 text-purple-700 rounded-lg">
+                        <lucide-icon name="book-open" class="w-5 h-5"></lucide-icon>
+                     </div>
+                     <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">
+                        Linked Knowledge Bases
+                     </h2>
+                  </div>
+                  <button class="text-xs font-bold text-purple-600 bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-lg hover:bg-purple-100 transition-colors flex items-center gap-1.5" (click)="navigateToCreate()">
+                      <lucide-icon name="plus" class="w-3 h-3"></lucide-icon> Add KB
+                  </button>
+               </div>
+               
+               <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex-1 flex flex-col">
+                  <div class="divide-y divide-slate-100 min-h-[160px]">
+                     <div *ngIf="difyKbs.length === 0" class="p-6 text-center text-slate-500 text-sm flex flex-col items-center gap-2">
+                        <lucide-icon name="loader-2" class="w-6 h-6 animate-spin text-slate-300"></lucide-icon>
+                        Loading Knowledge Bases...
+                     </div>
+                     
+                     <div *ngFor="let kb of difyKbs | slice:0:4" class="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group">
+                        <div class="flex items-center gap-4">
+                           <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+                              <lucide-icon name="database" class="w-5 h-5"></lucide-icon>
+                           </div>
+                           <div>
+                              <h4 class="text-sm font-bold text-slate-900 group-hover:text-indigo-600" [title]="kb.name">{{ kb.name | slice:0:30 }}{{ kb.name.length > 30 ? '...' : '' }}</h4>
+                              <p class="text-xs text-slate-500">{{ kb.document_count || kb.total_documents || 0 }} records • {{ kb.provider || 'Dify' }}</p>
+                           </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                           <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">SYNCED</span>
+                           <lucide-icon name="chevron-right" class="w-4 h-4 text-slate-300 group-hover:text-indigo-400"></lucide-icon>
+                        </div>
+                     </div>
+                  </div>
+                  <div class="bg-slate-50 px-4 py-2 border-t border-slate-200 text-center mt-auto">
+                     <button class="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1 w-full" (click)="onViewAll('kb')">
+                        View All Knowledge Sources <lucide-icon name="arrow-right" class="w-3 h-3"></lucide-icon>
+                     </button>
+                  </div>
+               </div>
+            </section>
+         </div>
+
          </div>
          <!-- END OVERVIEW TAB CONTENT -->
 
@@ -844,6 +895,13 @@ interface NpaItem {
          </div>
 
       </div>
+      
+      <!-- KB Overlay -->
+      <app-kb-list-overlay
+          [isOpen]="isKbOverlayOpen"
+          [kbSets]="difyKbs"
+          (closeOverlay)="isKbOverlayOpen = false">
+      </app-kb-list-overlay>
     </div>
   `,
     styles: [`
@@ -860,6 +918,7 @@ export class CooNpaDashboardComponent implements OnInit {
     private npaService = inject(NpaService);
     private dashboardService = inject(DashboardService);
     private monitoringService = inject(MonitoringService);
+    private difyService = inject(DifyAgentService);
 
     navigateToCreate() {
         this.router.navigate(['/agents/npa'], { queryParams: { mode: 'create' } });
@@ -874,6 +933,10 @@ export class CooNpaDashboardComponent implements OnInit {
     }
 
     activeTab: 'overview' | 'npa-pool' | 'monitoring' | 'escalations' | 'pir' | 'bundling' | 'documents' | 'evergreen' = 'overview';
+
+    // States for overlay
+    difyKbs: any[] = [];
+    isKbOverlayOpen = false;
 
     // Header stats (bound from KPI API)
     headerActiveNpas = 0;
@@ -900,6 +963,14 @@ export class CooNpaDashboardComponent implements OnInit {
 
     ngOnInit() {
         this.loadAllData();
+        this.loadDifyKbs();
+    }
+
+    private loadDifyKbs() {
+        this.difyService.getConnectedKnowledgeBases().subscribe({
+            next: (kbs) => this.difyKbs = kbs || [],
+            error: (err) => console.warn('[COO Dashboard] Failed to load Dify KBs', err)
+        });
     }
 
     /**
@@ -1169,6 +1240,13 @@ export class CooNpaDashboardComponent implements OnInit {
         if (hours < 24) return hours + ' hours ago';
         const days = Math.floor(hours / 24);
         return days + (days === 1 ? ' day ago' : ' days ago');
+    }
+
+    onViewAll(section: string) {
+        console.log('Viewing all for section:', section);
+        if (section === 'kb') {
+            this.isKbOverlayOpen = true;
+        }
     }
 
     private groupAgentsByTier() {

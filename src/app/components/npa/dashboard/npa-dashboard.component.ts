@@ -12,6 +12,7 @@ import { UserService } from '../../../services/user.service';
 import { DashboardService } from '../../../services/dashboard.service';
 import { NpaService } from '../../../services/npa.service';
 import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
+import { KbListOverlayComponent } from './kb-list-overlay.component';
 
 @Component({
    selector: 'app-npa-dashboard',
@@ -23,7 +24,8 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
       CapabilityCardComponent,
       WorkItemListComponent,
       AgentHealthPanelComponent,
-      NpaPipelineTableComponent
+      NpaPipelineTableComponent,
+      KbListOverlayComponent
    ],
    template: `
     <div class="min-h-screen bg-slate-50/50 pb-20 font-sans">
@@ -484,6 +486,13 @@ import { AGENT_REGISTRY, AgentDefinition } from '../../../lib/agent-interfaces';
         </section>
 
       </div>
+      
+      <!-- KB Overlay -->
+      <app-kb-list-overlay
+          [isOpen]="isKbOverlayOpen"
+          [kbSets]="difyKbs"
+          (closeOverlay)="isKbOverlayOpen = false">
+      </app-kb-list-overlay>
     </div>
   `,
    styles: [`
@@ -511,6 +520,7 @@ export class NpaDashboardComponent implements OnInit {
 
    expandedCardId: string | null = null;
    seedingDemo = false;
+   isKbOverlayOpen = false;
 
    emptyMetrics: HealthMetrics = {
       status: 'down', latency: 0, uptime: 0, activeAgents: 0, totalAgents: 13, totalDecisions: 0
@@ -613,6 +623,8 @@ export class NpaDashboardComponent implements OnInit {
 
    onViewAll(section: string) {
       console.log('Viewing all for section:', section);
-      // Implementation for routing or modal would go here
+      if (section === 'kb') {
+         this.isKbOverlayOpen = true;
+      }
    }
 }
