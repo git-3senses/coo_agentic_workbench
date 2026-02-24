@@ -454,6 +454,23 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
         this.showGenerate = false;
       },
       error: (e) => {
+        const maybeBlob = e?.error;
+        if (maybeBlob instanceof Blob) {
+          maybeBlob.text().then((txt) => {
+            try {
+              const parsed = JSON.parse(txt || '{}');
+              this.genError = String(parsed?.error || parsed?.message || e?.message || 'Generation failed');
+            } catch {
+              this.genError = String(txt || e?.message || 'Generation failed');
+            }
+            this.isGenerating = false;
+          }).catch(() => {
+            this.genError = String(e?.message || 'Generation failed');
+            this.isGenerating = false;
+          });
+          return;
+        }
+
         this.genError = e?.error?.error || e?.message || 'Generation failed';
         this.isGenerating = false;
       }

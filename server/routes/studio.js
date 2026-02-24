@@ -381,20 +381,39 @@ async function extractSourceText(files) {
         pdfParse = null;
     }
 
+    const MAX_TOTAL_CHARS = Number(process.env.STUDIO_SOURCE_MAX_CHARS || 80_000);
+    const MAX_PER_FILE_CHARS = Number(process.env.STUDIO_SOURCE_MAX_PER_FILE_CHARS || 20_000);
+    const MAX_PDF_PARSE_BYTES = Number(process.env.STUDIO_PDF_PARSE_MAX_BYTES || 5 * 1024 * 1024); // 5MB
+
     const parts = [];
     for (const f of files) {
-        const abs = path.join(__dirname, '..', '..', f.file_path);
-        if (!fs.existsSync(abs)) continue;
+        let abs;
+        try {
+            abs = resolveStudioFilePath(f.file_path);
+        } catch {
+            parts.push(`## Source: ${f.filename}\n\n(File missing on server disk)`);
+            continue;
+        }
 
         const ext = path.extname(f.filename || '').toLowerCase();
         try {
             if (['.md', '.mmd', '.txt', '.eml'].includes(ext)) {
                 const txt = fs.readFileSync(abs, 'utf8');
-                parts.push(`## Source: ${f.filename}\n\n${txt}`);
+                const clipped = txt.length > MAX_PER_FILE_CHARS ? txt.slice(0, MAX_PER_FILE_CHARS) + '\n\n...(truncated)...' : txt;
+                parts.push(`## Source: ${f.filename}\n\n${clipped}`);
             } else if (ext === '.pdf' && pdfParse) {
-                const buf = fs.readFileSync(abs);
-                const parsed = await pdfParse(buf);
-                parts.push(`## Source: ${f.filename}\n\n${parsed.text || ''}`);
+                const stat = fs.statSync(abs);
+                if (stat.size > MAX_PDF_PARSE_BYTES) {
+                    parts.push(
+                        `## Source: ${f.filename}\n\n(PDF is ${Math.round(stat.size / (1024 * 1024))}MB — skipped text extraction to avoid timeouts. Please upload a smaller PDF or provide a Markdown/text summary.)`
+                    );
+                } else {
+                    const buf = fs.readFileSync(abs);
+                    const parsed = await pdfParse(buf);
+                    const text = String(parsed?.text || '');
+                    const clipped = text.length > MAX_PER_FILE_CHARS ? text.slice(0, MAX_PER_FILE_CHARS) + '\n\n...(truncated)...' : text;
+                    parts.push(`## Source: ${f.filename}\n\n${clipped}`);
+                }
             } else if (ext === '.pdf' && !pdfParse) {
                 parts.push(`## Source: ${f.filename}\n\n(PDF attached; text extraction not available on server)`);
             }
@@ -405,7 +424,7 @@ async function extractSourceText(files) {
 
     // Keep payload bounded
     const joined = parts.join('\n\n---\n\n');
-    return joined.length > 80_000 ? joined.slice(0, 80_000) + '\n\n...(truncated)...' : joined;
+    return joined.length > MAX_TOTAL_CHARS ? joined.slice(0, MAX_TOTAL_CHARS) + '\n\n...(truncated)...' : joined;
 }
 
 // POST /api/studio/docs/:id/generate
@@ -450,7 +469,7 @@ router.post('/docs/:id/generate', requireAuth(), async (req, res) => {
             },
             {
                 headers: { Authorization: req.headers.authorization || '' },
-                timeout: 180000
+                timeout: Number(process.env.STUDIO_GENERATE_TIMEOUT_MS || 90_000)
             }
         );
 
@@ -468,7 +487,15 @@ router.post('/docs/:id/generate', requireAuth(), async (req, res) => {
         const updated = await getStudioDoc(doc.id);
         res.json({ doc: updated });
     } catch (err) {
-        console.error('[STUDIO] generate error:', err.message);
+        const msg = String(err?.message || 'Failed to generate draft');
+        console.error('[STUDIO] generate error:', msg);
+        if (msg.toLowerCase().includes('timeout')) {
+            return res.status(504).json({
+                error:
+                    'Generation timed out. Try again with fewer/smaller sources (large PDFs may be skipped), ' +
+                    'or upload a Markdown/text summary instead of a PDF.'
+            });
+        }
         res.status(500).json({ error: 'Failed to generate draft' });
     }
 });
