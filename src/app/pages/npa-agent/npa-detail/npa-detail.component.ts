@@ -1481,6 +1481,7 @@ export class NpaDetailComponent implements OnInit {
          mandatorySignOffs: [],
          analysisSummary: analysisSummary.length ? analysisSummary : undefined,
          rawOutput: rawText,
+         traceSteps: trace,
          rawJson: { trace }
       } as ClassificationResult;
    }
