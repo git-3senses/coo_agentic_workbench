@@ -320,6 +320,7 @@ const ROLE_LABELS: Record<string, string> = {
 .pill:hover { background: rgba(255,255,255,0.1); }
 .pill-icon { font-size: 14px; }
 .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
   line-height: 1;
 }
