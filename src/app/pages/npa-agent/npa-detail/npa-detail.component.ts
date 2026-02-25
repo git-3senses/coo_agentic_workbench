@@ -25,6 +25,7 @@ import { FIELD_REGISTRY_MAP } from '../../../lib/npa-template-definition';
 import { AuthService } from '../../../services/auth.service';
 import { UserService } from '../../../services/user.service';
 import { ApprovalService } from '../../../services/approval.service';
+import { ChatSessionService } from '../../../services/chat-session.service';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
@@ -133,6 +134,11 @@ export class NpaDetailComponent implements OnInit {
    private auth = inject(AuthService);
    private userService = inject(UserService);
    private approvalService = inject(ApprovalService);
+   private chatSessionService = inject(ChatSessionService);
+
+   // Agent session rehydration: tracks the chat session ID scoped to this project
+   private projectSessionId: string | null = null;
+   private sessionRehydrated = false;
 
    private getApproverIdentity(): { approver_user_id?: string; approver_name?: string } {
       const authUser = this.auth.currentUser;
@@ -215,7 +221,10 @@ export class NpaDetailComponent implements OnInit {
             this.waveContext = {};
             this.agentErrors = {};
             this.dbDataSufficient = false;
-            console.log(`[loadOnce] Switching NPA context: ${this.projectId} → ${id}, reset agent state`);
+            // Reset session rehydration for new project
+            this.projectSessionId = null;
+            this.sessionRehydrated = false;
+            console.log(`[loadOnce] Switching NPA context: ${this.projectId} → ${id}, reset agent state + session`);
          }
          this.projectId = id;
          this._loadStartedForId = id;
@@ -547,6 +556,10 @@ export class NpaDetailComponent implements OnInit {
       // Load documents from DB (P1 fix)
       this.loadDocuments();
 
+      // Rehydrate agent session: load any prior session for this project
+      // and restore Dify conversation state so agents can resume threads
+      this.rehydrateAgentSession(id);
+
       this.governanceService.getProjectDetails(id).pipe(
          catchError((err) => {
             console.warn(`[NPA Detail] Governance API 404 for ${id}, falling back to NPA service...`);
@@ -663,6 +676,82 @@ export class NpaDetailComponent implements OnInit {
       this.agentAnalysisScheduled = true;
       // Defer by a tick to allow any synchronous mapping to complete.
       setTimeout(() => this.runAgentAnalysis(), 0);
+   }
+
+   // ─── Agent Session Rehydration ──────────────────────────────────────
+
+   /**
+    * Loads the most recent chat session for this project from the DB,
+    * restores the Dify per-agent conversation IDs so agent threads resume
+    * instead of starting fresh every time the user navigates back.
+    */
+   private async rehydrateAgentSession(projectId: string): Promise<void> {
+      if (this.sessionRehydrated) return;
+      try {
+         const sessions = await this.chatSessionService.loadSessionsForProject(projectId);
+         if (sessions.length === 0) {
+            console.log(`[rehydrateAgentSession] No prior sessions for ${projectId} — will create on first agent run`);
+            return;
+         }
+         const latest = sessions[0]; // Most recent
+         this.projectSessionId = latest.id;
+
+         // Restore Dify multi-agent conversation state (per-agent conversation_ids + delegation stack)
+         if (latest.conversationState) {
+            this.difyService.restoreConversationState(latest.conversationState);
+            console.log(`[rehydrateAgentSession] Restored conversation state for ${projectId}:`,
+               Object.keys(latest.conversationState.conversations || {}).length, 'agent conversations,',
+               'active:', latest.conversationState.activeAgentId);
+         }
+
+         this.sessionRehydrated = true;
+         console.log(`[rehydrateAgentSession] Session ${latest.id} loaded for project ${projectId} (${latest.messageCount} messages)`);
+      } catch (err) {
+         console.warn(`[rehydrateAgentSession] Failed for ${projectId}:`, err);
+      }
+   }
+
+   /**
+    * Save/update the agent session for this project.
+    * Called after agent waves complete to persist Dify conversation state.
+    * This allows the user to navigate away and come back without losing conversation threads.
+    */
+   private saveAgentSession(agentId?: string): void {
+      if (!this.projectId) return;
+
+      const conversationState = this.difyService.exportConversationState();
+      const agentSummary = [
+         this.classificationResult ? `Classification: ${this.classificationResult.type}/${this.classificationResult.track}` : null,
+         this.riskAssessmentResult ? `Risk: ${this.riskAssessmentResult.overallRating} (${this.riskAssessmentResult.overallScore})` : null,
+         this.governanceState ? `Governance: ${this.governanceState.signoffs?.length || 0} signoffs` : null,
+         this.mlPrediction ? `ML: ${this.mlPrediction.approvalLikelihood}% approval` : null,
+      ].filter(Boolean);
+
+      // Build a synthetic message log of agent activity for this project
+      const messages = agentSummary.map(summary => ({
+         role: 'agent' as const,
+         content: summary!,
+         timestamp: new Date(),
+         agentIdentityId: agentId || 'SYSTEM',
+         cardType: 'agent_result'
+      }));
+
+      if (messages.length === 0) return; // Nothing to save yet
+
+      this.projectSessionId = this.chatSessionService.saveSessionFor(
+         this.projectSessionId,
+         messages,
+         agentId || this.difyService.activeAgentId,
+         undefined, // no domainAgent for workflow agents
+         {
+            projectId: this.projectId,
+            conversationState,
+            makeActive: false // Don't steal the global active session from the main chat
+         }
+      );
+
+      console.log(`[saveAgentSession] Saved session ${this.projectSessionId} for project ${this.projectId}`,
+         `(${Object.keys(conversationState.conversations || {}).length} conversations)`);
    }
 
    mapBackendDataToView(data: any) {
@@ -1184,6 +1273,7 @@ export class NpaDetailComponent implements OnInit {
 
       // W0: RISK (hard-stop gate) → W1: CLASSIFIER + ML_PREDICT → W2: GOVERNANCE → W3: DOC_LIFECYCLE + MONITORING
       fireAgent('RISK').pipe(
+         tap(() => this.saveAgentSession('RISK')),
          concatMap(riskRes => {
             const riskOutputs = riskRes?.data?.outputs;
             const hardStop = riskOutputs?.hard_stop === true || riskOutputs?.hardStop === true;
@@ -1194,19 +1284,24 @@ export class NpaDetailComponent implements OnInit {
                      this.agentLoading[a] = false;
                      this.agentErrors[a] = 'Aborted: prohibited product detected by RISK agent';
                   });
+               this.saveAgentSession('RISK');
                return EMPTY;
             }
             return forkJoin([fireAgent('CLASSIFIER'), fireAgent('ML_PREDICT')]);
          }),
+         tap(() => this.saveAgentSession('CLASSIFIER')),
          concatMap(() => {
             return fireAgent('GOVERNANCE', { agent_mode: 'GOVERNANCE' });
          }),
+         tap(() => this.saveAgentSession('GOVERNANCE')),
          concatMap(() => {
             return fireAgent('DOC_LIFECYCLE', { agent_mode: 'DOC_LIFECYCLE' }).pipe(
                concatMap(() => fireAgent('MONITORING', { agent_mode: 'MONITORING' }))
             );
          })
-      ).subscribe();
+      ).subscribe({
+         complete: () => this.saveAgentSession('MONITORING')
+      });
    }
 
    // ─── Agent Result Handlers ────────────────────────────────────────

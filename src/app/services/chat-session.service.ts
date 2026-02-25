@@ -30,6 +30,7 @@ export interface ChatSession {
     messages: StoredMessage[];
     activeAgentId?: string;   // Which agent was active at end of session
     conversationState?: any;  // Per-agent conversation_id map + delegation stack + active agent
+    projectId?: string;       // NPA project this session belongs to (scoped rehydration)
     domainAgent?: {
         id: string;
         name: string;
@@ -161,7 +162,7 @@ export class ChatSessionService {
         messages: { role: string; content: string; timestamp: Date; agentIdentity?: any; cardType?: string; cardData?: any; agentAction?: string }[],
         activeAgentId?: string,
         domainAgent?: { id: string; name: string; icon: string; color: string } | null,
-        opts: { makeActive?: boolean; conversationState?: any } = {}
+        opts: { makeActive?: boolean; conversationState?: any; projectId?: string } = {}
     ): string {
         if (messages.length === 0) return '';
 
@@ -193,6 +194,7 @@ export class ChatSessionService {
                     activeAgentId,
                     domainAgent: domainAgent || undefined,
                     conversationState: opts.conversationState ?? sessions[idx].conversationState,
+                    projectId: opts.projectId ?? sessions[idx].projectId,
                     title,
                     preview
                 };
@@ -202,7 +204,7 @@ export class ChatSessionService {
                 this._sessions.set(sessions);
             }
             // Persist to DB (fire-and-forget)
-            this.updateSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages, opts.conversationState);
+            this.updateSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages, opts.conversationState, opts.projectId);
         } else {
             // ── Create new session ──
             sessionId = this.generateId();
@@ -216,6 +218,7 @@ export class ChatSessionService {
                 messages: storedMessages,
                 activeAgentId,
                 conversationState: opts.conversationState,
+                projectId: opts.projectId,
                 domainAgent: domainAgent || undefined
             };
             const sessions = [newSession, ...this._sessions()];
@@ -225,7 +228,7 @@ export class ChatSessionService {
             }
 
             // Persist to DB (fire-and-forget)
-            this.createSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages, opts.conversationState);
+            this.createSessionInDB(sessionId, title, preview, activeAgentId, domainAgent, storedMessages, opts.conversationState, opts.projectId);
         }
 
         if (opts.makeActive && sessionId) {
@@ -308,6 +311,43 @@ export class ChatSessionService {
     }
 
     /**
+     * Get sessions scoped to a specific NPA project from the local signal cache.
+     */
+    getSessionsForProject(projectId: string): ChatSession[] {
+        return this._sessions().filter(s => s.projectId === projectId);
+    }
+
+    /**
+     * Get the most recent session for a project (for conversation rehydration).
+     */
+    getLatestSessionForProject(projectId: string): ChatSession | null {
+        const sessions = this.getSessionsForProject(projectId);
+        return sessions.length > 0 ? sessions[0] : null; // Already sorted by updatedAt DESC
+    }
+
+    /**
+     * Load sessions scoped to a specific project from the DB.
+     * Merges into the local signal (avoids duplicates).
+     */
+    async loadSessionsForProject(projectId: string): Promise<ChatSession[]> {
+        try {
+            const rows = await firstValueFrom(
+                this.http.get<SessionRow[]>(`${API_BASE}/sessions?project_id=${encodeURIComponent(projectId)}`)
+            );
+            const projectSessions: ChatSession[] = rows.map(r => this.mapRowToSession(r));
+
+            // Merge into local signal (replace existing project sessions, keep others)
+            const existing = this._sessions().filter(s => s.projectId !== projectId);
+            this._sessions.set([...projectSessions, ...existing]);
+
+            return projectSessions;
+        } catch (err) {
+            console.warn(`[ChatSessionService] Failed to load sessions for project ${projectId}:`, err);
+            return [];
+        }
+    }
+
+    /**
      * Clear all sessions. Optimistic signal update then DB delete.
      */
     clearAll(): void {
@@ -346,7 +386,8 @@ export class ChatSessionService {
         activeAgentId?: string,
         domainAgent?: { id: string; name: string; icon: string; color: string } | null,
         messages?: StoredMessage[],
-        conversationState?: any
+        conversationState?: any,
+        projectId?: string
     ): Promise<void> {
         try {
             // 1. Create the session record (server accepts client-provided ID)
@@ -357,7 +398,8 @@ export class ChatSessionService {
                     preview,
                     agent_identity: activeAgentId || null,
                     domain_agent_json: domainAgent || null,
-                    conversation_state_json: conversationState || null
+                    conversation_state_json: conversationState || null,
+                    project_id: projectId || null
                 })
             );
 
@@ -377,7 +419,8 @@ export class ChatSessionService {
         activeAgentId?: string,
         domainAgent?: { id: string; name: string; icon: string; color: string } | null,
         messages?: StoredMessage[],
-        conversationState?: any
+        conversationState?: any,
+        projectId?: string
     ): Promise<void> {
         try {
             // 1. Update session metadata
@@ -387,7 +430,8 @@ export class ChatSessionService {
                     preview,
                     agent_identity: activeAgentId || null,
                     domain_agent_json: domainAgent || null,
-                    conversation_state_json: conversationState || null
+                    conversation_state_json: conversationState || null,
+                    project_id: projectId || undefined
                 })
             );
 
@@ -459,6 +503,7 @@ export class ChatSessionService {
             messages,
             activeAgentId: row.agent_identity || undefined,
             conversationState,
+            projectId: row.project_id || undefined,
             domainAgent
         };
     }

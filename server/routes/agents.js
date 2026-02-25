@@ -160,7 +160,7 @@ router.post('/sessions', async (req, res) => {
 // PUT /api/agents/sessions/:id — Update session metadata (title, agent, stage, etc.)
 router.put('/sessions/:id', async (req, res) => {
     try {
-        const { agent_identity, current_stage, handoff_from, ended_at, conversation_state_json } = req.body;
+        const { agent_identity, current_stage, handoff_from, ended_at, conversation_state_json, project_id } = req.body;
         const updates = [];
         const params = [];
 
@@ -169,6 +169,7 @@ router.put('/sessions/:id', async (req, res) => {
         if (handoff_from !== undefined) { updates.push('handoff_from = ?'); params.push(handoff_from); }
         if (ended_at !== undefined) { updates.push('ended_at = ?'); params.push(ended_at); }
         if (conversation_state_json !== undefined) { updates.push('conversation_state_json = ?'); params.push(conversation_state_json ? JSON.stringify(conversation_state_json) : null); }
+        if (project_id !== undefined) { updates.push('project_id = ?'); params.push(project_id || null); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
