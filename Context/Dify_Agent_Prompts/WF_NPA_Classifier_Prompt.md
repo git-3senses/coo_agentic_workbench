@@ -338,7 +338,6 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
     "overall_confidence": 88,
     "escalation_required": false,
     "escalation_reason": "",
-    "ntg_triggers_fired": [],
     "scores": [
       {
         "criterion_code": "NTG_PI_01",
@@ -350,6 +349,27 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
       }
     ]
   },
+  "ntg_triggers": [
+    {
+      "id": "NTG_MC_01",
+      "name": "New customer segment not previously served",
+      "fired": true,
+      "reason": "First time targeting retail customers for this product line"
+    },
+    {
+      "id": "NTG_MC_02",
+      "name": "New distribution channel",
+      "fired": false,
+      "reason": "Existing digital channel already approved"
+    }
+  ],
+  "analysis_summary": [
+    "Product classified as Variation — extends existing FX Option suite with minor structural changes.",
+    "No NTG hard triggers fired; cumulative NTG score 7/33 below threshold.",
+    "Cross-border booking detected (SG → HK); 5-way mandatory sign-off applied.",
+    "Prohibited screen passed — no match against internal policy, regulatory, or sanctions lists.",
+    "Overall confidence 88% — all key data fields present."
+  ],
   "prohibited_check": {
     "screened": true,
     "matched": false,
@@ -375,6 +395,12 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
   "similar_npa_hint": "TSG1917 (94% match) — FX Option GBP/USD 12M"
 }
 ```
+
+> **Mapper compatibility notes:**
+> - `track` uses uppercase codes (`FULL_NPA`, `NPA_LITE`, etc.) — the Angular `mapClassificationResult` mapper normalises these to display names (`Full NPA`, `NPA Lite`, …) before rendering.
+> - `ntg_triggers` is at the **root** level (not inside `scorecard`). Each entry is an object with `{id, name, fired, reason}` so the mapper can destructure them directly.
+> - `analysis_summary` is at the **root** level as an array of human-readable strings summarising classification reasoning.
+> - `scores[].criterion_name` is the primary display field picked up by the mapper (`s.criterion_name || s.criterion || s.name || s.criterion_code`). Keep `criterion_code` and `category` as well for traceability.
 
 ## TOOLS AVAILABLE
 - `classify_get_criteria` — Retrieve the 28 classification criteria from the database
@@ -461,16 +487,32 @@ You MUST return a valid JSON object (and NOTHING else):
   "prediction": {
     "approval_likelihood": 72,
     "risk_score": 45,
-    "estimated_days": 14,
+    "timeline_days": 14,
+    "bottleneck_dept": "Finance (GPC)",
     "rework_probability": 38,
     "confidence": 78
   },
-  "risk_factors": [
+  "features": [
     {
-      "factor": "Cross-border complexity",
-      "impact": "HIGH",
-      "detail": "Multi-jurisdiction booking increases review time by ~40%"
+      "name": "Cross-border complexity",
+      "importance": 0.85,
+      "value": "HIGH — Multi-jurisdiction booking increases review time by ~40%"
+    },
+    {
+      "name": "Notional threshold",
+      "importance": 0.6,
+      "value": "MEDIUM — Below $50M, no additional VP/CFO review required"
+    },
+    {
+      "name": "Product precedent",
+      "importance": 0.45,
+      "value": "LOW — Similar FX Variation products have been approved before"
     }
+  ],
+  "comparison_insights": [
+    "TSG1917 (IR Futures/Options, 94% similar) was approved in 16 days with 1 rework cycle",
+    "FX Variation products in SG have a 78% first-time approval rate based on 47 historical NPAs",
+    "Cross-border flag typically adds ~4 days to timeline vs domestic-only products"
   ],
   "similar_npas": [
     {
@@ -506,4 +548,4 @@ You MUST return a valid JSON object (and NOTHING else):
 4. Reference specific similar NPAs when possible using `ideation_find_similar` tool.
 5. Risk score should weight: product complexity (30%), regulatory exposure (25%), cross-border (20%), historical rework rate (15%), document readiness (10%).
 6. Factor in notional thresholds: >$50M adds Finance VP review time, >$100M adds CFO review time.
-7. Cross-border products should have rework_probability inflated by ~15-20% and estimated_days inflated by ~40%.
+7. Cross-border products should have rework_probability inflated by ~15-20% and timeline_days inflated by ~40%.

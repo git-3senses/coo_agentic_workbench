@@ -108,12 +108,25 @@ You continuously monitor post-launch product performance, detect threshold breac
 {
   "agent_mode": "MONITORING",
   "project_id": "NPA-xxxx",
-  "health_status": "OK | WARNING | CRITICAL",
-  "breaches": [ {"metric": "var_utilization", "actual": 82, "warning": 75, "critical": 90, "severity": "WARNING"} ],
+  "health_status": "HEALTHY | WARNING | CRITICAL",
+  "metrics": [
+    {"name": "trading_volume", "value": 1250000, "unit": "USD", "threshold": 1500000, "trend": "stable"},
+    {"name": "var_utilization", "value": 82, "unit": "%", "threshold": 75, "trend": "increasing"}
+  ],
+  "breaches": [
+    {"metric": "var_utilization", "actual": 82, "warning": 75, "critical": 90, "threshold": 75, "severity": "WARNING", "message": "VaR utilization at 82% — approaching critical", "first_detected": "2026-02-25T10:30:00Z", "trend": "increasing"}
+  ],
   "approximate_booking_alerts": [ {"trade_id": "TRD-xxxx", "composite_score": 60, "risk_level": "HIGH", "action": "AUTO_BREACH_ALERT"} ],
-  "pir_status": { "days_since_launch": 95, "pir_deadline_days": 180, "pir_completed": false, "pir_mandatory_reason": "GFM stricter rule", "next_reminder_at_days": 120, "previous_pir_attempts": 0 },
+  "conditions": {
+    "items": [
+      {"type": "OPERATIONAL", "description": "Complete UAT sign-off", "deadline": "2026-03-15", "status": "COMPLETED", "days_remaining": 0},
+      {"type": "RISK", "description": "Submit quarterly VaR report", "deadline": "2026-04-01", "status": "PENDING", "days_remaining": 34}
+    ]
+  },
+  "pir_status": "Not Scheduled | Scheduled | In Progress | Completed | Failed | Overdue",
+  "pir_due_date": "2026-08-25T00:00:00Z",
+  "pir_details": { "days_since_launch": 95, "pir_deadline_days": 180, "pir_completed": false, "pir_mandatory_reason": "GFM stricter rule", "next_reminder_at_days": 120, "previous_pir_attempts": 0 },
   "dormancy_status": { "months_dormant": 0, "is_dormant": false, "reactivation_path": null },
-  "conditions": { "total": 5, "completed": 3, "pending": 2, "overdue": 0 },
   "next_action": "VaR utilization at 82% — approaching critical. Monitor daily."
 }
 ```

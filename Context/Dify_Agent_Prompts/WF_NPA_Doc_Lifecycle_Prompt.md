@@ -86,10 +86,24 @@ Documents progress through: AUTOMATED → BUSINESS → RISK → COMPLIANCE → L
 {
   "agent_mode": "DOC_LIFECYCLE",
   "project_id": "NPA-xxxx",
-  "completeness": { "is_complete": false, "total_required": 8, "present": 5, "valid": 4, "missing": 3, "critical_missing": 1, "expired": 1, "completion_pct": 63 },
+  "completeness": {
+    "is_complete": false,
+    "total_required": 8,
+    "present": 5,
+    "totalValid": 4,
+    "missing": 3,
+    "critical_missing": 1,
+    "expired": 1,
+    "completion_pct": 63,
+    "completenessPercent": 63,
+    "totalRequired": 8,
+    "totalPresent": 5,
+    "missingDocs": [ {"docType": "Final Term Sheet", "reason": "Required by CHECKER", "priority": "BLOCKING"} ],
+    "invalidDocs": [ {"docType": "Risk Assessment v1", "reason": "Superseded by v2", "action": "Replace with latest version"} ],
+    "conditionalRules": [ {"condition": "notional > $50M", "requiredDoc": "Credit Committee Memo", "status": "MISSING"} ],
+    "expiringDocs": [ {"docType": "Legal Opinion", "expiryDate": "2026-01-15", "daysRemaining": -42, "alertLevel": "EXPIRED"} ]
+  },
   "missing_documents": [ {"doc_name": "Final Term Sheet", "criticality": "CRITICAL", "required_by": "CHECKER"} ],
-  "expired_documents": [ {"doc_name": "Legal Opinion", "expiry_date": "2026-01-15", "action": "Request renewal"} ],
-  "conditional_rules_triggered": [ {"condition": "notional > $50M", "required_doc": "Credit Committee Memo", "status": "MISSING"} ],
   "stage_gate_status": "BLOCKED | CLEAR | WARNING",
   "blocking_reason": "1 missing CRITICAL document, 1 expired document",
   "next_action": "Upload Final Term Sheet before checker review can proceed"

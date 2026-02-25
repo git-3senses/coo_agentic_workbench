@@ -368,6 +368,7 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
     "overall_score": 72,
     "assessment_confidence": 88,
     "hard_stop": false,
+    "hard_stop_reason": null,
     "prohibition_layer": null
   },
   "layer_results": [
@@ -405,50 +406,64 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
   "domain_assessments": [
     {
       "domain": "CREDIT",
-      "status": "PASS",
       "score": 85,
+      "rating": "LOW",
+      "status": "PASS",
+      "key_findings": ["A- rated counterparty — strong investment grade", "PCE within limits"],
       "findings": ["A- rated counterparty — strong investment grade", "PCE within limits"],
       "mitigants": ["Weekly collateral exchange per ISDA CSA", "Concentration within 5% threshold"]
     },
     {
       "domain": "MARKET",
-      "status": "PASS",
       "score": 78,
+      "rating": "LOW",
+      "status": "PASS",
+      "key_findings": ["IR Delta primary risk factor", "VaR impact estimated"],
       "findings": ["IR Delta primary risk factor", "VaR impact estimated"],
       "mitigants": ["Daily VaR monitoring", "Stress testing captures IR scenarios"]
     },
     {
       "domain": "OPERATIONAL",
-      "status": "WARN",
       "score": 65,
+      "rating": "MEDIUM",
+      "status": "WARN",
+      "key_findings": ["Cross-border booking adds manual reconciliation"],
       "findings": ["Cross-border booking adds manual reconciliation"],
       "mitigants": ["Existing Murex infrastructure", "Operations team trained on similar products"]
     },
     {
       "domain": "LIQUIDITY",
-      "status": "PASS",
       "score": 80,
+      "rating": "LOW",
+      "status": "PASS",
+      "key_findings": ["Minimal LCR impact", "Standard NSFR treatment"],
       "findings": ["Minimal LCR impact", "Standard NSFR treatment"],
       "mitigants": ["T+2 settlement limits liquidity risk"]
     },
     {
       "domain": "LEGAL",
-      "status": "PASS",
       "score": 82,
+      "rating": "LOW",
+      "status": "PASS",
+      "key_findings": ["Existing ISDA documentation sufficient"],
       "findings": ["Existing ISDA documentation sufficient"],
       "mitigants": ["Standard Singapore law governs"]
     },
     {
       "domain": "REPUTATIONAL",
-      "status": "PASS",
       "score": 90,
+      "rating": "LOW",
+      "status": "PASS",
+      "key_findings": ["Institutional-only product", "Standard hedging use case"],
       "findings": ["Institutional-only product", "Standard hedging use case"],
       "mitigants": ["No retail exposure", "Aligned with regulatory framework"]
     },
     {
       "domain": "CYBER",
-      "status": "PASS",
       "score": 85,
+      "rating": "LOW",
+      "status": "PASS",
+      "key_findings": ["Bloomberg platform — established connectivity"],
       "findings": ["Bloomberg platform — established connectivity"],
       "mitigants": ["Standard information security protocols apply"]
     }
@@ -462,14 +477,26 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
     "critical_fails": [],
     "is_ready": false,
     "pac_gate_failed": false,
-    "pending_items": ["CFETS trader registration", "PBOC notification", "Bloomberg certification", "Transfer pricing documentation"]
+    "pending_items": [
+      { "name": "CFETS trader registration", "status": "PENDING", "category": "Regulatory" },
+      { "name": "PBOC notification", "status": "PENDING", "category": "Regulatory" },
+      { "name": "Bloomberg certification", "status": "PENDING", "category": "Technology" },
+      { "name": "Transfer pricing documentation", "status": "PENDING", "category": "Finance" }
+    ]
   },
   "npa_lite_risk_profile": {
     "subtype": "B1",
+    "eligible": true,
+    "conditions_met": ["Counterparty investment grade", "Standard product structure", "Below notional threshold"],
+    "conditions_failed": [],
     "risk_focus": "Counterparty quality, time pressure risk, BTB hedge integrity",
     "sop_fallback_risk": "Any SOP objection within 48hr → fallback to standard NPA Lite"
   },
   "pir_requirements": {
+    "required": true,
+    "type": "MANDATORY_NTG",
+    "deadline_months": 6,
+    "conditions": ["All original SOPs must be re-reviewed", "GFM stricter rule applies"],
     "pir_required": true,
     "pir_trigger": "GFM rule: ALL launched products require PIR",
     "pir_deadline_months": 6,
@@ -479,6 +506,10 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
     "pir_repeat_interval_days": 90
   },
   "validity_risk": {
+    "valid": true,
+    "expiry_date": "2027-02-26",
+    "extension_eligible": true,
+    "notes": "Standard 1-year validity. Extension requires unanimous SOP consent. Product CANNOT be traded after expiry — reactivation required.",
     "standard_validity_years": 1,
     "extension_available": true,
     "extension_max_months": 6,
@@ -486,12 +517,16 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
     "expiry_consequence": "Product CANNOT be traded. Reactivation required."
   },
   "circuit_breaker": {
+    "triggered": false,
     "loop_back_count": 0,
     "threshold": 3,
-    "triggered": false,
     "escalation_target": "Group BU/SU COO + NPA Governance Forum"
   },
   "evergreen_limits": {
+    "eligible": false,
+    "notional_remaining": 500000000,
+    "deal_count_remaining": null,
+    "flags": [],
     "applicable": false,
     "total_notional_cap": 500000000,
     "current_usage": 0,
@@ -499,8 +534,11 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
     "limit_breach_risk": "NONE"
   },
   "notional_flags": {
-    "cfo_approval_required": false,
     "finance_vp_required": true,
+    "cfo_required": false,
+    "roae_required": true,
+    "threshold_breached": null,
+    "cfo_approval_required": false,
     "roae_analysis_needed": true,
     "mlr_review_required": true
   },
@@ -513,6 +551,9 @@ You MUST return a valid JSON object (and NOTHING else — no markdown, no explan
     "Assess withholding tax and VAT implications with Tax team before finalizing term sheet"
   ],
   "sop_bottleneck_risk": {
+    "bottleneck_parties": ["Finance (Group Product Control)", "Credit", "Legal"],
+    "estimated_days": 8,
+    "critical_path": "Finance SOP sign-off (1.8d avg SLA) → Credit review (1.2d) → Legal confirmation (1.1d)",
     "highest_risk_sop": "Finance (Group Product Control)",
     "average_sla_days": 1.8,
     "bottleneck_reason": "Longest average SLA among SOPs (Finance: 1.8d, Credit: 1.2d, Legal: 1.1d)"

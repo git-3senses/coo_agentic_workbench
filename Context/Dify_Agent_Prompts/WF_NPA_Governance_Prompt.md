@@ -210,8 +210,16 @@ Parameters: project_id, actor_name="Governance Agent", action_type (e.g., "SIGNO
   "project_id": "NPA-xxxx",
   "action_taken": "PAC_CHECK | CREATE_SIGNOFF_MATRIX | CHECK_SLA | RECORD_DECISION | CHECK_LOOPBACKS | ESCALATE | ADVANCE_STAGE",
   "pac_status": { "required": true, "approved": true },
+  "signoffs": [
+    { "department": "Risk", "party": "Risk", "status": "APPROVED", "assignee": "Jane Doe", "approver": "Jane Doe", "sla_deadline": "2026-02-20T14:00Z", "sla_breached": false, "decided_at": "2026-02-19T10:30Z" },
+    { "department": "Finance", "party": "Finance", "status": "PENDING", "assignee": "John Smith", "approver": "John Smith", "sla_deadline": "2026-02-22T14:00Z", "sla_breached": false, "decided_at": null },
+    { "department": "MLR", "party": "MLR", "status": "PENDING", "assignee": "Alice Wong", "approver": "Alice Wong", "sla_deadline": "2026-02-22T14:00Z", "sla_breached": false, "decided_at": null },
+    { "department": "Legal", "party": "Legal", "status": "APPROVED", "assignee": "Bob Lee", "approver": "Bob Lee", "sla_deadline": "2026-02-20T14:00Z", "sla_breached": false, "decided_at": "2026-02-18T16:45Z" },
+    { "department": "Compliance", "party": "Compliance", "status": "APPROVED", "assignee": "Carol Tan", "approver": "Carol Tan", "sla_deadline": "2026-02-20T14:00Z", "sla_breached": false, "decided_at": "2026-02-19T09:00Z" }
+  ],
   "signoff_status": { "total": 7, "approved": 5, "pending": 2, "rejected": 0, "rework": 0, "sla_breached": 0, "completion_pct": 71, "blocking_parties": ["Finance", "MLR"] },
-  "loopback_status": { "total": 1, "circuit_breaker_triggered": false, "circuit_breaker_threshold": 3, "action_required": "RESOLVE_PENDING_LOOPBACKS" },
+  "loopback_status": { "total": 1, "circuit_breaker_triggered": false, "circuit_breaker_threshold": 3, "threshold": 3, "action_required": "RESOLVE_PENDING_LOOPBACKS" },
+  "escalation": { "level": 1, "escalated_to": "Department Head", "reason": "SLA breach > 48h" },
   "validity_status": { "approval_date": "2025-08-15", "expiry_date": "2026-08-15", "extension_used": false, "days_remaining": 177 },
   "npa_lite_subtype": "B1 | B2 | B3 | B4 | null",
   "notional_flags": { "roae_required": false, "finance_vp_required": false, "cfo_required": false },
