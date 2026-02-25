@@ -70,3 +70,8 @@ uploads/
 .DS_Store
 Thumbs.db
 nul
+
+# Local scratch/test outputs
+raw_test_output.txt
+temp_output.log
+test_output.txt
