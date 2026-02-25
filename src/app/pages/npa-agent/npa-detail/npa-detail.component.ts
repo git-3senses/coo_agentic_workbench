@@ -191,8 +191,11 @@ export class NpaDetailComponent implements OnInit {
          if (this._loadStartedForId === id) return;
          const windowKey = `__npa_load_${id}`;
          const windowTs = (window as any)[windowKey] as number | undefined;
-         if (windowTs && (Date.now() - windowTs) < 90000) {
-            console.log(`[loadOnce] Skipping duplicate load for ${id} — already loading (${Math.round((Date.now() - windowTs) / 1000)}s ago)`);
+         // Only skip if we already have agent data in memory — if component was re-created
+         // (nav away then back), state is empty so we MUST reload from DB
+         const hasAnyAgentData = !!(this.classificationResult || this.riskAssessmentResult || this.governanceState || this.docCompleteness);
+         if (windowTs && (Date.now() - windowTs) < 90000 && hasAnyAgentData) {
+            console.log(`[loadOnce] Skipping duplicate load for ${id} — data present (${Math.round((Date.now() - windowTs) / 1000)}s ago)`);
             this.projectId = id;
             this._loadStartedForId = id;
             if (!this.npaContext) this.npaContext = {};
@@ -1095,20 +1098,23 @@ export class NpaDetailComponent implements OnInit {
       if (this._agentsLaunched && !forceRun) return;
       const inputs = this.buildWorkflowInputs();
 
-      const dedupKey = `_npa_agents_running_${inputs['project_id']}`;
-      const dedupTs = sessionStorage.getItem(dedupKey);
-      if (dedupTs && (Date.now() - Number(dedupTs)) < 90000) {
-         console.log(`[runAgentAnalysis] Skipping — agents already launched for ${inputs['project_id']} ${Math.round((Date.now() - Number(dedupTs)) / 1000)}s ago`);
-         this._agentsLaunched = true;
-         return;
-      }
-      sessionStorage.setItem(dedupKey, String(Date.now()));
-
       const hasRisk = !!this.riskAssessmentResult;
       const hasClassification = !!this.classificationResult;
       const hasMlPredict = !!this.mlPrediction;
       const hasGovernance = !!this.governanceState;
       const hasDocs = !!this.docCompleteness;
+
+      // Dedup: only skip if agents actually ran AND we have data in memory.
+      // If component was re-created (nav away + back), state is empty — must not skip.
+      const dedupKey = `_npa_agents_running_${inputs['project_id']}`;
+      const dedupTs = sessionStorage.getItem(dedupKey);
+      const hasAnyAgentData = hasRisk || hasClassification || hasGovernance || hasDocs;
+      if (dedupTs && (Date.now() - Number(dedupTs)) < 90000 && hasAnyAgentData) {
+         console.log(`[runAgentAnalysis] Skipping — agents already launched and data present for ${inputs['project_id']} ${Math.round((Date.now() - Number(dedupTs)) / 1000)}s ago`);
+         this._agentsLaunched = true;
+         return;
+      }
+      sessionStorage.setItem(dedupKey, String(Date.now()));
       if (hasRisk && hasClassification && hasGovernance && hasDocs) {
          console.log('[runAgentAnalysis] DB data sufficient — skipping live agent calls. Use "Refresh Analysis" to re-run.');
          this.dbDataSufficient = true;
@@ -1124,13 +1130,14 @@ export class NpaDetailComponent implements OnInit {
       this._agentsLaunched = true;
       this.waveContext = {};
 
+      // Run agents that don't have data — whether forceRun or initial run
       const shouldRun: Record<string, boolean> = {
-         RISK: forceRun ? !hasRisk : false,
-         CLASSIFIER: forceRun ? !hasClassification : false,
-         ML_PREDICT: forceRun ? !hasMlPredict : false,
-         GOVERNANCE: forceRun ? !hasGovernance : false,
-         DOC_LIFECYCLE: forceRun ? !hasDocs : false,
-         MONITORING: forceRun ? !this.monitoringResult : false,
+         RISK: !hasRisk,
+         CLASSIFIER: !hasClassification,
+         ML_PREDICT: !hasMlPredict,
+         GOVERNANCE: !hasGovernance,
+         DOC_LIFECYCLE: !hasDocs,
+         MONITORING: !this.monitoringResult,
       };
       Object.keys(shouldRun).forEach(a => {
          this.agentLoading[a] = !!shouldRun[a];
@@ -1216,8 +1223,17 @@ export class NpaDetailComponent implements OnInit {
                this.persistAgentResult(projectId, 'classifier', {
                   total_score: this.classificationResult.overallConfidence,
                   calculated_tier: this.classificationResult.type,
-                  breakdown: this.classificationResult.scores,
-                  approval_track: this.classificationResult.track
+                  approval_track: this.classificationResult.track,
+                  breakdown: {
+                     criteria: this.classificationResult.scores,
+                     overall_confidence: this.classificationResult.overallConfidence,
+                     analysis_summary: this.classificationResult.analysisSummary || [],
+                     ntg_triggers: this.classificationResult.ntgTriggers || [],
+                     prohibited_match: this.classificationResult.prohibitedMatch || { matched: false },
+                     mandatory_signoffs: this.classificationResult.mandatorySignOffs || []
+                  },
+                  raw_json: this.classificationResult.rawJson || null,
+                  workflow_run_id: this.classificationResult.workflowRunId || null
                });
             }
             break;
@@ -1230,7 +1246,9 @@ export class NpaDetailComponent implements OnInit {
                   approval_likelihood: this.mlPrediction.approvalLikelihood,
                   timeline_days: this.mlPrediction.timelineDays,
                   bottleneck: this.mlPrediction.bottleneckDept,
-                  risk_score: this.mlPrediction.riskScore
+                  risk_score: this.mlPrediction.riskScore,
+                  features: this.mlPrediction.features || [],
+                  comparison_insights: this.mlPrediction.comparisonInsights || []
                });
             }
             break;
@@ -1266,12 +1284,17 @@ export class NpaDetailComponent implements OnInit {
                   overall_score: this.riskAssessmentResult.overallScore,
                   overall_rating: this.riskAssessmentResult.overallRating,
                   hard_stop: this.riskAssessmentResult.hardStop,
+                  hard_stop_reason: this.riskAssessmentResult.hardStopReason || null,
+                  prerequisites: this.riskAssessmentResult.prerequisites || [],
                   pir_requirements: this.riskAssessmentResult.pirRequirements,
                   notional_flags: this.riskAssessmentResult.notionalFlags,
                   mandatory_signoffs: this.riskAssessmentResult.mandatorySignoffs,
                   recommendations: this.riskAssessmentResult.recommendations,
                   circuit_breaker: this.riskAssessmentResult.circuitBreaker,
-                  evergreen_limits: this.riskAssessmentResult.evergreenLimits
+                  evergreen_limits: this.riskAssessmentResult.evergreenLimits,
+                  validity_risk: (this.riskAssessmentResult as any).validityRisk || null,
+                  npa_lite_risk_profile: (this.riskAssessmentResult as any).npaLiteRiskProfile || null,
+                  sop_bottleneck_risk: (this.riskAssessmentResult as any).sopBottleneckRisk || null
                });
             }
             break;
@@ -1283,7 +1306,18 @@ export class NpaDetailComponent implements OnInit {
             this.updateTabBadge('APPROVALS', null);
             if (projectId && agentGov?.signoffs?.length) {
                this.persistAgentResult(projectId, 'governance', {
-                  signoffs: agentGov.signoffs.map((s: any) => ({ party: s.party, department: s.department }))
+                  signoffs: agentGov.signoffs.map((s: any) => ({
+                     party: s.department || s.party,
+                     department: s.department,
+                     status: s.status || 'PENDING',
+                     assignee: s.assignee || null,
+                     sla_deadline: s.slaDeadline || null,
+                     sla_breached: s.slaBreached || false
+                  })),
+                  sla_status: agentGov.slaStatus,
+                  loop_back_count: agentGov.loopBackCount || 0,
+                  circuit_breaker: agentGov.circuitBreaker || false,
+                  escalation: agentGov.escalation || null
                });
             }
             break;
@@ -1296,9 +1330,18 @@ export class NpaDetailComponent implements OnInit {
             this.updateTabBadge('DOCUMENTS', null);
             if (projectId && agentDoc) {
                this.persistAgentResult(projectId, 'doc-lifecycle', {
-                  documents: agentDoc.missingDocs.map(d => ({
-                     document_name: d.docType, document_type: 'REQUIRED', status: 'PENDING', notes: d.reason
-                  }))
+                  completeness_percent: agentDoc.completenessPercent,
+                  total_required: agentDoc.totalRequired,
+                  total_present: agentDoc.totalPresent,
+                  total_valid: agentDoc.totalValid,
+                  stage_gate_status: agentDoc.stageGateStatus,
+                  missing_documents: agentDoc.missingDocs.map(d => ({
+                     document_name: d.docType, document_type: 'REQUIRED', status: 'PENDING',
+                     notes: d.reason, priority: d.priority
+                  })),
+                  invalid_documents: agentDoc.invalidDocs || [],
+                  conditional_rules: agentDoc.conditionalRules || [],
+                  expiring_documents: agentDoc.expiringDocs || []
                });
             }
             break;
@@ -1311,9 +1354,20 @@ export class NpaDetailComponent implements OnInit {
             this.updateTabBadge('MONITORING', null);
             if (projectId && agentMon) {
                this.persistAgentResult(projectId, 'monitoring', {
+                  product_health: agentMon.productHealth,
                   thresholds: agentMon.metrics?.map(m => ({
                      metric_name: m.name, warning_value: (m.threshold || 0) * 0.8, critical_value: m.threshold || 0
-                  }))
+                  })),
+                  metrics: agentMon.metrics?.map(m => ({
+                     name: m.name, value: m.value, unit: m.unit, threshold: m.threshold, trend: m.trend
+                  })),
+                  breaches: agentMon.breaches?.map(b => ({
+                     metric: b.metric, threshold: b.threshold, actual: b.actual,
+                     severity: b.severity, message: b.message, trend: b.trend
+                  })),
+                  conditions: agentMon.conditions || [],
+                  pir_status: agentMon.pirStatus,
+                  pir_due_date: agentMon.pirDueDate || null
                });
             }
             break;
@@ -1321,19 +1375,18 @@ export class NpaDetailComponent implements OnInit {
       }
    }
 
-   private persistAgentResult(projectId: string, agentType: string, payload: any): void {
+   private persistAgentResult(projectId: string, agentType: string, payload: any, retries = 2): void {
       const url = `/api/agents/npas/${projectId}/persist/${agentType}`;
-      fetch(url, {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify(payload)
-      }).then(res => {
-         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-         return res.json();
-      }).then(data => {
-         console.log(`[persist] ${agentType} result saved:`, data.fields_saved ?? data.status ?? 'ok');
-      }).catch(err => {
-         console.warn(`[persist] ${agentType} save failed:`, err.message);
+      this.http.post<any>(url, payload).subscribe({
+         next: (data) => {
+            console.log(`[persist] ${agentType} result saved:`, data.fields_saved ?? data.status ?? 'ok');
+         },
+         error: (err) => {
+            console.warn(`[persist] ${agentType} save failed (retries left: ${retries}):`, err.status, err.message);
+            if (retries > 0 && (err.status >= 500 || err.status === 0)) {
+               setTimeout(() => this.persistAgentResult(projectId, agentType, payload, retries - 1), 2000);
+            }
+         }
       });
    }
 
@@ -1396,6 +1449,19 @@ export class NpaDetailComponent implements OnInit {
       const cl = o.classification || o.classification_result || o;
       const sc = o.scorecard || cl.scorecard || {};
       const scores = sc.scores || cl.scores || [];
+
+      // NTG triggers from agent output
+      const ntgRaw = o.ntg_triggers || cl.ntg_triggers || cl.ntgTriggers || [];
+      const ntgTriggers = ntgRaw.map((t: any) => ({
+         id: t.id || t.criterion_code || '',
+         name: t.name || t.criterion_name || '',
+         fired: t.fired ?? t.triggered ?? false,
+         reason: t.reason || t.reasoning || ''
+      }));
+
+      // Analysis summary from agent reasoning
+      const analysisSummary = o.analysis_summary || cl.analysis_summary || cl.analysisSummary || [];
+
       return {
          type: cl.type || cl.classification_type || 'Variation',
          track: cl.track || cl.approval_track || 'NPA Lite',
@@ -1406,8 +1472,13 @@ export class NpaDetailComponent implements OnInit {
             reasoning: s.reasoning || s.description || ''
          })),
          overallConfidence: sc.overall_confidence || cl.overallConfidence || cl.overall_confidence || cl.confidence || 0,
+         analysisSummary: Array.isArray(analysisSummary) ? analysisSummary : (analysisSummary ? [analysisSummary] : undefined),
+         ntgTriggers: ntgTriggers.length > 0 ? ntgTriggers : undefined,
          prohibitedMatch: o.prohibited_check || cl.prohibitedMatch || cl.prohibited_match || { matched: false },
-         mandatorySignOffs: o.mandatory_signoffs || cl.mandatorySignOffs || cl.mandatory_signoffs || []
+         mandatorySignOffs: o.mandatory_signoffs || cl.mandatorySignOffs || cl.mandatory_signoffs || [],
+         workflowRunId: o.workflow_run_id || rawOutputs?.workflow_run_id,
+         taskId: o.task_id || rawOutputs?.task_id,
+         rawJson: o
       } as ClassificationResult;
    }
 
@@ -1545,6 +1616,14 @@ export class NpaDetailComponent implements OnInit {
       const nfRaw = o.notional_flags || r.notional_flags;
       const notionalFlags = nfRaw ? { finance_vp_required: nfRaw.finance_vp_required ?? false, cfo_required: nfRaw.cfo_required ?? false, roae_required: nfRaw.roae_required ?? nfRaw.roae_analysis_needed ?? false, threshold_breached: nfRaw.threshold_breached } : undefined;
 
+      // Capture validity risk, NPA Lite profile, and SOP bottleneck
+      const vrRaw = o.validity_risk || r.validity_risk || r.validityRisk;
+      const validityRisk = vrRaw ? { valid: vrRaw.valid ?? true, expiry_date: vrRaw.expiry_date, extension_eligible: vrRaw.extension_eligible ?? false, notes: vrRaw.notes } : undefined;
+      const nlrpRaw = o.npa_lite_risk_profile || r.npa_lite_risk_profile || r.npaLiteRiskProfile;
+      const npaLiteRiskProfile = nlrpRaw ? { subtype: nlrpRaw.subtype, eligible: nlrpRaw.eligible ?? false, conditions_met: nlrpRaw.conditions_met || [], conditions_failed: nlrpRaw.conditions_failed || [] } : undefined;
+      const sopRaw = o.sop_bottleneck_risk || r.sop_bottleneck_risk || r.sopBottleneckRisk;
+      const sopBottleneckRisk = sopRaw ? { bottleneck_parties: sopRaw.bottleneck_parties || [], estimated_days: sopRaw.estimated_days, critical_path: sopRaw.critical_path } : undefined;
+
       return {
          layers, domainAssessments,
          overallScore: r.overall_score || r.overallScore || 0,
@@ -1552,6 +1631,7 @@ export class NpaDetailComponent implements OnInit {
          hardStop: r.hardStop || r.hard_stop || false,
          hardStopReason: r.hardStopReason || r.hard_stop_reason || undefined,
          prerequisites, pirRequirements, circuitBreaker, evergreenLimits, notionalFlags,
+         validityRisk, npaLiteRiskProfile, sopBottleneckRisk,
          mandatorySignoffs: o.mandatory_signoffs || r.mandatory_signoffs || [],
          recommendations: o.recommendations || r.recommendations || []
       } as RiskAssessment;
@@ -1565,20 +1645,31 @@ export class NpaDetailComponent implements OnInit {
       const ss = o.signoff_status || o;
       const ls = o.loopback_status || {};
       const signoffs = (o.signoffs || ss.signoffs || []).map((s: any) => ({
-         department: s.department, status: s.status || 'PENDING',
-         assignee: s.assignee || s.approver,
+         department: s.department || s.party || '',
+         status: s.status || 'PENDING',
+         assignee: s.assignee || s.approver || s.approver_name,
          slaDeadline: s.sla_deadline || s.slaDeadline,
          slaBreached: s.sla_breached || s.slaBreached || false,
-         decidedAt: s.decided_at || s.decidedAt
+         decidedAt: s.decided_at || s.decidedAt || s.decision_date
       }));
       const finalSignoffs = signoffs.length > 0 ? signoffs :
          (ss.blocking_parties || []).map((dept: string) => ({ department: dept, status: 'PENDING' as const }));
+
+      // Capture escalation info from governance agent
+      const escRaw = o.escalation || ss.escalation;
+      const escalation = escRaw ? {
+         level: escRaw.level || escRaw.escalation_level || 1,
+         escalatedTo: escRaw.escalated_to || escRaw.escalatedTo || '',
+         reason: escRaw.reason || escRaw.trigger_detail || ''
+      } : undefined;
+
       return {
          signoffs: finalSignoffs,
          slaStatus: ss.sla_breached > 0 ? 'breached' : (ss.completion_pct > 50 ? 'on_track' : 'at_risk'),
-         loopBackCount: ls.total || 0,
+         loopBackCount: ls.total || ls.loop_back_count || 0,
          circuitBreaker: ls.circuit_breaker_triggered || false,
-         circuitBreakerThreshold: 3
+         circuitBreakerThreshold: ls.threshold || 3,
+         escalation
       } as GovernanceState;
    }
 

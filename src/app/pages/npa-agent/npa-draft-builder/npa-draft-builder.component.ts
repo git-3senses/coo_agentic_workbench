@@ -343,6 +343,14 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
 
    ngOnDestroy(): void {
       if (this.autoSaveTimer) clearInterval(this.autoSaveTimer);
+      // Flush any unsaved dirty fields to DB before component is destroyed (nav away)
+      if (this.isDirty && this.dirtyFieldKeys.size > 0) {
+         const projectId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
+         if (projectId) {
+            console.log(`[DraftBuilder] ngOnDestroy — flushing ${this.dirtyFieldKeys.size} dirty fields to DB`);
+            this.persistFormDataToDb('autosave');
+         }
+      }
    }
 
    // ═══════════════════════════════════════════════════════════
@@ -523,14 +531,47 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
                this.applyFormDataToFieldMap(formData);
                console.log('[DraftBuilder] Loaded', formData.length, 'fields from DB');
             } else {
-               // No persisted form data yet — this is a freshly created NPA.
-               // Trigger deterministic pre-fill (RULE + COPY) from reference NPA.
-               console.log('[DraftBuilder] No existing form data — triggering auto-prefill for', id);
-               this.triggerPrefill(id);
+               // Try sessionStorage fallback before triggering prefill
+               const restored = this.restoreFromSessionStorage(id);
+               if (!restored) {
+                  // No persisted form data yet — this is a freshly created NPA.
+                  // Trigger deterministic pre-fill (RULE + COPY) from reference NPA.
+                  console.log('[DraftBuilder] No existing form data — triggering auto-prefill for', id);
+                  this.triggerPrefill(id);
+               }
             }
          },
-         error: (err) => console.warn('[DraftBuilder] Could not load form data:', err.message)
+         error: (err) => {
+            console.warn('[DraftBuilder] Could not load form data:', err.message);
+            // On API failure, try sessionStorage as fallback
+            this.restoreFromSessionStorage(id);
+         }
       });
+   }
+
+   /**
+    * Restore field data from sessionStorage autosave as fallback.
+    * Returns true if any fields were restored.
+    */
+   private restoreFromSessionStorage(npaId: string): boolean {
+      try {
+         const saved = sessionStorage.getItem(`_draft_builder_autosave_${npaId}`);
+         if (!saved) return false;
+         const data: Record<string, { value: string; lineage: string }> = JSON.parse(saved);
+         const keys = Object.keys(data);
+         if (keys.length === 0) return false;
+
+         const formData = keys.map(key => ({
+            field_key: key,
+            field_value: data[key].value,
+            lineage: data[key].lineage || 'MANUAL'
+         }));
+         this.applyFormDataToFieldMap(formData);
+         console.log(`[DraftBuilder] Restored ${keys.length} fields from sessionStorage fallback`);
+         return true;
+      } catch {
+         return false;
+      }
    }
 
    /**
@@ -550,6 +591,10 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
             const confNum = rawConf === null || rawConf === undefined || rawConf === '' ? null : Number(rawConf);
             field.confidence = Number.isFinite(confNum as any) ? (confNum as any) : null;
             field.source = fd.metadata?.sourceSnippet || fd.source || null;
+
+            // ── Rehydrate derived UI state from persisted field.value ──
+            this.rehydrateFieldUiState(field);
+
             applied++;
          }
       }
@@ -557,6 +602,67 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       this.recomputeRequiredStats();
       this.cdr.detectChanges();
       return;
+   }
+
+   /**
+    * Reconstruct UI-specific derived properties from the stored field.value.
+    * Without this, bullet_list / yesno / checkbox_group / multiselect / table_grid
+    * fields will appear blank on reload even though field.value has data in DB.
+    */
+   private rehydrateFieldUiState(field: any): void {
+      if (!field || !field.value) return;
+      const type = (field.type || '').toLowerCase();
+
+      switch (type) {
+         case 'bullet_list': {
+            // field.value is a JSON array or newline-separated string
+            try {
+               const parsed = JSON.parse(field.value);
+               field.bulletItems = Array.isArray(parsed) ? parsed : [field.value];
+            } catch {
+               field.bulletItems = field.value.split('\n').filter((s: string) => s.trim());
+            }
+            break;
+         }
+         case 'yesno':
+         case 'yes_no': {
+            const lower = field.value.toLowerCase().trim();
+            field.yesNoValue = lower === 'yes' || lower === 'true' ? 'yes' : (lower === 'no' || lower === 'false' ? 'no' : null);
+            // conditionalText is the explanation part after the yes/no choice
+            if (field.value.includes('|')) {
+               const parts = field.value.split('|');
+               field.yesNoValue = parts[0].trim().toLowerCase() === 'yes' ? 'yes' : 'no';
+               field.conditionalText = parts.slice(1).join('|').trim();
+            }
+            break;
+         }
+         case 'checkbox_group':
+         case 'multiselect': {
+            // field.value is a comma-separated list or JSON array
+            try {
+               const parsed = JSON.parse(field.value);
+               field.selectedOptions = Array.isArray(parsed) ? parsed : [field.value];
+            } catch {
+               field.selectedOptions = field.value.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+            }
+            break;
+         }
+         case 'table_grid': {
+            // field.value is a JSON 2D array or JSON object
+            try {
+               field.tableData = JSON.parse(field.value);
+            } catch {
+               field.tableData = null;
+            }
+            break;
+         }
+         case 'dropdown':
+         case 'select': {
+            // Ensure the value matches an option exactly
+            // (no derived state needed, value is already set)
+            break;
+         }
+      }
    }
 
    /**

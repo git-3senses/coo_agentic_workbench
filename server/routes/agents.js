@@ -444,14 +444,22 @@ router.get('/notifications', async (req, res) => {
 
 // POST /api/agents/npas/:id/persist/classifier — Save CLASSIFIER results
 router.post('/npas/:id/persist/classifier', async (req, res) => {
-    const { total_score, calculated_tier, breakdown, override_reason, approval_track } = req.body;
+    const { total_score, calculated_tier, breakdown, override_reason, approval_track, raw_json, workflow_run_id } = req.body;
     try {
-        // Upsert classification scorecard
+        // Upsert classification scorecard (now includes approval_track, raw_json, workflow_run_id)
         await db.query('DELETE FROM npa_classification_scorecards WHERE project_id = ?', [req.params.id]);
         const [result] = await db.query(
-            `INSERT INTO npa_classification_scorecards (project_id, total_score, calculated_tier, breakdown, override_reason)
-             VALUES (?, ?, ?, ?, ?)`,
-            [req.params.id, total_score || 0, calculated_tier || 'Variation', JSON.stringify(breakdown || {}), override_reason || null]
+            `INSERT INTO npa_classification_scorecards (project_id, total_score, calculated_tier, breakdown, override_reason, approval_track, raw_json, workflow_run_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.params.id, total_score || 0, calculated_tier || 'Variation', JSON.stringify(breakdown || {}), override_reason || null, approval_track || null, raw_json ? JSON.stringify(raw_json) : null, workflow_run_id || null]
+        );
+
+        // Also save to unified npa_agent_results table
+        await db.query(
+            `INSERT INTO npa_agent_results (project_id, agent_type, result_data, workflow_run_id)
+             VALUES (?, 'classifier', ?, ?)
+             ON DUPLICATE KEY UPDATE result_data = VALUES(result_data), workflow_run_id = VALUES(workflow_run_id), updated_at = NOW()`,
+            [req.params.id, JSON.stringify(req.body), workflow_run_id || null]
         );
 
         // Update project classification fields
@@ -470,7 +478,7 @@ router.post('/npas/:id/persist/classifier', async (req, res) => {
             [req.params.id, JSON.stringify({ calculated_tier, total_score, approval_track })]
         );
 
-        res.json({ id: result.insertId, status: 'PERSISTED' });
+        res.json({ id: result.insertId, status: 'PERSISTED', fields_saved: Object.keys(breakdown || {}).length });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -479,9 +487,9 @@ router.post('/npas/:id/persist/classifier', async (req, res) => {
 // POST /api/agents/npas/:id/persist/risk — Save RISK assessment results (v2: 5 layers + 7 domains + new fields)
 router.post('/npas/:id/persist/risk', async (req, res) => {
     const {
-        layers, domain_assessments, overall_score, overall_rating, hard_stop,
-        pir_requirements, notional_flags, mandatory_signoffs, recommendations,
-        circuit_breaker, evergreen_limits
+        layers, domain_assessments, overall_score, overall_rating, hard_stop, hard_stop_reason,
+        prerequisites, pir_requirements, notional_flags, mandatory_signoffs, recommendations,
+        circuit_breaker, evergreen_limits, validity_risk, npa_lite_risk_profile, sop_bottleneck_risk
     } = req.body;
     try {
         // Clear old risk checks for this project, then insert new ones (5 layers)
@@ -534,6 +542,43 @@ router.post('/npas/:id/persist/risk', async (req, res) => {
         // Update project risk_level based on overall_rating or score
         const riskLevel = overall_rating || (overall_score >= 70 ? 'HIGH' : overall_score >= 40 ? 'MEDIUM' : 'LOW');
         await db.query('UPDATE npa_projects SET risk_level = ?, updated_at = NOW() WHERE id = ?', [riskLevel, req.params.id]);
+
+        // Save full risk assessment to dedicated summary table
+        await db.query(
+            `INSERT INTO npa_risk_assessment_summary (project_id, overall_score, overall_rating, hard_stop, hard_stop_reason,
+             domain_assessments, pir_requirements, notional_flags, mandatory_signoffs, recommendations,
+             circuit_breaker, evergreen_limits, validity_risk, npa_lite_risk_profile, sop_bottleneck_risk, prerequisites, raw_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE overall_score = VALUES(overall_score), overall_rating = VALUES(overall_rating),
+             hard_stop = VALUES(hard_stop), hard_stop_reason = VALUES(hard_stop_reason),
+             domain_assessments = VALUES(domain_assessments), pir_requirements = VALUES(pir_requirements),
+             notional_flags = VALUES(notional_flags), mandatory_signoffs = VALUES(mandatory_signoffs),
+             recommendations = VALUES(recommendations), circuit_breaker = VALUES(circuit_breaker),
+             evergreen_limits = VALUES(evergreen_limits), validity_risk = VALUES(validity_risk),
+             npa_lite_risk_profile = VALUES(npa_lite_risk_profile), sop_bottleneck_risk = VALUES(sop_bottleneck_risk),
+             prerequisites = VALUES(prerequisites), raw_json = VALUES(raw_json), updated_at = NOW()`,
+            [req.params.id, overall_score || 0, riskLevel, hard_stop ? 1 : 0, hard_stop_reason || null,
+             domain_assessments ? JSON.stringify(domain_assessments) : null,
+             pir_requirements ? JSON.stringify(pir_requirements) : null,
+             notional_flags ? JSON.stringify(notional_flags) : null,
+             mandatory_signoffs ? JSON.stringify(mandatory_signoffs) : null,
+             recommendations ? JSON.stringify(recommendations) : null,
+             circuit_breaker ? JSON.stringify(circuit_breaker) : null,
+             evergreen_limits ? JSON.stringify(evergreen_limits) : null,
+             validity_risk ? JSON.stringify(validity_risk) : null,
+             npa_lite_risk_profile ? JSON.stringify(npa_lite_risk_profile) : null,
+             sop_bottleneck_risk ? JSON.stringify(sop_bottleneck_risk) : null,
+             prerequisites ? JSON.stringify(prerequisites) : null,
+             JSON.stringify(req.body)]
+        );
+
+        // Save to unified agent results table
+        await db.query(
+            `INSERT INTO npa_agent_results (project_id, agent_type, result_data)
+             VALUES (?, 'risk', ?)
+             ON DUPLICATE KEY UPDATE result_data = VALUES(result_data), updated_at = NOW()`,
+            [req.params.id, JSON.stringify(req.body)]
+        );
 
         await db.query(
             `INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action, agent_name)
@@ -625,12 +670,31 @@ router.post('/npas/:id/persist/autofill', async (req, res) => {
 
 // POST /api/agents/npas/:id/persist/ml-predict — Save ML_PREDICT results
 router.post('/npas/:id/persist/ml-predict', async (req, res) => {
-    const { approval_likelihood, timeline_days, bottleneck, risk_score } = req.body;
+    const { approval_likelihood, timeline_days, bottleneck, risk_score, features, comparison_insights } = req.body;
     try {
         await db.query(
             `UPDATE npa_projects SET predicted_approval_likelihood = ?, predicted_timeline_days = ?,
              predicted_bottleneck = ?, updated_at = NOW() WHERE id = ?`,
             [approval_likelihood || null, timeline_days || null, bottleneck || null, req.params.id]
+        );
+
+        // Save to dedicated ml_predictions table
+        await db.query(
+            `INSERT INTO npa_ml_predictions (project_id, approval_likelihood, timeline_days, bottleneck_dept, risk_score, features, comparison_insights)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE approval_likelihood = VALUES(approval_likelihood), timeline_days = VALUES(timeline_days),
+             bottleneck_dept = VALUES(bottleneck_dept), risk_score = VALUES(risk_score), features = VALUES(features),
+             comparison_insights = VALUES(comparison_insights)`,
+            [req.params.id, approval_likelihood || 0, timeline_days || 0, bottleneck || null, risk_score || 0,
+             features ? JSON.stringify(features) : null, comparison_insights ? JSON.stringify(comparison_insights) : null]
+        );
+
+        // Save to unified agent results table
+        await db.query(
+            `INSERT INTO npa_agent_results (project_id, agent_type, result_data)
+             VALUES (?, 'ml-predict', ?)
+             ON DUPLICATE KEY UPDATE result_data = VALUES(result_data), updated_at = NOW()`,
+            [req.params.id, JSON.stringify(req.body)]
         );
 
         await db.query(
@@ -639,7 +703,7 @@ router.post('/npas/:id/persist/ml-predict', async (req, res) => {
             [req.params.id, JSON.stringify({ approval_likelihood, timeline_days, bottleneck, risk_score })]
         );
 
-        res.json({ status: 'PERSISTED' });
+        res.json({ status: 'PERSISTED', fields_saved: 6 });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -647,28 +711,54 @@ router.post('/npas/:id/persist/ml-predict', async (req, res) => {
 
 // POST /api/agents/npas/:id/persist/governance — Save GOVERNANCE sign-off status
 router.post('/npas/:id/persist/governance', async (req, res) => {
-    const { signoffs } = req.body;
+    const { signoffs, sla_status, loop_back_count, circuit_breaker, escalation } = req.body;
     try {
         // Don't replace signoffs managed by transitions.js — only update metadata
         if (Array.isArray(signoffs)) {
             for (const so of signoffs) {
-                if (!so.party) continue;
-                // Only update fields that don't conflict with transition-managed state
-                await db.query(
-                    `UPDATE npa_signoffs SET department = COALESCE(?, department)
-                     WHERE project_id = ? AND party = ?`,
-                    [so.department || null, req.params.id, so.party]
+                const party = so.party || so.department;
+                if (!party) continue;
+                // Check if signoff row exists
+                const [existing] = await db.query(
+                    'SELECT id FROM npa_signoffs WHERE project_id = ? AND party = ?',
+                    [req.params.id, party]
                 );
+                if (existing.length > 0) {
+                    // Update fields that don't conflict with transition-managed state
+                    await db.query(
+                        `UPDATE npa_signoffs SET department = COALESCE(?, department),
+                         sla_deadline = COALESCE(?, sla_deadline),
+                         sla_breached = COALESCE(?, sla_breached)
+                         WHERE project_id = ? AND party = ?`,
+                        [so.department || null, so.sla_deadline || null, so.sla_breached ? 1 : 0, req.params.id, party]
+                    );
+                } else {
+                    // Insert new signoff from governance agent
+                    await db.query(
+                        `INSERT INTO npa_signoffs (project_id, party, department, status, sla_deadline, sla_breached)
+                         VALUES (?, ?, ?, ?, ?, ?)`,
+                        [req.params.id, party, so.department || party, so.status || 'PENDING',
+                         so.sla_deadline || null, so.sla_breached ? 1 : 0]
+                    );
+                }
             }
         }
+
+        // Save to unified agent results table
+        await db.query(
+            `INSERT INTO npa_agent_results (project_id, agent_type, result_data)
+             VALUES (?, 'governance', ?)
+             ON DUPLICATE KEY UPDATE result_data = VALUES(result_data), updated_at = NOW()`,
+            [req.params.id, JSON.stringify(req.body)]
+        );
 
         await db.query(
             `INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action, agent_name)
              VALUES (?, 'GOVERNANCE_AGENT', 'AGENT_GOVERNANCE_CHECKED', ?, 1, 'GOVERNANCE')`,
-            [req.params.id, JSON.stringify({ signoff_count: signoffs?.length })]
+            [req.params.id, JSON.stringify({ signoff_count: signoffs?.length, sla_status, loop_back_count })]
         );
 
-        res.json({ status: 'PERSISTED' });
+        res.json({ status: 'PERSISTED', fields_saved: signoffs?.length || 0 });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -676,7 +766,8 @@ router.post('/npas/:id/persist/governance', async (req, res) => {
 
 // POST /api/agents/npas/:id/persist/doc-lifecycle — Save DOC_LIFECYCLE results
 router.post('/npas/:id/persist/doc-lifecycle', async (req, res) => {
-    const { documents } = req.body;
+    const { documents, missing_documents, completeness_percent, total_required, total_present, total_valid,
+            stage_gate_status, invalid_documents, conditional_rules, expiring_documents } = req.body;
     try {
         if (Array.isArray(documents)) {
             for (const doc of documents) {
@@ -702,13 +793,38 @@ router.post('/npas/:id/persist/doc-lifecycle', async (req, res) => {
             }
         }
 
+        // Save to doc lifecycle summary table
+        await db.query(
+            `INSERT INTO npa_doc_lifecycle_summary (project_id, completeness_percent, total_required, total_present, total_valid,
+             stage_gate_status, missing_documents, invalid_documents, conditional_rules, expiring_documents)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE completeness_percent = VALUES(completeness_percent), total_required = VALUES(total_required),
+             total_present = VALUES(total_present), total_valid = VALUES(total_valid), stage_gate_status = VALUES(stage_gate_status),
+             missing_documents = VALUES(missing_documents), invalid_documents = VALUES(invalid_documents),
+             conditional_rules = VALUES(conditional_rules), expiring_documents = VALUES(expiring_documents), updated_at = NOW()`,
+            [req.params.id, completeness_percent || 0, total_required || 0, total_present || 0, total_valid || 0,
+             stage_gate_status || 'BLOCKED',
+             missing_documents ? JSON.stringify(missing_documents) : (documents ? JSON.stringify(documents) : null),
+             invalid_documents ? JSON.stringify(invalid_documents) : null,
+             conditional_rules ? JSON.stringify(conditional_rules) : null,
+             expiring_documents ? JSON.stringify(expiring_documents) : null]
+        );
+
+        // Save to unified agent results table
+        await db.query(
+            `INSERT INTO npa_agent_results (project_id, agent_type, result_data)
+             VALUES (?, 'doc-lifecycle', ?)
+             ON DUPLICATE KEY UPDATE result_data = VALUES(result_data), updated_at = NOW()`,
+            [req.params.id, JSON.stringify(req.body)]
+        );
+
         await db.query(
             `INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action, agent_name)
              VALUES (?, 'DOC_LIFECYCLE_AGENT', 'AGENT_DOC_CHECKED', ?, 1, 'DOC_LIFECYCLE')`,
-            [req.params.id, JSON.stringify({ document_count: documents?.length })]
+            [req.params.id, JSON.stringify({ document_count: (missing_documents || documents)?.length, completeness_percent })]
         );
 
-        res.json({ status: 'PERSISTED', documents_saved: documents?.length || 0 });
+        res.json({ status: 'PERSISTED', documents_saved: (missing_documents || documents)?.length || 0 });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -716,7 +832,7 @@ router.post('/npas/:id/persist/doc-lifecycle', async (req, res) => {
 
 // POST /api/agents/npas/:id/persist/monitoring — Save MONITORING results
 router.post('/npas/:id/persist/monitoring', async (req, res) => {
-    const { metrics, thresholds } = req.body;
+    const { metrics, thresholds, product_health, breaches, conditions, pir_status, pir_due_date } = req.body;
     try {
         // Upsert monitoring thresholds
         if (Array.isArray(thresholds)) {
@@ -753,13 +869,35 @@ router.post('/npas/:id/persist/monitoring', async (req, res) => {
             }
         }
 
+        // Save to monitoring results summary table
+        await db.query(
+            `INSERT INTO npa_monitoring_results (project_id, product_health, metrics, breaches, conditions_data, pir_status, pir_due_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE product_health = VALUES(product_health), metrics = VALUES(metrics),
+             breaches = VALUES(breaches), conditions_data = VALUES(conditions_data), pir_status = VALUES(pir_status),
+             pir_due_date = VALUES(pir_due_date), updated_at = NOW()`,
+            [req.params.id, product_health || 'HEALTHY',
+             metrics ? JSON.stringify(metrics) : null,
+             breaches ? JSON.stringify(breaches) : null,
+             conditions ? JSON.stringify(conditions) : null,
+             pir_status || 'Not Scheduled', pir_due_date || null]
+        );
+
+        // Save to unified agent results table
+        await db.query(
+            `INSERT INTO npa_agent_results (project_id, agent_type, result_data)
+             VALUES (?, 'monitoring', ?)
+             ON DUPLICATE KEY UPDATE result_data = VALUES(result_data), updated_at = NOW()`,
+            [req.params.id, JSON.stringify(req.body)]
+        );
+
         await db.query(
             `INSERT INTO npa_audit_log (project_id, actor_name, action_type, action_details, is_agent_action, agent_name)
              VALUES (?, 'MONITORING_AGENT', 'AGENT_MONITORING_SET', ?, 1, 'MONITORING')`,
-            [req.params.id, JSON.stringify({ threshold_count: thresholds?.length, metric_count: metrics?.length })]
+            [req.params.id, JSON.stringify({ threshold_count: thresholds?.length, metric_count: metrics?.length, product_health })]
         );
 
-        res.json({ status: 'PERSISTED' });
+        res.json({ status: 'PERSISTED', fields_saved: (thresholds?.length || 0) + (metrics?.length || 0) });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

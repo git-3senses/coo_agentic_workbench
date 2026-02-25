@@ -2,6 +2,7 @@ import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 
 import { ChatInterfaceComponent } from '../../components/npa/chat-interface/chat-interface.component';
 import { NpaDashboardComponent } from '../../components/npa/dashboard/npa-dashboard.component';
@@ -56,6 +57,7 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
    private governanceService = inject(AgentGovernanceService);
    private npaService = inject(NpaService);
    private difyService = inject(DifyService);
+   private http = inject(HttpClient);
 
    viewMode: 'DASHBOARD' | 'IDEATION' | 'WORK_ITEM' = 'DASHBOARD';
 
@@ -177,7 +179,33 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
                         project_id: newId
                      };
                      this.difyService.runWorkflow('CLASSIFIER', classifierInputs).subscribe({
-                        next: () => console.log(`[NPAAgent] Classification workflow executed for ${newId}`),
+                        next: (res) => {
+                           console.log(`[NPAAgent] Classification workflow executed for ${newId}`);
+                           // Persist the classifier result to DB so it's available when npa-detail loads
+                           if (res?.data?.status === 'succeeded' && res?.data?.outputs) {
+                              const o: any = res.data.outputs;
+                              const cl = o['classification'] || {};
+                              const sc = o['scorecard'] || {};
+                              this.http.post(`/api/agents/npas/${newId}/persist/classifier`, {
+                                 total_score: o['overall_confidence'] || sc['overall_confidence'] || 0,
+                                 calculated_tier: cl['type'] || o['classification_type'] || 'Variation',
+                                 approval_track: cl['track'] || o['approval_track'] || 'NPA Lite',
+                                 breakdown: {
+                                    criteria: sc['scores'] || o['scores'] || [],
+                                    overall_confidence: o['overall_confidence'] || sc['overall_confidence'] || 0,
+                                    analysis_summary: o['analysis_summary'] || [],
+                                    ntg_triggers: o['ntg_triggers'] || [],
+                                    prohibited_match: o['prohibited_check'] || { matched: false },
+                                    mandatory_signoffs: o['mandatory_signoffs'] || []
+                                 },
+                                 raw_json: o,
+                                 workflow_run_id: (res as any).workflow_run_id || null
+                              }).subscribe({
+                                 next: () => console.log(`[NPAAgent] Classifier result persisted for ${newId}`),
+                                 error: (e: any) => console.warn('[NPAAgent] Classifier persist failed:', e.message)
+                              });
+                           }
+                        },
                         error: (err) => console.warn('[NPAAgent] Classification workflow failed:', err)
                      });
                      this.npaContext = { id: newId, npaId: newId, ...payload };

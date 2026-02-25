@@ -7,7 +7,7 @@ import { NpaProject, SignOffParty, SignOffDecision } from '../../lib/npa-interfa
 import { NpaService } from '../../services/npa.service';
 import { ApprovalService } from '../../services/approval.service';
 import { LucideAngularModule } from 'lucide-angular';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
 import { AGENT_REGISTRY } from '../../lib/agent-interfaces';
@@ -181,7 +181,7 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
 
                        <!-- DRAFT ACTIONS -->
                        <ng-container *ngIf="currentView() === 'DRAFTS'">
-                           <button class="w-full px-4 py-2 bg-white text-slate-700 border border-dbs-border hover:bg-slate-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                           <button (click)="editDraft(item)" class="w-full px-4 py-2 bg-white text-slate-700 border border-dbs-border hover:bg-slate-50 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
                                <lucide-icon name="pencil" class="w-3.5 h-3.5"></lucide-icon> Edit Draft
                            </button>
                        </ng-container>
@@ -203,7 +203,7 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
                        </div>
 
                        <!-- VIEW DETAILS -->
-                       <button class="w-full px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-all flex items-center justify-center gap-2 mt-auto">
+                       <button (click)="viewDetails(item)" class="w-full px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-all flex items-center justify-center gap-2 mt-auto">
                            <lucide-icon name="eye" class="w-3.5 h-3.5"></lucide-icon> Details
                        </button>
 
@@ -235,6 +235,7 @@ export class ApprovalDashboardComponent {
    private npaService = inject(NpaService);
    private approvalService = inject(ApprovalService);
    private route = inject(ActivatedRoute);
+   private router = inject(Router);
 
    userRole = () => this.userService.currentUser().role;
 
@@ -530,6 +531,14 @@ export class ApprovalDashboardComponent {
             error: (err) => alert(err.error?.error || 'Rejection failed')
          });
       }
+   }
+
+   editDraft(item: NpaProject) {
+      this.router.navigate(['/npa'], { queryParams: { projectId: item.id, mode: 'edit' } });
+   }
+
+   viewDetails(item: NpaProject) {
+      this.router.navigate(['/npa'], { queryParams: { projectId: item.id } });
    }
 
    approveWithConditions(item: NpaProject) {
