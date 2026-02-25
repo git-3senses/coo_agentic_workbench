@@ -1296,8 +1296,12 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
     }
 
     private parseClassifierResponse(outputs: any): ClassificationResult {
+        if (Array.isArray(outputs?.result)) {
+            return this.mapClassificationFromTrace(outputs.result);
+        }
+
         let rawResult = outputs?.result || '';
-        const jsonMatch = rawResult.match(/```json\s*([\s\S]*?)\s*```/);
+        const jsonMatch = typeof rawResult === 'string' ? rawResult.match(/```json\s*([\s\S]*?)\s*```/) : null;
         if (jsonMatch) rawResult = jsonMatch[1];
 
         let parsed: any;
@@ -1376,6 +1380,80 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
             } : undefined,
             mandatorySignOffs: parsed.mandatory_signoffs || []
         };
+    }
+
+    private mapClassificationFromTrace(trace: any[]): ClassificationResult {
+        const toolErrors: string[] = [];
+        const thoughts: string[] = [];
+
+        for (const entry of trace) {
+            const d = entry?.data || {};
+            const observation = typeof d.observation === 'string' ? d.observation : '';
+            const thought = typeof d.thought === 'string' ? d.thought : '';
+            const toolName = d.tool_name || d.action_name || d.action;
+
+            if (observation && observation.toLowerCase().includes('tool invoke error')) {
+                toolErrors.push(`${toolName || 'tool'}: ${observation.split('\n')[0]}`);
+            }
+            if (thought) thoughts.push(thought.trim());
+        }
+
+        const rawText = thoughts.length ? thoughts[thoughts.length - 1] : JSON.stringify(trace, null, 2);
+
+        const type =
+            /classification:\s*(new-to-group|ntg)/i.test(rawText) ? 'NTG'
+                : /classification:\s*existing/i.test(rawText) ? 'Existing'
+                    : /classification:\s*variation/i.test(rawText) ? 'Variation'
+                        : 'Variation';
+
+        const track =
+            /track:\s*full[_\s-]*npa/i.test(rawText) || /track:\s*full npa/i.test(rawText) ? 'Full NPA'
+                : /track:\s*npa[_\s-]*lite/i.test(rawText) ? 'NPA Lite'
+                    : /track:\s*bundling/i.test(rawText) ? 'Bundling'
+                        : /track:\s*evergreen/i.test(rawText) ? 'Evergreen'
+                            : /track:\s*prohibited/i.test(rawText) ? 'Prohibited'
+                                : 'NPA Lite';
+
+        const confidenceMatch = rawText.match(/confidence:\s*(\d+)\s*%/i);
+        const overallConfidence = confidenceMatch ? Number(confidenceMatch[1]) : 0;
+
+        // Extract category subtotals for a clean score bar view when no JSON scorecard is available.
+        const scores: any[] = [];
+        const catPatterns: { key: string; label: string; max: number }[] = [
+            { key: 'PRODUCT_INNOVATION', label: 'Product Innovation', max: 8 },
+            { key: 'MARKET_CUSTOMER', label: 'Market & Customer', max: 10 },
+            { key: 'RISK_REGULATORY', label: 'Risk & Regulatory', max: 8 },
+            { key: 'FINANCIAL_OPERATIONAL', label: 'Financial & Operational', max: 7 }
+        ];
+        for (const c of catPatterns) {
+            const m = rawText.match(new RegExp(`${c.key}[\\s\\S]*?Subtotal:\\s*(\\d+)\\s*/\\s*(\\d+)`, 'i'));
+            if (m) {
+                scores.push({
+                    criterion: c.label,
+                    score: Number(m[1]),
+                    maxScore: Number(m[2]) || c.max,
+                    reasoning: `${c.key} subtotal from narrative output`
+                });
+            }
+        }
+
+        const analysisSummary: string[] = [];
+        if (toolErrors.length) {
+            analysisSummary.push(`Tool errors detected (${toolErrors.length}). Workflow likely returned trace/narrative output instead of JSON.`);
+            analysisSummary.push(...toolErrors.slice(0, 5));
+            if (toolErrors.length > 5) analysisSummary.push(`...and ${toolErrors.length - 5} more tool errors`);
+        }
+
+        return {
+            type: type as any,
+            track: track as any,
+            scores,
+            overallConfidence,
+            ...(analysisSummary.length ? { analysisSummary } : {}),
+            rawOutput: JSON.stringify(trace, null, 2),
+            traceSteps: trace,
+            mandatorySignOffs: []
+        } as ClassificationResult;
     }
 
     // ─── Template Logic ─────────────────────────────────────────

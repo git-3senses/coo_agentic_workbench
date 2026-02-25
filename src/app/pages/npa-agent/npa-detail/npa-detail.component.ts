@@ -1387,6 +1387,12 @@ export class NpaDetailComponent implements OnInit {
          return this.mapClassificationFromTrace(o.result);
       }
 
+      // New handling: when Dify returns a raw text result (e.g., LLM narrative) instead of JSON.
+      if (typeof o.result === 'string' && o.result.trim().length > 0) {
+         const syntheticTrace = [{ data: { thought: o.result } }];
+         return this.mapClassificationFromTrace(syntheticTrace);
+      }
+
       const cl = o.classification || o.classification_result || o;
       const sc = o.scorecard || cl.scorecard || {};
       const scores = sc.scores || cl.scores || [];

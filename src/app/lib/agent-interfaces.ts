@@ -82,6 +82,8 @@ export interface ClassificationResult {
     taskId?: string;
     /** Optional: raw classifier output (useful when the workflow returned narrative text or for audit/debug). */
     rawOutput?: string;
+    /** Optional: detailed step-by-step trace of the agent's execution. */
+    traceSteps?: any[];
     /** Optional: raw parsed JSON object (for future detailed rendering). */
     rawJson?: any;
     prohibitedMatch?: {
