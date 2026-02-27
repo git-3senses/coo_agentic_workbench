@@ -42,7 +42,7 @@ NPA_ORCHESTRATOR (Tier 2) → switchAgent('DOC_LIFECYCLE')
 ### Agent Node
 - Model: Claude 3.5 Sonnet | Temperature: 0.1 | Max Tokens: 3000
 - Agent Strategy: Function Calling (recommended) or ReAct
-- Max Iterations: 5 (doc checks typically need 2-3 tool calls: requirements → completeness → validate)
+- Max Iterations: 6 (doc checks need 2 tool calls for requirements + completeness, then 2 more iterations to analyze results and produce final JSON; previous limit of 3-5 caused exhaustion before output)
 - System Prompt: Copy from `WF_NPA_Doc_Lifecycle_Prompt.md`
 - **User Message Template**:
 ```

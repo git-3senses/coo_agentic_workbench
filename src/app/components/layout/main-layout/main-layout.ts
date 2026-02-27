@@ -39,7 +39,7 @@ import { ToastContainerComponent } from '../../common/toast-container/toast-cont
         </div>
 
         <!-- Content Area -->
-        <main class="flex-1 min-w-0 bg-background relative overflow-auto overflow-hidden bg-white"
+        <main class="flex-1 min-w-0 relative overflow-auto bg-white"
               [ngClass]="!isSidebarVisible() && !chatMode() ? 'rounded-t-2xl' : 'rounded-tr-2xl'">
              <router-outlet></router-outlet>
         </main>

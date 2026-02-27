@@ -61,7 +61,7 @@ Input variables (define in Workflow input schema):
 ### Node 3: Agent Node (Classifier)
 - **Model**: Claude 3.5 Sonnet (or GPT-4o) — needs strong reasoning for scoring
 - **Agent Strategy**: Function Calling (recommended) or ReAct
-- **Max Iterations**: 5 (allows tool calls for DB persistence when project_id is provided)
+- **Max Iterations**: 6 (CLASSIFIER needs 6: 2 tool calls + 2 analysis rounds for 29 criteria + 1 output + buffer; ML_PREDICT needs 5: similarity search + baseline prediction building + output)
 - **System Prompt**: Copy from `WF_NPA_Classifier_Prompt.md`
 - **User Message Template**:
 ```

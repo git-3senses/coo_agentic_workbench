@@ -32,12 +32,20 @@ if (helmet) {
             directives: {
                 defaultSrc: ["'self'"],
                 scriptSrc: ["'self'"],
-                styleSrc: ["'self'", "'unsafe-inline'"],  // Angular needs inline styles
+                scriptSrcAttr: ["'self'", "'unsafe-inline'"],  // Angular event bindings compiled to inline handlers in prod
+                styleSrc: ["'self'", "'unsafe-inline'"],       // Angular needs inline styles
                 imgSrc: ["'self'", "data:", "blob:"],
-                connectSrc: ["'self'"],
-                fontSrc: ["'self'"],
+                connectSrc: [
+                    "'self'",
+                    "https://api.dify.ai",                     // Dify Cloud API
+                    "https://mcp-tools-ppjv.onrender.com",     // MCP Tools Server (Render)
+                    "https://npa-workbench.onrender.com",      // Frontend on Render
+                    "ws:",                                     // WebSocket for dev HMR
+                    "wss:",                                    // Secure WebSocket
+                ],
+                fontSrc: ["'self'", "https://fonts.gstatic.com"],
                 objectSrc: ["'none'"],
-                frameAncestors: ["'none'"],               // Equivalent to X-Frame-Options DENY
+                frameAncestors: ["'none'"],                    // Equivalent to X-Frame-Options DENY
             }
         },
         hsts: {
@@ -53,6 +61,17 @@ if (helmet) {
 
 app.use(cors());
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '2mb' }));
+
+// ─── Health Check (BEFORE rate limiter so Render/Railway probes never get 429) ──
+app.get('/health', async (req, res) => {
+    try {
+        const [rows] = await db.query('SELECT 1');
+        res.json({ status: 'UP', db: 'CONNECTED' });
+    } catch (err) {
+        console.error('[HEALTH] DB check failed:', err.message);
+        res.json({ status: 'UP', db: 'DISCONNECTED', error: process.env.NODE_ENV === 'production' ? 'DB check failed' : err.message });
+    }
+});
 
 // ─── Rate Limiting Middleware ─────────────────────────────────────────────────
 if (rateLimit) {

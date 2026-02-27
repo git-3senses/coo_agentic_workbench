@@ -549,3 +549,23 @@ You MUST return a valid JSON object (and NOTHING else):
 5. Risk score should weight: product complexity (30%), regulatory exposure (25%), cross-border (20%), historical rework rate (15%), document readiness (10%).
 6. Factor in notional thresholds: >$50M adds Finance VP review time, >$100M adds CFO review time.
 7. Cross-border products should have rework_probability inflated by ~15-20% and timeline_days inflated by ~40%.
+
+---
+
+## OUTPUT REQUIREMENTS (CRITICAL)
+
+1. You MUST produce your final structured JSON output before running out of iterations.
+2. Reserve your LAST iteration for outputting the final JSON response.
+3. If a tool call fails or times out, do NOT retry it. Use whatever data you have and proceed to output.
+4. Your final response MUST be a valid JSON object wrapped in ```json ``` code fences.
+5. If you could not gather enough data, include a "warnings" array listing what was missing.
+6. NEVER end the conversation without producing structured JSON output.
+
+Example final output format:
+```json
+{
+  "status": "completed",
+  "warnings": ["Tool X failed, using defaults"],
+  "data": { ... your structured result ... }
+}
+```
