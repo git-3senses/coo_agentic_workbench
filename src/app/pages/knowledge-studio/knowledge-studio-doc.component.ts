@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
 import { MarkdownModule } from 'ngx-markdown';
 import { DifyService } from '../../services/dify/dify.service';
+import { ToastService } from '../../services/toast.service';
 
 type StudioDoc = {
   id: string;
@@ -249,6 +250,7 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
   router = inject(Router);
   private sanitizer = inject(DomSanitizer);
   private difyService = inject(DifyService);
+  private toast = inject(ToastService);
 
   docId = '';
   doc: StudioDoc | null = null;
@@ -481,7 +483,7 @@ export class KnowledgeStudioDocComponent implements OnInit, OnDestroy {
     if (!confirm('Submit this draft for KB approval?')) return;
     this.http.post(`/api/studio/docs/${encodeURIComponent(this.docId)}/submit`, {}).subscribe({
       next: () => this.load(),
-      error: (e) => alert(e?.error?.error || 'Submit failed')
+      error: (e) => this.toast.error(e?.error?.error || 'Submit failed')
     });
   }
 }

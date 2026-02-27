@@ -599,7 +599,6 @@ export class NpaDashboardComponent implements OnInit {
 
    onSeedDemo() {
       // obsolete tracking method handled locally now
-      console.log('Seed demo clicked');
    }
 
    onCardExpand(id: string) {
@@ -611,7 +610,6 @@ export class NpaDashboardComponent implements OnInit {
    }
 
    onCapabilityAction(id: string) {
-      console.log('[DifyAgentService] Triggering capability:', id);
       if (id === 'create_npa') {
          this.onCreateNew();
       }
@@ -622,7 +620,6 @@ export class NpaDashboardComponent implements OnInit {
    }
 
    onViewAll(section: string) {
-      console.log('Viewing all for section:', section);
       if (section === 'kb') {
          this.isKbOverlayOpen = true;
       }

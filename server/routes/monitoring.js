@@ -13,7 +13,9 @@ router.get('/breaches', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[MONITORING ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -33,7 +35,9 @@ router.get('/products', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[MONITORING ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -46,7 +50,9 @@ router.get('/npas/:id/breaches', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[MONITORING ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -59,7 +65,9 @@ router.get('/npas/:id/metrics', async (req, res) => {
         );
         res.json(rows[0] || null);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[MONITORING ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -92,7 +100,9 @@ router.get('/summary', async (req, res) => {
             launchedProducts: parseInt(allLaunchedStats.total_launched) || parseInt(launchedStats.launched_count) || 0
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[MONITORING ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

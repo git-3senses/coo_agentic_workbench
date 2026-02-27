@@ -125,7 +125,9 @@ router.get('/', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -138,7 +140,9 @@ router.get('/npas/:id/signoffs', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -151,7 +155,9 @@ router.get('/npas/:id/loopbacks', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -164,7 +170,9 @@ router.get('/npas/:id/comments', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -179,7 +187,9 @@ router.post('/npas/:id/comments', async (req, res) => {
         );
         res.json({ id: result.insertId, status: 'CREATED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -217,7 +227,9 @@ router.post('/npas/:id/signoffs/:party/decide', rbac('APPROVER', 'COO', 'ADMIN')
 
         res.json({ status: 'UPDATED', all_signoffs_complete: allComplete });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -280,7 +292,9 @@ router.post('/npas/:id/signoffs/:party/approve-conditional', rbac('APPROVER', 'C
             all_signoffs_complete: allComplete
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -293,7 +307,9 @@ router.get('/npas/:id/conditions', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -311,7 +327,9 @@ router.put('/npas/:id/conditions/:condId', rbac('APPROVER', 'COO', 'ADMIN'), asy
         );
         res.json({ status: 'UPDATED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[APPROVALS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

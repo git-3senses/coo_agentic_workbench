@@ -211,7 +211,7 @@ interface AgentIdentity {
                 <p class="text-sm text-slate-400 mb-6 max-w-sm">{{ config.context === 'NPA_AGENT' ? 'Ask the NPA Agent about product approvals, risk, classification, or compliance.' : 'Ask the COO Agent about operations, risk, compliance, or knowledge base.' }}</p>
                 <div class="flex flex-wrap justify-center gap-2 max-w-lg">
                     <button *ngFor="let chip of suggestionChips"
-                            (click)="processMessage(chip.prompt)"
+                            (click)="handleChipClick(chip.prompt)"
                             class="text-xs text-slate-500 hover:text-violet-700 font-medium px-3 py-2 rounded-lg border border-slate-200 hover:border-violet-300 hover:bg-violet-50/50 transition-all cursor-pointer flex items-center gap-1.5">
                         <lucide-icon [name]="chip.icon" class="w-3.5 h-3.5 text-slate-400"></lucide-icon>
                         {{ chip.label }}
@@ -406,6 +406,12 @@ interface AgentIdentity {
                      <span class="w-2 h-2 rounded-full animate-pulse" [ngClass]="activeDomainAgent ? 'bg-green-500' : 'bg-violet-500'"></span>
                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ activeDomainAgent ? activeDomainAgent.name : 'Master COO Orchestrator' }}</span>
                  </div>
+                 <button *ngIf="messages.length > 0"
+                         (click)="newChatFromSidebar()"
+                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-all border border-blue-200 hover:border-blue-300 text-xs font-semibold shadow-sm">
+                     <lucide-icon name="plus" class="w-3.5 h-3.5"></lucide-icon>
+                     New Chat
+                 </button>
              </div>
              <div class="relative flex items-end">
                  <textarea rows="1"
@@ -721,9 +727,11 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
     }
 
     startChatFromHint(prompt: string) {
+        const existing = this.landingInput.trim();
         this.landingInput = '';
         this.enterChatMode();
-        this.processMessage(prompt);
+        const combined = existing ? `${existing} — ${prompt}` : prompt;
+        this.processMessage(combined);
     }
 
     private enterChatMode() {
@@ -780,6 +788,14 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         const content = this.userInput;
         this.userInput = '';
         this.processMessage(content);
+    }
+
+    /** Handle chip click: combine any existing typed input with the chip prompt, then auto-submit */
+    handleChipClick(chipPrompt: string) {
+        const existing = this.userInput.trim();
+        const combined = existing ? `${existing} ${chipPrompt}` : chipPrompt;
+        this.userInput = '';
+        this.processMessage(combined);
     }
 
     stopRequest() {
@@ -1178,7 +1194,22 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
         const title = payload.product_name || payload.title || d.product_name || d.title || d.name || 'Untitled NPA';
         const description = payload.product_description || payload.description || d.product_description || d.description || `${payload.product_type || d.product_type || ''} — ${payload.target_market || d.target_market || ''}`.trim();
 
-        this.npaService.create({ title, description, npa_type: payload.product_type || payload.npa_type || d.product_type || d.npa_type || 'STRUCTURED_PRODUCT' }).subscribe({
+        // Send ALL Ideation payload fields to POST /api/npas so npa_projects columns are populated
+        const createPayload: any = {
+            title, description,
+            npa_type: payload.product_type || payload.npa_type || d.product_type || d.npa_type || 'STRUCTURED_PRODUCT',
+            risk_level: payload.risk_level || d.risk_level || undefined,
+            notional_amount: payload.notional_size || payload.notional_amount || d.notional_size || d.notional_amount || undefined,
+            currency: payload.currency || d.currency || undefined,
+            is_cross_border: payload.is_cross_border ?? d.is_cross_border ?? undefined,
+            product_category: payload.asset_class || payload.product_category || d.asset_class || d.product_category || undefined,
+            jurisdictions: payload.jurisdictions || d.jurisdictions || undefined,
+            mandatory_signoffs: payload.mandatorySignOffs || payload.mandatory_signoffs || d.mandatorySignOffs || d.mandatory_signoffs || undefined,
+        };
+        // Remove undefined values so they don't get sent as "undefined" strings
+        Object.keys(createPayload).forEach(k => createPayload[k] === undefined && delete createPayload[k]);
+
+        this.npaService.create(createPayload).subscribe({
             next: (res) => {
                 const isNpaContext = this.config.context === 'NPA_AGENT';
                 // Re-run classification now that we have a real project_id so the workflow can persist results.
@@ -1215,7 +1246,6 @@ export class AgentWorkspaceComponent implements OnInit, AfterViewChecked, OnDest
                 }
 
                 this.npaService.update(res.id, { formData }).subscribe({
-                    next: () => console.log(`[AgentWorkspace] Initial data persisted for ${res.id}`),
                     error: (err) => console.warn('[AgentWorkspace] Failed to persist initial formData', err)
                 });
                 this.messages.push({

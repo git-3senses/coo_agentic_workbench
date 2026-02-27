@@ -8,7 +8,9 @@ router.get('/categories', async (req, res) => {
         const [rows] = await db.query('SELECT * FROM ref_prerequisite_categories ORDER BY order_index');
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PREREQUISITES ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -23,7 +25,9 @@ router.get('/checks', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PREREQUISITES ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -41,7 +45,9 @@ router.get('/npas/:id', async (req, res) => {
         `, [req.params.id]);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PREREQUISITES ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -61,7 +67,9 @@ router.get('/npas/:id/summary', async (req, res) => {
         `, [req.params.id]);
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PREREQUISITES ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

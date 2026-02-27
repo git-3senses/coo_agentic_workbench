@@ -5,6 +5,7 @@ import { map } from 'rxjs/operators';
 
 export interface NpaListItem {
     id: string;
+    display_id: string | null;
     title: string;
     description: string;
     npa_type: string;
@@ -100,8 +101,8 @@ export class NpaService {
     /**
      * CREATE new NPA
      */
-    create(data: { title: string; description: string; npa_type?: string }): Observable<{ id: string }> {
-        return this.http.post<{ id: string }>(this.apiUrl, data);
+    create(data: { title: string; description: string; npa_type?: string }): Observable<{ id: string; display_id?: string }> {
+        return this.http.post<{ id: string; display_id?: string }>(this.apiUrl, data);
     }
 
     /**

@@ -59,7 +59,9 @@ router.get('/sessions', async (req, res) => {
         if (isUnknownColumnError(err)) {
             console.error('[AGENTS sessions] Schema mismatch:', err.message);
         }
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -107,7 +109,9 @@ router.get('/sessions/:id', async (req, res) => {
 
         res.json(session);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -153,7 +157,9 @@ router.post('/sessions', async (req, res) => {
         );
         res.status(201).json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -204,7 +210,9 @@ router.put('/sessions/:id', async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'Session not found' });
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -217,7 +225,9 @@ router.delete('/sessions/:id', async (req, res) => {
         }
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -234,7 +244,9 @@ router.delete('/sessions', async (req, res) => {
         const [result] = await db.query(sql, params);
         res.json({ success: true, deleted: result.affectedRows });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -252,7 +264,9 @@ router.get('/sessions/:id/messages', async (req, res) => {
         }));
         res.json(messages);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -275,7 +289,9 @@ router.post('/sessions/:id/messages', async (req, res) => {
         const [rows] = await db.query('SELECT * FROM agent_messages WHERE id = ?', [result.insertId]);
         res.status(201).json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -316,7 +332,9 @@ router.post('/sessions/:id/messages/batch', async (req, res) => {
 
         res.json({ success: true, count: values.length });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -329,7 +347,9 @@ router.get('/npas/:id/routing', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -342,7 +362,9 @@ router.get('/npas/:id/escalations', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -355,7 +377,9 @@ router.get('/npas/:id/external-parties', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -368,7 +392,9 @@ router.get('/npas/:id/market-risk-factors', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -381,7 +407,9 @@ router.get('/npas/:id/monitoring-thresholds', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -394,7 +422,9 @@ router.get('/npas/:id/post-launch-conditions', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -412,7 +442,9 @@ router.get('/npas/:id/documents/requirements', async (req, res) => {
         `, [req.params.id]);
         res.json({ requirements, documents });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -433,7 +465,9 @@ router.get('/notifications', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -481,7 +515,9 @@ router.post('/npas/:id/persist/classifier', async (req, res) => {
 
         res.json({ id: result.insertId, status: 'PERSISTED', fields_saved: Object.keys(breakdown || {}).length });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -495,6 +531,7 @@ router.post('/npas/:id/persist/risk', async (req, res) => {
     try {
         // Clear old risk checks for this project, then insert new ones (5 layers)
         await db.query('DELETE FROM npa_risk_checks WHERE project_id = ? AND checked_by = ?', [req.params.id, 'RISK_AGENT']);
+        await db.query('DELETE FROM npa_risk_checks WHERE project_id = ? AND checked_by = ?', [req.params.id, 'RISK_AGENT_DOMAIN']);
 
         if (Array.isArray(layers)) {
             for (const layer of layers) {
@@ -598,7 +635,9 @@ router.post('/npas/:id/persist/risk', async (req, res) => {
             risk_level: riskLevel
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -665,7 +704,9 @@ router.post('/npas/:id/persist/autofill', async (req, res) => {
         res.json({ status: 'PERSISTED', fields_saved: saved });
     } catch (err) {
         console.error('[persist/autofill] Error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -706,7 +747,9 @@ router.post('/npas/:id/persist/ml-predict', async (req, res) => {
 
         res.json({ status: 'PERSISTED', fields_saved: 6 });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -761,7 +804,9 @@ router.post('/npas/:id/persist/governance', async (req, res) => {
 
         res.json({ status: 'PERSISTED', fields_saved: signoffs?.length || 0 });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -827,7 +872,9 @@ router.post('/npas/:id/persist/doc-lifecycle', async (req, res) => {
 
         res.json({ status: 'PERSISTED', documents_saved: (missing_documents || documents)?.length || 0 });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -900,7 +947,9 @@ router.post('/npas/:id/persist/monitoring', async (req, res) => {
 
         res.json({ status: 'PERSISTED', fields_saved: (thresholds?.length || 0) + (metrics?.length || 0) });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AGENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

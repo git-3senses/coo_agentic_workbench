@@ -5,11 +5,12 @@ import { AppSidebarComponent } from '../app-sidebar/app-sidebar';
 import { TopBarComponent } from '../top-bar/top-bar';
 import { ChatHistoryPanelComponent } from '../chat-history-panel/chat-history-panel.component';
 import { LayoutService } from '../../../services/layout.service';
+import { ToastContainerComponent } from '../../common/toast-container/toast-container.component';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, AppSidebarComponent, TopBarComponent, ChatHistoryPanelComponent],
+  imports: [CommonModule, RouterOutlet, AppSidebarComponent, TopBarComponent, ChatHistoryPanelComponent, ToastContainerComponent],
   template: `
     <!-- Root Container: Dark background to match Header, creating the 'gap' effect for rounded corners -->
     <div class="h-screen flex flex-col bg-[#0e0e0e] overflow-hidden">
@@ -43,6 +44,7 @@ import { LayoutService } from '../../../services/layout.service';
              <router-outlet></router-outlet>
         </main>
       </div>
+      <app-toast-container></app-toast-container>
     </div>
   `,
   styles: []

@@ -7,7 +7,7 @@ export interface RiskCheck {
     project_id: string;
     check_layer: string;
     result: 'PASS' | 'FAIL' | 'WARNING';
-    matched_items: any[];
+    matched_items: any;
     checked_by: string;
     checked_at: string;
 }

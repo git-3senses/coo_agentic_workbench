@@ -347,7 +347,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       if (this.isDirty && this.dirtyFieldKeys.size > 0) {
          const projectId = this.inputData?.npaId || this.inputData?.projectId || this.inputData?.id || '';
          if (projectId) {
-            console.log(`[DraftBuilder] ngOnDestroy — flushing ${this.dirtyFieldKeys.size} dirty fields to DB`);
             this.persistFormDataToDb('autosave');
          }
       }
@@ -372,7 +371,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       try {
          sessionStorage.setItem(`_draft_builder_autosave_${npaId}`, JSON.stringify(data));
          this.lastSavedAt = new Date();
-         console.log(`[DraftBuilder] Auto-saved ${Object.keys(data).length} fields`);
       } catch (e) { /* quota exceeded */ }
 
       // Also persist to DB when we have a real NPA ID (keeps drafts shareable across devices).
@@ -529,14 +527,12 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          next: (formData) => {
             if (formData?.length) {
                this.applyFormDataToFieldMap(formData);
-               console.log('[DraftBuilder] Loaded', formData.length, 'fields from DB');
             } else {
                // Try sessionStorage fallback before triggering prefill
                const restored = this.restoreFromSessionStorage(id);
                if (!restored) {
                   // No persisted form data yet — this is a freshly created NPA.
                   // Trigger deterministic pre-fill (RULE + COPY) from reference NPA.
-                  console.log('[DraftBuilder] No existing form data — triggering auto-prefill for', id);
                   this.triggerPrefill(id);
                }
             }
@@ -567,7 +563,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
             lineage: data[key].lineage || 'MANUAL'
          }));
          this.applyFormDataToFieldMap(formData);
-         console.log(`[DraftBuilder] Restored ${keys.length} fields from sessionStorage fallback`);
          return true;
       } catch {
          return false;
@@ -675,15 +670,8 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          next: (prefillResult) => {
             const filledFields = prefillResult?.filled_fields;
             if (!filledFields?.length) {
-               console.log('[DraftBuilder] Prefill returned 0 fields');
                return;
             }
-
-            console.log(
-               `[DraftBuilder] Prefill returned ${filledFields.length} fields`,
-               `(${prefillResult.summary?.rule_count || 0} RULE, ${prefillResult.summary?.copy_count || 0} COPY)`,
-               prefillResult.similar_npa_id ? `from reference NPA: ${prefillResult.similar_npa_id}` : ''
-            );
 
             // Apply to fieldMap immediately (don't wait for persist round-trip)
             this.applyFormDataToFieldMap(filledFields);
@@ -692,7 +680,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
             this.http.post(`/api/npas/${npaId}/prefill/persist`, {
                filled_fields: filledFields
             }).subscribe({
-               next: (res: any) => console.log(`[DraftBuilder] Prefill persisted: ${res?.fields_saved || 0} fields`),
                error: (err) => console.warn('[DraftBuilder] Prefill persist failed (fields still applied to UI):', err.message)
             });
          },
@@ -766,7 +753,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
       const projectId = this.inputData?.npaId || this.inputData?.projectId || '';
       if (!projectId) return;
       this.http.put(`/api/npas/${projectId}`, { reference_npa_ids: this.referenceNpaIds }).subscribe({
-         next: () => console.log('[DraftBuilder] Reference NPAs saved:', this.referenceNpaIds),
          error: (err) => console.warn('[DraftBuilder] Failed to save reference NPAs:', err.message)
       });
    }
@@ -780,11 +766,9 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          next: (prefillResult) => {
             const filledFields = prefillResult?.filled_fields?.filter((f: any) => f.strategy === 'COPY');
             if (!filledFields?.length) return;
-            console.log(`[DraftBuilder] Re-prefill ${filledFields.length} COPY fields from ${this.referenceNpaIds.length} refs`);
             this.applyFormDataToFieldMap(filledFields);
             // Persist updated fields
             this.http.post(`/api/npas/${npaId}/prefill/persist`, { filled_fields: filledFields }).subscribe({
-               next: () => console.log('[DraftBuilder] Updated COPY fields persisted'),
                error: () => { }
             });
          }
@@ -859,7 +843,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
          this.scheduleStatsRecompute();
          // Persist immediately so "anything over draft" is DB-backed (comments + field edits).
          this.persistFormDataToDb('autosave');
-         console.log(`[DraftBuilder] Applied suggestion for ${suggestion.fieldKey}`);
       } else {
          console.warn(`[DraftBuilder] Unknown field key in suggestion: ${suggestion.fieldKey}`);
       }
@@ -903,7 +886,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
    onCitationClick(citation: Citation): void {
       this.selectedCitation = citation;
       this.agentPanelTab = 'KNOWLEDGE'; // Switch right panel tab to Knowledge
-      console.log(`[DraftBuilder] Viewing citation: ${citation.sourceName}`);
    }
 
    // ═══════════════════════════════════════════════════════════
@@ -1431,7 +1413,6 @@ export class NpaDraftBuilderComponent implements OnInit, OnDestroy {
             this.isDirty = this.dirtyFieldKeys.size > 0;
             this.isSavingDraft = false;
             this.draftSaveError = null;
-            if (mode === 'manual') console.log('[DraftBuilder] Saved to DB:', projectId);
             afterPersist?.();
             this.cdr.detectChanges();
          },

@@ -1,14 +1,21 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EscalationService, Escalation } from '../../services/escalation.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
     selector: 'app-escalation-queue',
     standalone: true,
     imports: [CommonModule, LucideAngularModule, FormsModule],
     template: `
+    @if (loading()) {
+      <div class="flex items-center justify-center h-64">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    } @else {
     <div class="h-full flex flex-col bg-slate-50 font-sans text-slate-900">
 
       <!-- HEADER -->
@@ -175,11 +182,16 @@ import { EscalationService, Escalation } from '../../services/escalation.service
         </div>
       </div>
     </div>
+    }
     `,
     styles: [`:host { display: block; height: 100%; }`]
 })
 export class EscalationQueueComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
     private escalationService = inject(EscalationService);
+    private toast = inject(ToastService);
+
+    loading = signal(true);
 
     escalations: Escalation[] = [];
     activeTab: 'active' | 'under_review' | 'resolved' = 'active';
@@ -206,9 +218,17 @@ export class EscalationQueueComponent implements OnInit {
     }
 
     loadEscalations() {
-        this.escalationService.getActive().subscribe({
-            next: (data) => this.escalations = data,
-            error: (err) => console.error('[ESCALATION] Load failed', err)
+        this.escalationService.getActive().pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe({
+            next: (data) => {
+                this.escalations = data;
+                this.loading.set(false);
+            },
+            error: (err) => {
+                console.error('[ESCALATION] Load failed', err);
+                this.loading.set(false);
+            }
         });
     }
 
@@ -224,7 +244,7 @@ export class EscalationQueueComponent implements OnInit {
     markUnderReview(esc: Escalation) {
         this.escalationService.markUnderReview(esc.id, 'COO').subscribe({
             next: () => this.loadEscalations(),
-            error: (err) => alert(err.error?.error || 'Failed to mark under review')
+            error: (err) => this.toast.error(err.error?.error || 'Failed to mark under review')
         });
     }
 
@@ -245,7 +265,7 @@ export class EscalationQueueComponent implements OnInit {
                 this.resolveModal = null;
                 this.loadEscalations();
             },
-            error: (err) => alert(err.error?.error || 'Resolve failed')
+            error: (err) => this.toast.error(err.error?.error || 'Resolve failed')
         });
     }
 

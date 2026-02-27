@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect } from '@angular/core';
+import { Component, DestroyRef, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
 import { FormsModule } from '@angular/forms';
@@ -8,9 +8,10 @@ import { NpaService } from '../../services/npa.service';
 import { ApprovalService } from '../../services/approval.service';
 import { LucideAngularModule } from 'lucide-angular';
 import { ActivatedRoute, Router } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
 import { AGENT_REGISTRY } from '../../lib/agent-interfaces';
+import { ToastService } from '../../services/toast.service';
 
 type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
 
@@ -19,8 +20,13 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
    standalone: true,
    imports: [CommonModule, FormsModule, SharedIconsModule, LucideAngularModule],
    template: `
+    @if (loading()) {
+      <div class="flex items-center justify-center h-64">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    } @else {
     <div class="h-full flex flex-col bg-slate-50 font-sans text-slate-900">
-      
+
       <!-- HEADER -->
       <div class="flex-none bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shadow-sm z-10">
         <div>
@@ -227,15 +233,20 @@ type WorkspaceView = 'INBOX' | 'DRAFTS' | 'WATCHLIST';
         </div>
       </div>
     </div>
+    }
    `,
    styles: []
 })
 export class ApprovalDashboardComponent {
+   private destroyRef = inject(DestroyRef);
    private userService = inject(UserService);
    private npaService = inject(NpaService);
    private approvalService = inject(ApprovalService);
    private route = inject(ActivatedRoute);
    private router = inject(Router);
+   private toast = inject(ToastService);
+
+   loading = signal(true);
 
    userRole = () => this.userService.currentUser().role;
 
@@ -253,12 +264,18 @@ export class ApprovalDashboardComponent {
 
    constructor() {
       // Load real data from API
-      this.npaService.getAll().subscribe({
+      this.npaService.getAll().pipe(
+         takeUntilDestroyed(this.destroyRef)
+      ).subscribe({
          next: (npas) => {
             this.items = npas.map(n => this.mapApiToNpaProject(n));
             this.updateFilteredItems();
+            this.loading.set(false);
          },
-         error: (err) => console.error('Failed to load NPAs for approval dashboard', err)
+         error: (err) => {
+            console.error('Failed to load NPAs for approval dashboard', err);
+            this.loading.set(false);
+         }
       });
 
       // Effect to update filtered items when view or role changes
@@ -284,6 +301,7 @@ export class ApprovalDashboardComponent {
       }
       return {
          id: n.id,
+         displayId: n.display_id || n.id,
          title: n.title,
          description: n.description || '',
          submittedBy: n.submitted_by,
@@ -477,7 +495,7 @@ export class ApprovalDashboardComponent {
 
       call$.subscribe({
          next: () => this.reloadItems(),
-         error: (err) => alert(err.error?.error || 'Submit failed')
+         error: (err) => this.toast.error(err.error?.error || 'Submit failed')
       });
    }
 
@@ -487,7 +505,7 @@ export class ApprovalDashboardComponent {
       if (role === 'CHECKER') {
          this.approvalService.checkerApprove(item.id, 'Checker').subscribe({
             next: () => this.reloadItems(),
-            error: (err) => alert(err.error?.error || 'Checker approval failed')
+            error: (err) => this.toast.error(err.error?.error || 'Checker approval failed')
          });
       }
       else if (this.isFunctionalApprover()) {
@@ -498,7 +516,7 @@ export class ApprovalDashboardComponent {
                comments: 'Approved via dashboard'
             }).subscribe({
                next: () => this.reloadItems(),
-               error: (err) => alert(err.error?.error || 'Sign-off failed')
+               error: (err) => this.toast.error(err.error?.error || 'Sign-off failed')
             });
          }
       }
@@ -513,11 +531,11 @@ export class ApprovalDashboardComponent {
             this.approvalService.requestRework(item.id, party, party, comment).subscribe({
                next: (res) => {
                   if (res.escalated) {
-                     alert(`Circuit breaker triggered! NPA escalated to ${res.escalation_level >= 3 ? 'Governance Forum' : 'Management'}.`);
+                     this.toast.warning(`Circuit breaker triggered\! NPA escalated to ${res.escalation_level >= 3 ? 'Governance Forum' : 'Management'}.`);
                   }
                   this.reloadItems();
                },
-               error: (err) => alert(err.error?.error || 'Rework request failed')
+               error: (err) => this.toast.error(err.error?.error || 'Rework request failed')
             });
          }
       }
@@ -528,7 +546,7 @@ export class ApprovalDashboardComponent {
       if (reason) {
          this.approvalService.rejectNpa(item.id, this.userRole(), reason).subscribe({
             next: () => this.reloadItems(),
-            error: (err) => alert(err.error?.error || 'Rejection failed')
+            error: (err) => this.toast.error(err.error?.error || 'Rejection failed')
          });
       }
    }
@@ -551,7 +569,7 @@ export class ApprovalDashboardComponent {
       const conditions = [{ condition_text: conditionText, due_date: dueDateStr || undefined }];
       this.approvalService.approveConditional(item.id, party, { actor_name: party, conditions }).subscribe({
          next: () => this.reloadItems(),
-         error: (err) => alert(err.error?.error || 'Conditional approval failed')
+         error: (err) => this.toast.error(err.error?.error || 'Conditional approval failed')
       });
    }
 
@@ -559,7 +577,7 @@ export class ApprovalDashboardComponent {
       if (confirm('Grant Final Approval? Product will be LAUNCHED.')) {
          this.approvalService.finalApprove(item.id, 'COO').subscribe({
             next: () => this.reloadItems(),
-            error: (err) => alert(err.error?.error || 'Final approval failed')
+            error: (err) => this.toast.error(err.error?.error || 'Final approval failed')
          });
       }
    }

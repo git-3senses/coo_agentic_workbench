@@ -22,7 +22,9 @@ router.get('/', async (req, res) => {
         const [rows] = await db.query(sql, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AUDIT ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -35,7 +37,9 @@ router.get('/npas/:id', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[AUDIT ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

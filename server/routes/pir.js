@@ -26,7 +26,9 @@ router.get('/pending', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PIR ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -50,7 +52,9 @@ router.get('/:id', async (req, res) => {
 
         res.json({ project: project[0], conditions, metrics });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PIR ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -88,7 +92,9 @@ router.post('/:id/submit', async (req, res) => {
 
         res.json({ status: 'PIR_SUBMITTED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PIR ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -116,7 +122,9 @@ router.post('/:id/approve', async (req, res) => {
 
         res.json({ status: 'PIR_COMPLETED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PIR ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -141,7 +149,9 @@ router.post('/:id/extend', async (req, res) => {
 
         res.json({ status: 'PIR_EXTENDED', new_extension_months: months });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[PIR ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

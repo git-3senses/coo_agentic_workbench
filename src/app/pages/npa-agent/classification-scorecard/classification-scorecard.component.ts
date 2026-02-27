@@ -278,7 +278,6 @@ export class ClassificationScorecardComponent {
         this.governanceService.saveClassification(this.projectId, result)
             .subscribe({
                 next: (res) => {
-                    console.log('Classification Saved:', res);
                     this.completed.emit({ tier: this.classificationTier, score: this.totalScore });
                 },
                 error: (err) => console.error('Failed to save classification:', err)

@@ -73,7 +73,9 @@ router.get('/npas/:id', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DOCUMENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -89,7 +91,9 @@ router.get('/npas/:id/requirements', async (req, res) => {
         );
         res.json({ requirements, documents });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DOCUMENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -152,7 +156,9 @@ router.post('/npas/:id/upload', (req, res, next) => {
                 path: file.path
             });
         } catch (dbErr) {
-            res.status(500).json({ error: dbErr.message });
+            console.error('[DOCUMENTS ERROR]', dbErr.message);
+            const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : dbErr.message;
+            res.status(500).json({ error: errorMsg });
         }
     });
 });
@@ -174,7 +180,9 @@ router.put('/:docId/validate', async (req, res) => {
 
         res.json({ status: 'UPDATED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DOCUMENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -187,7 +195,9 @@ router.delete('/:docId', async (req, res) => {
         }
         res.json({ status: 'DELETED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DOCUMENTS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

@@ -11,6 +11,7 @@ import { AgentGovernanceService } from '../../services/agent-governance.service'
 import { LayoutService } from '../../services/layout.service';
 import { NpaService } from '../../services/npa.service';
 import { DifyService } from '../../services/dify/dify.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
    selector: 'app-npa-agent',
@@ -58,6 +59,7 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
    private npaService = inject(NpaService);
    private difyService = inject(DifyService);
    private http = inject(HttpClient);
+   private toast = inject(ToastService);
 
    viewMode: 'DASHBOARD' | 'IDEATION' | 'WORK_ITEM' = 'DASHBOARD';
 
@@ -65,7 +67,6 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
    npaContext: any = null;
 
    constructor() {
-      console.log('NPAAgentComponent Initialized. viewMode:', this.viewMode);
    }
 
    ngOnInit() {
@@ -105,8 +106,6 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
    }
 
    goToDraftWithData(payload: any) {
-      console.log('[NPAAgent] Transitioning to Draft with payload:', payload);
-
       // Transition from Chat -> Draft with pre-filled data
       if (payload?.npaId) {
          // Existing NPA (from CTA card)
@@ -125,7 +124,6 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
          this.npaService.create(createData).subscribe({
             next: (res) => {
                const newId = res.id;
-               console.log(`[NPAAgent] Created new NPA: ${newId}`);
 
                // Prepare any extra initial data (classification, etc)
                // Extract all data from payload to populate initial Product Attributes
@@ -162,7 +160,6 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
 
                this.npaService.update(newId, updatePayload).subscribe({
                   next: () => {
-                     console.log(`[NPAAgent] Initial data persisted for ${newId}`);
                      // Persist classification now that we have a project_id.
                      // (Workflow may write via MCP tools when project_id is provided.)
                      const classifierInputs: Record<string, any> = {
@@ -180,7 +177,6 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
                      };
                      this.difyService.runWorkflow('CLASSIFIER', classifierInputs).subscribe({
                         next: (res) => {
-                           console.log(`[NPAAgent] Classification workflow executed for ${newId}`);
                            // Persist the classifier result to DB so it's available when npa-detail loads
                            if (res?.data?.status === 'succeeded' && res?.data?.outputs) {
                               const o: any = res.data.outputs;
@@ -201,7 +197,6 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
                                  raw_json: o,
                                  workflow_run_id: (res as any).workflow_run_id || null
                               }).subscribe({
-                                 next: () => console.log(`[NPAAgent] Classifier result persisted for ${newId}`),
                                  error: (e: any) => console.warn('[NPAAgent] Classifier persist failed:', e.message)
                               });
                            }
@@ -225,7 +220,7 @@ export class NPAAgentComponent implements OnInit, OnDestroy {
             },
             error: (err) => {
                console.error('[NPAAgent] Failed to create NPA:', err);
-               alert('Failed to create NPA record. Please try again.');
+               this.toast.error('Failed to create NPA record. Please try again.');
             }
          });
       }

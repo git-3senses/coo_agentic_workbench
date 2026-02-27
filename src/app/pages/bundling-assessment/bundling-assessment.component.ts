@@ -4,6 +4,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
 import { BundlingService, BundlingAssessment } from '../../services/bundling.service';
 import { NpaService } from '../../services/npa.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
     selector: 'app-bundling-assessment',
@@ -128,6 +129,7 @@ import { NpaService } from '../../services/npa.service';
 export class BundlingAssessmentComponent {
     private bundlingService = inject(BundlingService);
     private npaService = inject(NpaService);
+    private toast = inject(ToastService);
 
     npaList: any[] = [];
     approvedList: any[] = [];
@@ -153,15 +155,15 @@ export class BundlingAssessmentComponent {
         this.assessment = null;
         this.bundlingService.assess(this.childId, this.parentId).subscribe({
             next: (data) => { this.assessment = data; this.loading = false; },
-            error: (err) => { alert(err.error?.error || 'Assessment failed'); this.loading = false; }
+            error: (err) => { this.toast.error(err.error?.error || 'Assessment failed'); this.loading = false; }
         });
     }
 
     applyBundling() {
         if (!this.assessment || !confirm('Apply BUNDLING track to this NPA?')) return;
         this.bundlingService.apply(this.childId, this.parentId).subscribe({
-            next: () => alert('Bundling track applied successfully!'),
-            error: (err) => alert(err.error?.error || 'Apply failed')
+            next: () => this.toast.success('Bundling track applied successfully!'),
+            error: (err) => this.toast.error(err.error?.error || 'Apply failed')
         });
     }
 }

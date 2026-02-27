@@ -8,7 +8,9 @@ router.get('/', async (req, res) => {
         const [rows] = await db.query('SELECT * FROM ref_classification_criteria ORDER BY weight DESC');
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[CLASSIFICATION ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -24,7 +26,9 @@ router.get('/npas/:id', async (req, res) => {
         `, [req.params.id]);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[CLASSIFICATION ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -46,7 +50,9 @@ router.get('/npas/:id/summary', async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'NPA not found' });
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[CLASSIFICATION ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

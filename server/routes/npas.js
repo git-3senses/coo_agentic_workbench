@@ -57,7 +57,9 @@ router.get('/', async (req, res) => {
         }));
         res.json(projects);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -81,7 +83,8 @@ router.get('/:id', async (req, res) => {
             breaches,
             metrics,
             approvals,
-            postConditions
+            postConditions,
+            agentResults
         ] = await Promise.all([
             db.query('SELECT jurisdiction_code FROM npa_jurisdictions WHERE project_id = ?', [id]).then(([r]) => r),
             db.query('SELECT * FROM npa_intake_assessments WHERE project_id = ?', [id]).then(([r]) => r),
@@ -96,6 +99,7 @@ router.get('/:id', async (req, res) => {
             db.query('SELECT * FROM npa_performance_metrics WHERE project_id = ? ORDER BY snapshot_date DESC LIMIT 1', [id]).then(([r]) => r),
             db.query('SELECT * FROM npa_approvals WHERE project_id = ? ORDER BY created_at', [id]).then(([r]) => r),
             db.query('SELECT * FROM npa_post_launch_conditions WHERE project_id = ?', [id]).then(([r]) => r),
+            db.query('SELECT project_id, agent_type, workflow_run_id, created_at FROM npa_agent_results WHERE project_id = ? ORDER BY created_at', [id]).then(([r]) => r),
         ]);
 
         res.json({
@@ -112,10 +116,13 @@ router.get('/:id', async (req, res) => {
             breaches,
             metrics: metrics[0] || null,
             approvals,
-            postLaunchConditions: postConditions
+            postLaunchConditions: postConditions,
+            agentResults
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -138,7 +145,9 @@ router.get('/:id/form-data', async (req, res) => {
         if (msg.includes('doesn\'t exist') || msg.includes('ER_NO_SUCH_TABLE')) {
             return res.json([]);
         }
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -237,7 +246,9 @@ router.post('/:id/form-data', requireAuth(), validatePersistMiddleware, async (r
             conn.release();
         }
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -311,7 +322,9 @@ router.get('/:id/comments', async (req, res) => {
             throw err;
         }
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -365,7 +378,9 @@ router.post('/:id/comments', requireAuth(), async (req, res) => {
             created_at: new Date().toISOString()
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -635,7 +650,9 @@ router.get('/:id/prefill', async (req, res) => {
 
     } catch (err) {
         console.error('[PREFILL] Error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -680,7 +697,9 @@ router.post('/:id/prefill/persist', validatePersistMiddleware, async (req, res) 
         }
     } catch (err) {
         console.error('[PREFILL-PERSIST] Error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -783,7 +802,9 @@ router.get('/:id/form-sections', async (req, res) => {
 
         res.json(result);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -813,7 +834,9 @@ router.delete('/seed-demo', async (req, res) => {
         await conn.rollback();
         await conn.query('SET FOREIGN_KEY_CHECKS = 1');
         console.error('[NPA SEED-CLEAR] Error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -1143,14 +1166,20 @@ router.post('/seed-demo', async (req, res) => {
             await conn.query('UPDATE ref_npa_fields SET tooltip = ? WHERE field_key = ? AND (tooltip IS NULL OR tooltip = "")', [tip, fk]);
         }
 
+        let seedSeqCounter = 0; // Running counter for display_id during seed
         for (const p of profiles) {
             const proj = p.project;
             const id = proj.id;
 
+            // Generate display_id for seeded NPAs
+            seedSeqCounter++;
+            const seedYear = new Date().getFullYear();
+            const displayId = `NPA-${seedYear}-${String(seedSeqCounter).padStart(5, '0')}`;
+
             // ── 1. npa_projects ──
             await conn.query(`
                 INSERT INTO npa_projects
-                    (id, title, description, product_category, npa_type, risk_level,
+                    (id, display_id, title, description, product_category, npa_type, risk_level,
                      is_cross_border, notional_amount, currency, current_stage, status,
                      submitted_by, product_manager, pm_team, template_name, kickoff_date,
                      proposal_preparer, pac_approval_status, approval_track,
@@ -1159,7 +1188,7 @@ router.post('/seed-demo', async (req, res) => {
                      classification_confidence, classification_method,
                      ${proj.launched_at ? 'launched_at,' : ''}
                      created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?,
+                VALUES (?, ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?,
                         ?, ?, ?,
@@ -1169,7 +1198,7 @@ router.post('/seed-demo', async (req, res) => {
                         ${proj.launched_at ? '?,' : ''}
                         NOW(), NOW())
             `, [
-                id, proj.title, proj.description, proj.product_category, proj.npa_type, proj.risk_level,
+                id, displayId, proj.title, proj.description, proj.product_category, proj.npa_type, proj.risk_level,
                 proj.is_cross_border, proj.notional_amount, proj.currency, proj.current_stage, proj.status,
                 proj.submitted_by, proj.product_manager, proj.pm_team, proj.template_name, proj.kickoff_date,
                 proj.proposal_preparer, proj.pac_approval_status, proj.approval_track,
@@ -1280,7 +1309,9 @@ router.post('/seed-demo', async (req, res) => {
         await conn.rollback();
         await conn.query('SET FOREIGN_KEY_CHECKS = 1');
         console.error('[NPA SEED-DEMO] Error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -1330,31 +1361,117 @@ router.put('/:id', async (req, res) => {
         }
     } catch (err) {
         console.error('[NPA UPDATE] Error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
 // POST /api/npas — Create new NPA
 router.post('/', async (req, res) => {
     console.log('[NPA CREATE] Received:', JSON.stringify(req.body));
-    const { title, description, submitted_by, npa_type } = req.body;
+    const {
+        title, description, submitted_by, npa_type,
+        // Part A fields from Ideation Agent payload
+        risk_level, notional_amount, currency, is_cross_border,
+        product_category, product_manager, pm_team, kickoff_date,
+        // Signoff parties from classification
+        mandatory_signoffs, jurisdictions
+    } = req.body;
     const id = `NPA-${crypto.randomUUID().replace(/-/g, '')}`;
     try {
         const conn = await db.getConnection();
         try {
+            // Generate human-friendly display_id: NPA-YYYY-NNNNN
+            const year = new Date().getFullYear();
+            let displayId = null;
+            try {
+                const [[{ max_seq }]] = await conn.query(`
+                    SELECT COALESCE(MAX(CAST(SUBSTRING(display_id, LENGTH(CONCAT('NPA-', ?, '-')) + 1) AS UNSIGNED)), 0) as max_seq
+                    FROM npa_projects
+                    WHERE display_id LIKE CONCAT('NPA-', ?, '-%')
+                `, [year, year]);
+                const nextSeq = (max_seq || 0) + 1;
+                displayId = `NPA-${year}-${String(nextSeq).padStart(5, '0')}`;
+            } catch (dispErr) {
+                console.warn('[NPA CREATE] display_id generation failed (column may not exist):', dispErr.message);
+            }
+
+            // Build INSERT with all available Part A fields from Ideation payload
+            const cols = ['id', 'title', 'description', 'submitted_by', 'npa_type', 'current_stage', 'status', 'created_at', 'updated_at'];
+            const vals = [id, title, description, submitted_by || 'system', npa_type || 'STANDARD', 'INITIATION', 'On Track', new Date(), new Date()];
+
+            if (displayId) { cols.push('display_id'); vals.push(displayId); }
+            if (risk_level) { cols.push('risk_level'); vals.push(risk_level); }
+            if (notional_amount) { cols.push('notional_amount'); vals.push(notional_amount); }
+            if (currency) { cols.push('currency'); vals.push(currency); }
+            if (is_cross_border !== undefined && is_cross_border !== null) { cols.push('is_cross_border'); vals.push(is_cross_border ? 1 : 0); }
+            if (product_category) { cols.push('product_category'); vals.push(product_category); }
+            if (product_manager) { cols.push('product_manager'); vals.push(product_manager); }
+            if (pm_team) { cols.push('pm_team'); vals.push(pm_team); }
+            if (kickoff_date) { cols.push('kickoff_date'); vals.push(kickoff_date); }
+
+            const placeholders = cols.map(() => '?').join(', ');
             await conn.query(
-                `INSERT INTO npa_projects (id, title, description, submitted_by, npa_type, current_stage, status, created_at, updated_at)
-	                 VALUES (?, ?, ?, ?, ?, 'INITIATION', 'On Track', NOW(), NOW())`,
-                [id, title, description, submitted_by || 'system', npa_type || 'STANDARD']
+                `INSERT INTO npa_projects (${cols.join(', ')}) VALUES (${placeholders})`,
+                vals
             );
-            console.log('[NPA CREATE] Success:', id);
-            res.json({ id, status: 'CREATED' });
+
+            // Persist jurisdictions if provided by Ideation Agent
+            if (jurisdictions && Array.isArray(jurisdictions) && jurisdictions.length > 0) {
+                try {
+                    for (const j of jurisdictions) {
+                        await conn.query(
+                            `INSERT IGNORE INTO npa_jurisdictions (project_id, jurisdiction_code) VALUES (?, ?)`,
+                            [id, j]
+                        );
+                    }
+                } catch (jErr) { console.warn('[NPA CREATE] Jurisdiction insert note:', jErr.message); }
+            }
+
+            // Seed initial signoff parties if determined by classification
+            if (mandatory_signoffs && Array.isArray(mandatory_signoffs) && mandatory_signoffs.length > 0) {
+                try {
+                    for (const party of mandatory_signoffs) {
+                        await conn.query(
+                            `INSERT IGNORE INTO npa_signoffs (project_id, party, department, status, sla_breached)
+                             VALUES (?, ?, ?, 'PENDING', 0)`,
+                            [id, party, party]
+                        );
+                    }
+                } catch (sErr) { console.warn('[NPA CREATE] Signoff seed note:', sErr.message); }
+            }
+
+            // Auto-create default 5-stage workflow for new NPA
+            const defaultStages = [
+                { id: 'INITIATION', status: 'ACTIVE', started_at: new Date() },
+                { id: 'RISK_ASSESSMENT', status: 'PENDING', started_at: null },
+                { id: 'DCE_REVIEW', status: 'PENDING', started_at: null },
+                { id: 'PENDING_SIGN_OFFS', status: 'PENDING', started_at: null },
+                { id: 'APPROVED', status: 'PENDING', started_at: null }
+            ];
+            try {
+                for (const stage of defaultStages) {
+                    await conn.query(
+                        `INSERT INTO npa_workflow_states (project_id, stage_id, status, started_at)
+                         VALUES (?, ?, ?, ?)`,
+                        [id, stage.id, stage.status, stage.started_at]
+                    );
+                }
+            } catch (wfErr) {
+                console.warn('[NPA CREATE] Workflow state creation note:', wfErr.message);
+            }
+
+            console.log('[NPA CREATE] Success:', id, displayId ? `(${displayId})` : '');
+            res.json({ id, display_id: displayId, status: 'CREATED' });
         } finally {
             conn.release();
         }
     } catch (err) {
         console.error('[NPA CREATE] Error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[NPA ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

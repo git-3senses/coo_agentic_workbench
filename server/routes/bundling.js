@@ -118,7 +118,9 @@ router.get('/:id/assess', async (req, res) => {
             recommended_track: recommendedTrack
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[BUNDLING ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -139,7 +141,9 @@ router.post('/:id/apply', async (req, res) => {
 
         res.json({ status: 'BUNDLING_APPLIED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[BUNDLING ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

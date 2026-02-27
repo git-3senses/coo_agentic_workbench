@@ -192,7 +192,6 @@ export class DifyService {
         this.delegationStack.push(fromAgent);
 
         this._activeAgentId = toAgentId;
-        console.log(`[DifyService] Agent switch: ${fromAgent} → ${toAgentId} (${reason})`);
 
         this.activeAgentChanged$.next({ fromAgent, toAgent: toAgentId, reason });
     }
@@ -207,7 +206,6 @@ export class DifyService {
         const fromAgent = this._activeAgentId;
 
         this._activeAgentId = previousAgent;
-        console.log(`[DifyService] Agent return: ${fromAgent} → ${previousAgent} (${reason})`);
 
         this.activeAgentChanged$.next({ fromAgent, toAgent: previousAgent, reason });
         return previousAgent;
@@ -273,8 +271,6 @@ export class DifyService {
             } else {
                 targetAgent = domainAgentMap[domainId] || 'NPA_ORCHESTRATOR';
             }
-
-            console.log(`[DifyService] ROUTE_DOMAIN: domainId=${domainId}, target_agent=${payload.target_agent}, resolved=${targetAgent}`);
 
             // All domain agents (including NPA_ORCHESTRATOR) are separate Dify apps
             // with their own API keys and conversation_ids — do a real delegation
@@ -643,7 +639,6 @@ export class DifyService {
             if (shouldCheckDelegation) {
                 for (const dp of delegationPatterns) {
                     if (dp.pattern.test(rawAnswer)) {
-                        console.log(`[DifyService] Text-based delegation detected → ${dp.agentId} (intent: ${dp.intent}) [from ${this._activeAgentId}]`);
                         return {
                             agent_action: 'DELEGATE_AGENT',
                             agent_id: this._activeAgentId || 'NPA_ORCHESTRATOR',
@@ -657,8 +652,6 @@ export class DifyService {
                         };
                     }
                 }
-            } else {
-                console.log(`[DifyService] Skipping delegation detection — active agent is ${this._activeAgentId} (not an orchestrator)`);
             }
 
             return {

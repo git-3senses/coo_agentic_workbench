@@ -75,7 +75,9 @@ router.get('/kpis', async (req, res) => {
         ];
         res.json(kpis);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DASHBOARD ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -110,7 +112,9 @@ router.get('/pipeline', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DASHBOARD ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -126,7 +130,9 @@ router.get('/classification-mix', async (req, res) => {
         const colors = { 'New-to-Group': '#6366f1', 'Variation': '#f59e0b', 'Existing': '#10b981', 'NPA Lite': '#3b82f6', 'PROHIBITED': '#ef4444' };
         res.json(rows.map(r => ({ ...r, color: colors[r.label] || '#94a3b8' })));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DASHBOARD ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -150,7 +156,9 @@ router.get('/ageing', async (req, res) => {
             { label: '90+ days', count: row['90+ days'] || 0 }
         ]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DASHBOARD ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -174,7 +182,9 @@ router.get('/clusters', async (req, res) => {
         // Map to match expected ID field interface
         res.json(rows.map((r, index) => ({ id: index + 1, ...r })));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DASHBOARD ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -197,7 +207,9 @@ router.get('/prospects', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DASHBOARD ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -214,7 +226,9 @@ router.get('/revenue', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DASHBOARD ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -247,7 +261,9 @@ router.get('/npa-pool', async (req, res) => {
         }));
         res.json(pool);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[DASHBOARD ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

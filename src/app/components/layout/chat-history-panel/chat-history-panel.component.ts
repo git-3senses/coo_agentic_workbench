@@ -20,9 +20,10 @@ import { ChatSessionService, ChatSession } from '../../../services/chat-session.
             </h3>
             <div class="flex items-center gap-1">
                 <button (click)="onNewChat.emit()"
-                        class="p-1.5 rounded-md hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition-colors"
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-600 hover:text-violet-700 transition-all border border-violet-200 hover:border-violet-300 text-xs font-semibold"
                         title="New Chat">
-                    <lucide-icon name="plus" class="w-4 h-4"></lucide-icon>
+                    <lucide-icon name="plus" class="w-3.5 h-3.5"></lucide-icon>
+                    <span>New Chat</span>
                 </button>
                 <button (click)="onClose.emit()"
                         class="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"

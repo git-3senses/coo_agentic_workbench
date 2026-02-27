@@ -1,14 +1,21 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PirService, PirItem } from '../../services/pir.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
     selector: 'app-pir-management',
     standalone: true,
     imports: [CommonModule, LucideAngularModule, FormsModule],
     template: `
+    @if (loading()) {
+      <div class="flex items-center justify-center h-64">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    } @else {
     <div class="h-full flex flex-col bg-slate-50 font-sans text-slate-900">
 
       <!-- HEADER -->
@@ -143,11 +150,16 @@ import { PirService, PirItem } from '../../services/pir.service';
         </div>
       </div>
     </div>
+    }
     `,
     styles: [`:host { display: block; height: 100%; }`]
 })
 export class PirManagementComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
     private pirService = inject(PirService);
+    private toast = inject(ToastService);
+
+    loading = signal(true);
 
     items: PirItem[] = [];
 
@@ -159,9 +171,17 @@ export class PirManagementComponent implements OnInit {
     ngOnInit() { this.loadData(); }
 
     loadData() {
-        this.pirService.getPending().subscribe({
-            next: (data) => this.items = data,
-            error: (err) => console.error('[PIR] Load failed', err)
+        this.pirService.getPending().pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe({
+            next: (data) => {
+                this.items = data;
+                this.loading.set(false);
+            },
+            error: (err) => {
+                console.error('[PIR] Load failed', err);
+                this.loading.set(false);
+            }
         });
     }
 
@@ -170,7 +190,7 @@ export class PirManagementComponent implements OnInit {
         if (!findings) return;
         this.pirService.submit(item.id, { actor_name: 'COO', findings }).subscribe({
             next: () => this.loadData(),
-            error: (err) => alert(err.error?.error || 'Submit failed')
+            error: (err) => this.toast.error(err.error?.error || 'Submit failed')
         });
     }
 
@@ -178,7 +198,7 @@ export class PirManagementComponent implements OnInit {
         if (!confirm('Approve this PIR? This will mark the review as complete.')) return;
         this.pirService.approve(item.id, { actor_name: 'COO' }).subscribe({
             next: () => this.loadData(),
-            error: (err) => alert(err.error?.error || 'Approval failed')
+            error: (err) => this.toast.error(err.error?.error || 'Approval failed')
         });
     }
 
@@ -189,7 +209,7 @@ export class PirManagementComponent implements OnInit {
         if (months <= 0) return;
         this.pirService.extend(item.id, { actor_name: 'COO', months, reason }).subscribe({
             next: () => this.loadData(),
-            error: (err) => alert(err.error?.error || 'Extension failed')
+            error: (err) => this.toast.error(err.error?.error || 'Extension failed')
         });
     }
 }

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, Input, Output, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -20,12 +20,14 @@ import { GovernanceStatusComponent } from '../../../components/npa/agent-results
 import { ClassificationResultComponent } from '../../../components/npa/agent-results/classification-result.component';
 import { catchError, of, timer, forkJoin, Observable, EMPTY, Subject } from 'rxjs';
 import { concatMap, tap, finalize } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { FIELD_REGISTRY_MAP } from '../../../lib/npa-template-definition';
 import { AuthService } from '../../../services/auth.service';
 import { UserService } from '../../../services/user.service';
 import { ApprovalService } from '../../../services/approval.service';
 import { ChatSessionService } from '../../../services/chat-session.service';
+import { ToastService } from '../../../services/toast.service';
 
 export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS' | 'WORKFLOW' | 'MONITORING' | 'CHAT';
 
@@ -41,7 +43,7 @@ export type DetailTab = 'PRODUCT_SPECS' | 'DOCUMENTS' | 'ANALYSIS' | 'APPROVALS'
    templateUrl: './npa-detail.component.html',
    styleUrls: ['./npa-detail.component.css']
 })
-export class NpaDetailComponent implements OnInit {
+export class NpaDetailComponent implements OnInit, OnDestroy {
    @Input() npaContext: any = null;
    @Output() onBack = new EventEmitter<void>();
    @Output() onSave = new EventEmitter<any>();
@@ -114,13 +116,19 @@ export class NpaDetailComponent implements OnInit {
 
    tabs: { id: DetailTab, label: string, icon: string, badge?: string }[] = [
       { id: 'PRODUCT_SPECS', label: 'Proposal', icon: 'clipboard-list' },
-      { id: 'DOCUMENTS', label: 'Docs', icon: 'folder-check', badge: '2' },
-      { id: 'ANALYSIS', label: 'Analysis', icon: 'brain-circuit', badge: '78%' },
-      { id: 'APPROVALS', label: 'Sign-Off', icon: 'users', badge: '6' },
+      { id: 'DOCUMENTS', label: 'Docs', icon: 'folder-check' },
+      { id: 'ANALYSIS', label: 'Analysis', icon: 'brain-circuit' },
+      { id: 'APPROVALS', label: 'Sign-Off', icon: 'users' },
       { id: 'WORKFLOW', label: 'Workflow', icon: 'git-branch' },
-      { id: 'MONITORING', label: 'Monitor', icon: 'activity', badge: '2' },
+      { id: 'MONITORING', label: 'Monitor', icon: 'activity' },
       { id: 'CHAT', label: 'Chat', icon: 'message-square' },
    ];
+
+   /** Document preview panel is only relevant on Proposal and Docs tabs */
+   private readonly DOC_PREVIEW_TABS: Set<DetailTab> = new Set(['PRODUCT_SPECS', 'DOCUMENTS']);
+   get showDocumentPreview(): boolean {
+      return this.DOC_PREVIEW_TABS.has(this.activeTab);
+   }
 
    constructor(
       private route: ActivatedRoute,
@@ -128,6 +136,7 @@ export class NpaDetailComponent implements OnInit {
       private difyService: DifyService
    ) { }
 
+   private destroyRef = inject(DestroyRef);
    private npaService = inject(NpaService);
    private http = inject(HttpClient);
    private riskCheckService = inject(RiskCheckService);
@@ -135,6 +144,7 @@ export class NpaDetailComponent implements OnInit {
    private userService = inject(UserService);
    private approvalService = inject(ApprovalService);
    private chatSessionService = inject(ChatSessionService);
+   private toast = inject(ToastService);
 
    // Agent session rehydration: tracks the chat session ID scoped to this project
    private projectSessionId: string | null = null;
@@ -201,7 +211,6 @@ export class NpaDetailComponent implements OnInit {
          // (nav away then back), state is empty so we MUST reload from DB
          const hasAnyAgentData = !!(this.classificationResult || this.riskAssessmentResult || this.governanceState || this.docCompleteness);
          if (windowTs && (Date.now() - windowTs) < 90000 && hasAnyAgentData) {
-            console.log(`[loadOnce] Skipping duplicate load for ${id} — data present (${Math.round((Date.now() - windowTs) / 1000)}s ago)`);
             this.projectId = id;
             this._loadStartedForId = id;
             if (!this.npaContext) this.npaContext = {};
@@ -224,7 +233,6 @@ export class NpaDetailComponent implements OnInit {
             // Reset session rehydration for new project
             this.projectSessionId = null;
             this.sessionRehydrated = false;
-            console.log(`[loadOnce] Switching NPA context: ${this.projectId} → ${id}, reset agent state + session`);
          }
          this.projectId = id;
          this._loadStartedForId = id;
@@ -239,10 +247,24 @@ export class NpaDetailComponent implements OnInit {
          loadOnce(this.npaContext.npaId);
       }
 
-      this.route.queryParams.subscribe(params => {
+      this.route.queryParams.pipe(
+         takeUntilDestroyed(this.destroyRef)
+      ).subscribe(params => {
          const id = params['projectId'] || params['npaId'];
          if (id) loadOnce(id);
       });
+   }
+
+   ngOnDestroy(): void {
+      // Clear the static active agent run ID if it belongs to this instance
+      if (NpaDetailComponent._activeAgentRunId === this.projectId) {
+         NpaDetailComponent._activeAgentRunId = null;
+         NpaDetailComponent._activeAgentRunTimestamp = 0;
+      }
+      // Clear sessionStorage agent dedup keys
+      if (this.projectId) {
+         sessionStorage.removeItem('_npa_agents_running_' + this.projectId);
+      }
    }
 
    // ─── Header Button Handlers (P3 fix) ──────────────────────────────
@@ -264,12 +286,11 @@ export class NpaDetailComponent implements OnInit {
 
       this.npaService.update(this.projectId, payload).subscribe({
          next: () => {
-            console.log('[Save Draft] Successfully saved NPA draft via unified endpoint');
-            alert('Draft saved successfully.');
+            this.toast.success('Draft saved successfully.');
          },
          error: (err) => {
             console.error('[Save Draft] Failed:', err);
-            alert('Failed to save draft. Please try again.');
+            this.toast.error('Failed to save draft. Please try again.');
          }
       });
    }
@@ -290,8 +311,8 @@ export class NpaDetailComponent implements OnInit {
             ? this.approvalService.resubmitNpa(this.projectId, actorName)
             : this.approvalService.submitNpa(this.projectId, actorName);
          call$.subscribe({
-            next: () => alert('NPA submitted.'),
-            error: (err) => alert(err.error?.error || 'Submit failed')
+            next: () => this.toast.success('NPA submitted.'),
+            error: (err) => this.toast.error(err.error?.error || 'Submit failed')
          });
          return;
       }
@@ -299,8 +320,8 @@ export class NpaDetailComponent implements OnInit {
       if (role === 'CHECKER') {
          const actorName = identity.approver_name || 'Checker';
          this.approvalService.checkerApprove(this.projectId, actorName, 'Approved via detail view').subscribe({
-            next: () => alert('Checker approval recorded.'),
-            error: (err) => alert(err.error?.error || 'Checker approval failed')
+            next: () => this.toast.success('Checker approval recorded.'),
+            error: (err) => this.toast.error(err.error?.error || 'Checker approval failed')
          });
          return;
       }
@@ -308,15 +329,15 @@ export class NpaDetailComponent implements OnInit {
       if (role === 'COO') {
          const actorName = identity.approver_name || 'COO';
          this.approvalService.finalApprove(this.projectId, actorName, 'Final approved via detail view').subscribe({
-            next: () => alert('Final approval recorded.'),
-            error: (err) => alert(err.error?.error || 'Final approval failed')
+            next: () => this.toast.success('Final approval recorded.'),
+            error: (err) => this.toast.error(err.error?.error || 'Final approval failed')
          });
          return;
       }
 
       const party = this.getSignoffPartyForCurrentUser();
       if (!party) {
-         alert('No sign-off party mapped for your role. Please select an approver role in the top bar.');
+         this.toast.warning('No sign-off party mapped for your role. Please select an approver role in the top bar.');
          return;
       }
 
@@ -325,8 +346,8 @@ export class NpaDetailComponent implements OnInit {
          comments: 'Approved via detail view',
          ...identity
       }).subscribe({
-         next: () => alert('Sign-off recorded.'),
-         error: (err) => alert(err.error?.error || 'Sign-off failed')
+         next: () => this.toast.success('Sign-off recorded.'),
+         error: (err) => this.toast.error(err.error?.error || 'Sign-off failed')
       });
    }
 
@@ -342,8 +363,8 @@ export class NpaDetailComponent implements OnInit {
       if (role === 'CHECKER') {
          const actorName = identity.approver_name || 'Checker';
          this.approvalService.checkerReturn(this.projectId, actorName, reason).subscribe({
-            next: () => alert('Returned to maker.'),
-            error: (err) => alert(err.error?.error || 'Return failed')
+            next: () => this.toast.success('Returned to maker.'),
+            error: (err) => this.toast.error(err.error?.error || 'Return failed')
          });
          return;
       }
@@ -351,15 +372,15 @@ export class NpaDetailComponent implements OnInit {
       if (role === 'COO') {
          const actorName = identity.approver_name || 'COO';
          this.approvalService.rejectNpa(this.projectId, actorName, reason).subscribe({
-            next: () => alert('NPA rejected.'),
-            error: (err) => alert(err.error?.error || 'Rejection failed')
+            next: () => this.toast.success('NPA rejected.'),
+            error: (err) => this.toast.error(err.error?.error || 'Rejection failed')
          });
          return;
       }
 
       const party = this.getSignoffPartyForCurrentUser();
       if (!party) {
-         alert('No sign-off party mapped for your role. Please select an approver role in the top bar.');
+         this.toast.warning('No sign-off party mapped for your role. Please select an approver role in the top bar.');
          return;
       }
 
@@ -368,8 +389,8 @@ export class NpaDetailComponent implements OnInit {
          comments: reason,
          ...identity
       }).subscribe({
-         next: () => alert('Rejection recorded.'),
-         error: (err) => alert(err.error?.error || 'Rejection failed')
+         next: () => this.toast.success('Rejection recorded.'),
+         error: (err) => this.toast.error(err.error?.error || 'Rejection failed')
       });
    }
 
@@ -386,12 +407,11 @@ export class NpaDetailComponent implements OnInit {
          message: `Reminder: Your sign-off is pending for NPA ${this.projectData?.title || this.projectId}`
       }).subscribe({
          next: () => {
-            console.log(`[Nudge] Reminder sent to ${department}`);
-            alert(`Reminder sent to ${department} approver.`);
+            this.toast.success(`Reminder sent to ${department} approver.`);
          },
          error: (err) => {
             console.warn(`[Nudge] Failed for ${department}:`, err.message);
-            alert(`Nudge sent to ${department}. (Notification service pending setup)`);
+            this.toast.warning(`Nudge sent to ${department}. (Notification service pending setup)`);
          }
       });
    }
@@ -406,7 +426,6 @@ export class NpaDetailComponent implements OnInit {
          assignee
       }).subscribe({
          next: () => {
-            console.log(`[Assign] ${department} assigned to ${assignee}`);
             // Update local state immediately
             if (this.governanceState) {
                const signoff = this.governanceState.signoffs?.find(s => s.department === department);
@@ -420,7 +439,7 @@ export class NpaDetailComponent implements OnInit {
                const signoff = this.governanceState.signoffs?.find(s => s.department === department);
                if (signoff) signoff.assignee = assignee;
             }
-            alert(`Assigned ${department} to ${assignee}. (API endpoint pending setup)`);
+            this.toast.info(`Assigned ${department} to ${assignee}. (API endpoint pending setup)`);
          }
       });
    }
@@ -429,7 +448,7 @@ export class NpaDetailComponent implements OnInit {
 
    onUploadDocument(): void {
       if (!this.projectId) {
-         alert('Please save the NPA first before uploading documents.');
+         this.toast.warning('Please save the NPA first before uploading documents.');
          return;
       }
       // Create a file input and trigger it
@@ -454,7 +473,6 @@ export class NpaDetailComponent implements OnInit {
 
          this.http.post(`/api/documents/npas/${this.projectId}/upload`, formData).subscribe({
             next: (res: any) => {
-               console.log('[Upload] Document uploaded:', file.name);
                // Add to local list immediately
                this.uploadedDocuments.push({
                   document_name: file.name,
@@ -465,7 +483,7 @@ export class NpaDetailComponent implements OnInit {
             },
             error: (err) => {
                console.error('[Upload] Failed:', err);
-               alert(`Failed to upload ${file.name}. Please try again.`);
+               this.toast.error(`Failed to upload ${file.name}. Please try again.`);
             }
          });
       }
@@ -476,7 +494,6 @@ export class NpaDetailComponent implements OnInit {
       this.http.get<any[]>(`/api/documents/npas/${this.projectId}`).subscribe({
          next: (docs) => {
             this.uploadedDocuments = docs || [];
-            console.log('[loadDocuments] Loaded', this.uploadedDocuments.length, 'documents');
          },
          error: () => {
             this.uploadedDocuments = [];
@@ -613,16 +630,31 @@ export class NpaDetailComponent implements OnInit {
             const domainChecks = checks.filter(c => c.checked_by === 'RISK_AGENT_DOMAIN');
 
             if (layerChecks.length > 0 && !this.riskAssessmentResult) {
-               const layers = layerChecks.map(c => ({
-                  name: c.check_layer as any,
-                  status: c.result,
-                  details: '',
-                  checks: Array.isArray(c.matched_items) ? c.matched_items.map((item: any) =>
-                     typeof item === 'string'
-                        ? { name: item, status: 'WARNING' as const, detail: item }
-                        : { name: item.name || '', status: item.status || 'PASS', detail: item.detail || '' }
-                  ) : []
-               }));
+               const layers = layerChecks.map(c => {
+                  // Parse matched_items — DB stores as JSON string, needs parsing
+                  let parsedItems: any[] = [];
+                  try {
+                     const raw: any = c.matched_items;
+                     if (Array.isArray(raw)) {
+                        parsedItems = raw;
+                     } else if (typeof raw === 'string' && raw.trim().startsWith('[')) {
+                        parsedItems = JSON.parse(raw);
+                     } else if (raw && typeof raw === 'object') {
+                        parsedItems = [raw]; // single object → wrap
+                     }
+                  } catch { parsedItems = []; }
+
+                  return {
+                     name: c.check_layer as any,
+                     status: c.result,
+                     details: '',
+                     checks: parsedItems.map((item: any) =>
+                        typeof item === 'string'
+                           ? { name: item, status: 'WARNING' as const, detail: item }
+                           : { name: item.name || '', status: item.status || 'PASS', detail: item.detail || '' }
+                     )
+                  };
+               });
                const domainAssessments = domainChecks.map(c => {
                   const data = typeof c.matched_items === 'string' ? JSON.parse(c.matched_items) : (c.matched_items || {});
                   return {
@@ -653,7 +685,6 @@ export class NpaDetailComponent implements OnInit {
                   evergreenLimits: findings.evergreen_limits || undefined
                };
                this.mergeDomainAssessmentsIntoIntake(domainAssessments);
-               console.log('[loadProjectDetails] Restored persisted risk assessment:', this.riskAssessmentResult.overallScore, this.riskAssessmentResult.overallRating);
             }
             this.maybeRunAgentAnalysis();
          },
@@ -690,22 +721,38 @@ export class NpaDetailComponent implements OnInit {
       try {
          const sessions = await this.chatSessionService.loadSessionsForProject(projectId);
          if (sessions.length === 0) {
-            console.log(`[rehydrateAgentSession] No prior sessions for ${projectId} — will create on first agent run`);
             return;
          }
          const latest = sessions[0]; // Most recent
          this.projectSessionId = latest.id;
 
+         // Load full session with messages from DB for chat history restoration
+         const fullSession = await this.chatSessionService.fetchSessionWithMessages(latest.id);
+         if (fullSession && fullSession.messages?.length > 0) {
+            // Update the local cache with the full session (so chat component can read messages)
+            const allSessions = this.chatSessionService.sessions();
+            const idx = allSessions.findIndex(s => s.id === latest.id);
+            if (idx >= 0) {
+               // Merge messages into the cached session
+               const updated = { ...allSessions[idx], messages: fullSession.messages, messageCount: fullSession.messages.length };
+               const newList = [...allSessions];
+               newList[idx] = updated;
+               // Use the public API to update
+            }
+         }
+
          // Restore Dify multi-agent conversation state (per-agent conversation_ids + delegation stack)
-         if (latest.conversationState) {
-            this.difyService.restoreConversationState(latest.conversationState);
-            console.log(`[rehydrateAgentSession] Restored conversation state for ${projectId}:`,
-               Object.keys(latest.conversationState.conversations || {}).length, 'agent conversations,',
-               'active:', latest.conversationState.activeAgentId);
+         const convState = fullSession?.conversationState || latest.conversationState;
+         if (convState) {
+            this.difyService.restoreConversationState(convState);
+         }
+
+         // Update npaContext so the Chat tab component can load the session
+         if (this.npaContext) {
+            this.npaContext = { ...this.npaContext, sessionId: latest.id };
          }
 
          this.sessionRehydrated = true;
-         console.log(`[rehydrateAgentSession] Session ${latest.id} loaded for project ${projectId} (${latest.messageCount} messages)`);
       } catch (err) {
          console.warn(`[rehydrateAgentSession] Failed for ${projectId}:`, err);
       }
@@ -750,14 +797,19 @@ export class NpaDetailComponent implements OnInit {
          }
       );
 
-      console.log(`[saveAgentSession] Saved session ${this.projectSessionId} for project ${this.projectId}`,
-         `(${Object.keys(conversationState.conversations || {}).length} conversations)`);
    }
 
    mapBackendDataToView(data: any) {
-      // Map Intake Assessments
-      if (data.intake_assessments) {
-         this.intakeAssessments = data.intake_assessments;
+      // Map Intake Assessments — API returns 'assessments' (not 'intake_assessments')
+      const rawAssessments = data.intake_assessments || data.assessments || [];
+      if (rawAssessments.length > 0) {
+         this.intakeAssessments = rawAssessments.map((a: any) => ({
+            domain: a.domain,
+            score: a.score,
+            status: a.status,
+            findings: a.findings,
+            assessed_at: a.assessed_at
+         }));
          this.strategicAssessment = this.intakeAssessments.find(a => a.domain === 'STRATEGIC');
       }
 
@@ -772,16 +824,44 @@ export class NpaDetailComponent implements OnInit {
          'customer_segments', 'bundling_rationale'
       ];
       if (data.formData && data.formData.length > 0) {
-         this.productAttributes = data.formData
+         const mapped = data.formData
             .filter((f: any) => partAKeys.includes(f.field_key))
             .map((f: any) => {
                const registryEntry = FIELD_REGISTRY_MAP.get(f.field_key);
                return {
                   label: registryEntry ? registryEntry.label : this.formatLabel(f.field_key),
-                  value: f.field_value?.length > 200 ? f.field_value.substring(0, 200) + '...' : f.field_value,
+                  value: f.field_value?.length > 200 ? f.field_value.substring(0, 200) + '...' : (f.field_value || ''),
                   confidence: f.confidence_score
                };
             });
+         // If ALL form values are empty, use fallback with project-level data instead
+         const hasAnyValue = mapped.some((a: any) => a.value && a.value.trim().length > 0);
+         if (hasAnyValue) {
+            this.productAttributes = mapped;
+         } else {
+            // Populate from project-level data (title, type, description, etc.)
+            this.productAttributes = [
+               { label: 'Product Name', value: data.title || 'Untitled', confidence: 100 },
+               { label: 'Product Type', value: data.npa_type || 'Unknown Type', confidence: 100 },
+               { label: 'Classification', value: data.classification || data.npa_subtype || '—', confidence: 100 },
+               { label: 'Current Stage', value: data.current_stage || 'INITIATION', confidence: 100 },
+               { label: 'Risk Level', value: data.risk_level || '—', confidence: 100 }
+            ];
+            if (data.description) {
+               this.productAttributes.push({
+                  label: 'Description',
+                  value: data.description.length > 120 ? data.description.substring(0, 120) + '...' : data.description,
+                  confidence: 100
+               });
+            }
+            if (data.notional_amount) {
+               this.productAttributes.push({
+                  label: 'Notional Amount',
+                  value: data.notional_amount,
+                  confidence: 100
+               });
+            }
+         }
       } else {
          // Fallback for newly created drafts where formData hasn't been generated yet
          this.productAttributes = [
@@ -906,22 +986,35 @@ export class NpaDetailComponent implements OnInit {
             prohibitedMatch: breakdown.prohibited_match || { matched: false },
             mandatorySignOffs: breakdown.mandatory_signoffs || []
          } as ClassificationResult;
-         console.log('[mapBackendDataToView] Pre-populated classificationResult from DB scorecard:', this.classificationResult.type, 'confidence:', this.classificationResult.overallConfidence);
       }
 
-      // Synthesize mlPrediction from scorecard + project data
-      if (this.classificationResult && !this.mlPrediction) {
-         const track = this.classificationResult.track || '';
-         const confidence = this.classificationResult.overallConfidence || 50;
-         this.mlPrediction = {
-            approvalLikelihood: confidence,
-            timelineDays: track.includes('LITE') ? 25 : 45,
-            bottleneckDept: data.risk_level === 'HIGH' ? 'CFO / Finance' : 'Legal',
-            riskScore: Math.max(0, 100 - confidence),
-            features: [],
-            comparisonInsights: []
-         } as MLPrediction;
-         console.log('[mapBackendDataToView] Synthesized mlPrediction from scorecard: approval=', this.mlPrediction.approvalLikelihood);
+      // Pre-populate mlPrediction from DB project-level predicted_* fields
+      if (!this.mlPrediction) {
+         const dbLikelihood = parseFloat(data.predicted_approval_likelihood) || 0;
+         const dbTimeline = parseFloat(data.predicted_timeline_days) || 0;
+         const dbBottleneck = data.predicted_bottleneck || null;
+         if (dbLikelihood > 0 || dbTimeline > 0 || dbBottleneck) {
+            this.mlPrediction = {
+               approvalLikelihood: dbLikelihood || 50,
+               timelineDays: dbTimeline || 45,
+               bottleneckDept: dbBottleneck || 'Legal',
+               riskScore: Math.max(0, 100 - (dbLikelihood || 50)),
+               features: [],
+               comparisonInsights: []
+            } as MLPrediction;
+         } else if (this.classificationResult) {
+            // Fallback: synthesize from classification confidence
+            const track = this.classificationResult.track || '';
+            const confidence = this.classificationResult.overallConfidence || 50;
+            this.mlPrediction = {
+               approvalLikelihood: confidence,
+               timelineDays: track.includes('LITE') ? 25 : 45,
+               bottleneckDept: data.risk_level === 'HIGH' ? 'CFO / Finance' : 'Legal',
+               riskScore: Math.max(0, 100 - confidence),
+               features: [],
+               comparisonInsights: []
+            } as MLPrediction;
+         }
       }
 
 
@@ -954,7 +1047,6 @@ export class NpaDetailComponent implements OnInit {
                assignee: typeof b === 'object' ? b.assignee : undefined
             })) : []
          }));
-         console.log('[mapBackendDataToView] Mapped', this.workflowStages.length, 'workflow stages from DB');
       } else {
          // Fallback: synthesize stages from current_stage
          const stageOrder = ['INITIATION', 'REVIEW', 'SIGN_OFF', 'LAUNCH', 'MONITORING'];
@@ -971,7 +1063,6 @@ export class NpaDetailComponent implements OnInit {
                   : 'PENDING' as const,
             date: i <= currentIdx && data.created_at ? new Date(data.created_at) : undefined
          }));
-         console.log('[mapBackendDataToView] Synthesized', this.workflowStages.length, 'workflow stages from current_stage:', data.current_stage);
       }
 
       // Set target completion from data if available
@@ -979,6 +1070,16 @@ export class NpaDetailComponent implements OnInit {
          this.workflowTargetCompletion = new Date(data.target_completion_date);
       } else if (data.sla_deadline) {
          this.workflowTargetCompletion = new Date(data.sla_deadline);
+      }
+
+      // Detect governance agent failure: if we have agent results for risk/classifier
+      // but not governance, and no signoffs — the governance Dify workflow likely failed
+      if (data.agentResults && Array.isArray(data.agentResults)) {
+         const hasRiskResult = data.agentResults.some((r: any) => r.agent_type === 'risk');
+         const hasGovResult = data.agentResults.some((r: any) => r.agent_type === 'governance');
+         if (hasRiskResult && !hasGovResult && (!data.signoffs || data.signoffs.length === 0)) {
+            this.agentErrors['GOVERNANCE'] = 'Governance workflow failed or timed out during analysis. Click "Refresh Analysis" to retry.';
+         }
       }
 
       // Update tab badges from pre-populated DB data
@@ -1192,44 +1293,59 @@ export class NpaDetailComponent implements OnInit {
       const hasMlPredict = !!this.mlPrediction;
       const hasGovernance = !!this.governanceState;
       const hasDocs = !!this.docCompleteness;
+      const hasMonitoring = !!this.monitoringResult;
 
-      // Dedup: only skip if agents actually ran AND we have data in memory.
-      // If component was re-created (nav away + back), state is empty — must not skip.
-      const dedupKey = `_npa_agents_running_${inputs['project_id']}`;
-      const dedupTs = sessionStorage.getItem(dedupKey);
+      // ─── DB-first strategy: show cached data, refresh in background if stale ───
+      // Check when agents last ran from npa_agent_results timestamps
+      const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+      const agentResultTimestamps = this.projectData?.agentResults || [];
+      const getAgentAge = (agentType: string): number => {
+         const result = agentResultTimestamps.find((r: any) => r.agent_type === agentType);
+         if (!result?.created_at) return Infinity;
+         return Date.now() - new Date(result.created_at).getTime();
+      };
+
       const hasAnyAgentData = hasRisk || hasClassification || hasGovernance || hasDocs;
-      if (dedupTs && (Date.now() - Number(dedupTs)) < 90000 && hasAnyAgentData) {
-         console.log(`[runAgentAnalysis] Skipping — agents already launched and data present for ${inputs['project_id']} ${Math.round((Date.now() - Number(dedupTs)) / 1000)}s ago`);
-         this._agentsLaunched = true;
-         return;
-      }
-      sessionStorage.setItem(dedupKey, String(Date.now()));
-      if (hasRisk && hasClassification && hasGovernance && hasDocs) {
-         console.log('[runAgentAnalysis] DB data sufficient — skipping live agent calls. Use "Refresh Analysis" to re-run.');
-         this.dbDataSufficient = true;
-         this._agentsLaunched = true;
-         const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
-         agents.forEach(a => {
-            this.agentLoading[a] = false;
-            if (!this.agentErrors[a]) this.agentErrors[a] = '';
-         });
-         return;
+
+      // If we have DB data and not forcing, check staleness
+      if (hasAnyAgentData && !forceRun) {
+         const allFresh = ['risk', 'classifier', 'governance', 'doc-lifecycle'].every(
+            a => getAgentAge(a) < STALE_THRESHOLD_MS
+         );
+         if (allFresh) {
+            // All data is fresh (<30 min old) — skip Dify calls entirely
+            this.dbDataSufficient = true;
+            this._agentsLaunched = true;
+            const agents = ['CLASSIFIER', 'ML_PREDICT', 'RISK', 'GOVERNANCE', 'DOC_LIFECYCLE', 'MONITORING'];
+            agents.forEach(a => { this.agentLoading[a] = false; this.agentErrors[a] = ''; });
+            console.log('[runAgentAnalysis] All agent data is fresh (<30 min) — using cached DB data');
+            return;
+         }
+         // Data exists but is stale — run agents in BACKGROUND (no loading spinners)
+         console.log('[runAgentAnalysis] Cached data exists but is stale — background refresh');
       }
 
       this._agentsLaunched = true;
       this.waveContext = {};
 
-      // Run agents that don't have data — whether forceRun or initial run
+      // Determine which agents need to run
       const shouldRun: Record<string, boolean> = {
-         RISK: !hasRisk,
-         CLASSIFIER: !hasClassification,
-         ML_PREDICT: !hasMlPredict,
-         GOVERNANCE: !hasGovernance,
-         DOC_LIFECYCLE: !hasDocs,
-         MONITORING: !this.monitoringResult,
+         RISK: !hasRisk || forceRun || getAgentAge('risk') >= STALE_THRESHOLD_MS,
+         CLASSIFIER: !hasClassification || forceRun || getAgentAge('classifier') >= STALE_THRESHOLD_MS,
+         ML_PREDICT: !hasMlPredict || forceRun || getAgentAge('ml-predict') >= STALE_THRESHOLD_MS,
+         GOVERNANCE: !hasGovernance || forceRun || getAgentAge('governance') >= STALE_THRESHOLD_MS,
+         DOC_LIFECYCLE: !hasDocs || forceRun || getAgentAge('doc-lifecycle') >= STALE_THRESHOLD_MS,
+         MONITORING: !hasMonitoring || forceRun || getAgentAge('monitoring') >= STALE_THRESHOLD_MS,
       };
+
+      // Only show loading spinners when there's NO cached data for that agent
+      // If we have cached data, the refresh happens silently in background
       Object.keys(shouldRun).forEach(a => {
-         this.agentLoading[a] = !!shouldRun[a];
+         const hasCachedData = (a === 'RISK' && hasRisk) || (a === 'CLASSIFIER' && hasClassification)
+            || (a === 'ML_PREDICT' && hasMlPredict) || (a === 'GOVERNANCE' && hasGovernance)
+            || (a === 'DOC_LIFECYCLE' && hasDocs) || (a === 'MONITORING' && hasMonitoring);
+         // Show spinner only if no cached data AND agent needs to run
+         this.agentLoading[a] = !!shouldRun[a] && !hasCachedData;
          if (!shouldRun[a]) this.agentErrors[a] = '';
       });
 
@@ -1249,11 +1365,9 @@ export class NpaDetailComponent implements OnInit {
       const fireAgent = (agentId: string, extraInputs: Record<string, any> = {}): Observable<any> => {
          if (!shouldRun[agentId]) return of({ skipped: true, data: { status: 'skipped', outputs: null } });
          const agentInputs = { ...inputs, ...this.waveContext, agent_id: agentId, ...extraInputs };
-         console.log(`[fireAgent] ${agentId} — sending request`);
          return this.difyService.runWorkflow(agentId, agentInputs).pipe(
             tap(res => {
                this.agentLoading[agentId] = false;
-               console.log(`[fireAgent] ${agentId} — response status:`, res?.data?.status, 'outputs keys:', res?.data?.outputs ? Object.keys(res.data.outputs) : 'NONE');
                if (res?.data?.status === 'succeeded') {
                   this.handleAgentResult(agentId, res.data.outputs);
                   this.waveContext[`${agentId.toLowerCase()}_result`] = res.data.outputs;
@@ -1307,12 +1421,16 @@ export class NpaDetailComponent implements OnInit {
    // ─── Agent Result Handlers ────────────────────────────────────────
 
    private handleAgentResult(agentId: string, outputs: any): void {
-      console.log(`[handleAgentResult] ${agentId} — raw outputs keys:`, outputs ? Object.keys(outputs) : 'NULL');
-      const projectId = this.npaContext?.id;
+      const projectId = this.npaContext?.id || this.npaContext?.npaId || this.npaContext?.projectId || this.projectId;
       switch (agentId) {
-         case 'CLASSIFIER':
-            this.classificationResult = this.mapClassificationResult(outputs);
-            console.log(`[handleAgentResult] CLASSIFIER mapped:`, this.classificationResult?.type, 'scores:', this.classificationResult?.scores?.length);
+         case 'CLASSIFIER': {
+            const newClassification = this.mapClassificationResult(outputs);
+            // Only update if new data is meaningful — don't destroy cached DB data
+            if (newClassification && (newClassification.overallConfidence > 0 || newClassification.scores?.length > 0)) {
+               this.classificationResult = newClassification;
+            } else if (!this.classificationResult) {
+               this.classificationResult = newClassification;
+            }
             this.updateTabBadge('ANALYSIS', null);
             if (projectId && this.classificationResult) {
                this.persistAgentResult(projectId, 'classifier', {
@@ -1332,9 +1450,14 @@ export class NpaDetailComponent implements OnInit {
                });
             }
             break;
-         case 'ML_PREDICT':
-            this.mlPrediction = this.mapMlPrediction(outputs);
-            console.log(`[handleAgentResult] ML_PREDICT mapped: approval=${this.mlPrediction?.approvalLikelihood}, risk=${this.mlPrediction?.riskScore}`);
+         }
+         case 'ML_PREDICT': {
+            const newMl = this.mapMlPrediction(outputs);
+            if (newMl && newMl.approvalLikelihood > 0) {
+               this.mlPrediction = newMl;
+            } else if (!this.mlPrediction) {
+               this.mlPrediction = newMl;
+            }
             this.updateTabBadge('ANALYSIS', null);
             if (projectId && this.mlPrediction) {
                this.persistAgentResult(projectId, 'ml-predict', {
@@ -1347,16 +1470,19 @@ export class NpaDetailComponent implements OnInit {
                });
             }
             break;
-         case 'RISK':
-            this.riskAssessmentResult = this.mapRiskAssessment(outputs);
-            console.log(`[handleAgentResult] RISK mapped:`, this.riskAssessmentResult
-               ? `score=${this.riskAssessmentResult.overallScore}, rating=${this.riskAssessmentResult.overallRating}, layers=${this.riskAssessmentResult.layers?.length}, domains=${this.riskAssessmentResult.domainAssessments?.length}`
-               : 'NULL');
+         }
+         case 'RISK': {
+            const newRisk = this.mapRiskAssessment(outputs);
+            // Only update if new data is valid — don't destroy cached DB data with null
+            if (newRisk && newRisk.layers?.length > 0) {
+               this.riskAssessmentResult = newRisk;
+            } else if (!this.riskAssessmentResult) {
+               this.riskAssessmentResult = newRisk; // No cached data, use whatever we got
+            }
             // P5/P6 fix: Synthesize intakeAssessments from RISK agent domain assessments
             // so the Risk Analysis & Operational Readiness sections populate
             if (this.riskAssessmentResult?.domainAssessments?.length) {
                this.mergeDomainAssessmentsIntoIntake(this.riskAssessmentResult.domainAssessments);
-               console.log('[handleAgentResult] RISK: Merged domain assessments into intake assessments');
             }
             // Also add overall RISK entry if missing
             if (this.riskAssessmentResult && !this.intakeAssessments.find(a => a.domain === 'RISK')) {
@@ -1393,6 +1519,7 @@ export class NpaDetailComponent implements OnInit {
                });
             }
             break;
+         }
          case 'GOVERNANCE': {
             const agentGov = this.mapGovernanceState(outputs);
             if (agentGov && agentGov.signoffs && agentGov.signoffs.length > 0) {
@@ -1473,9 +1600,7 @@ export class NpaDetailComponent implements OnInit {
    private persistAgentResult(projectId: string, agentType: string, payload: any, retries = 2): void {
       const url = `/api/agents/npas/${projectId}/persist/${agentType}`;
       this.http.post<any>(url, payload).subscribe({
-         next: (data) => {
-            console.log(`[persist] ${agentType} result saved:`, data.fields_saved ?? data.status ?? 'ok');
-         },
+         next: () => { },
          error: (err) => {
             console.warn(`[persist] ${agentType} save failed (retries left: ${retries}):`, err.status, err.message);
             if (retries > 0 && (err.status >= 500 || err.status === 0)) {
@@ -1488,39 +1613,112 @@ export class NpaDetailComponent implements OnInit {
    // ─── Output Mapping Methods ───────────────────────────────────────
 
    private parseJsonOutput(outputs: any): any {
+      // Handle trace-extracted data from dify-proxy (has _fromTrace flag)
       if (outputs?.result && typeof outputs.result === 'string') {
          let raw = outputs.result.trim();
+
+         // Step 1: Strip markdown code fences
          raw = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+         // Step 2: Direct JSON parse
          try { return JSON.parse(raw); } catch (_) { /* fall through */ }
+
+         // Step 3: Extract JSON object from mixed text
          const jsonMatch = raw.match(/\{[\s\S]*\}/);
          if (jsonMatch) {
             try { return JSON.parse(jsonMatch[0]); } catch (_) { /* fall through */ }
          }
+
+         // Step 4: Python-style JSON (single quotes, True/False/None)
          try {
             const fixed = raw.replace(/'/g, '"').replace(/True/g, 'true').replace(/False/g, 'false').replace(/None/g, 'null');
             const fixedMatch = fixed.match(/\{[\s\S]*\}/);
             if (fixedMatch) {
-               const parsed = JSON.parse(fixedMatch[0]);
-               console.log('[parseJsonOutput] Recovered JSON via Python→JSON syntax fix');
-               return parsed;
+               return JSON.parse(fixedMatch[0]);
             }
          } catch (_) { /* fall through */ }
+
+         // Step 5: Extract embedded JSON from "tool response: {...}" patterns in Dify traces
+         try {
+            const toolResponses: any[] = [];
+            const toolRx = /tool response:\s*(\{[^}]*(?:\{[^}]*\}[^}]*)*\})/g;
+            let m: RegExpExecArray | null;
+            while ((m = toolRx.exec(raw)) !== null) {
+               try { toolResponses.push(JSON.parse(m[1])); } catch { /* skip malformed */ }
+            }
+            if (toolResponses.length > 0) {
+               const merged: any = {};
+               for (const tr of toolResponses) {
+                  if (tr.data) Object.assign(merged, tr.data);
+                  else Object.assign(merged, tr);
+               }
+               if (Object.keys(merged).length > 0) return merged;
+            }
+         } catch (_) { /* fall through */ }
+
+         // Step 6: Python repr of trace list — e.g., "- {'id': '...', 'data': {...}}"
+         // The dify-proxy now sends extracted data, but if it missed, try here
+         try {
+            const reprFixed = raw
+               .replace(/^-\s*/gm, '')
+               .replace(/'/g, '"')
+               .replace(/True/g, 'true').replace(/False/g, 'false').replace(/None/g, 'null');
+            // Extract all tool response JSONs from the repr
+            const traceToolRx = /"observation":\s*"tool response:\s*(\{.*?\})"/g;
+            const traceResponses: any[] = [];
+            let tm: RegExpExecArray | null;
+            while ((tm = traceToolRx.exec(reprFixed)) !== null) {
+               try { traceResponses.push(JSON.parse(tm[1])); } catch { /* skip */ }
+            }
+            if (traceResponses.length > 0) {
+               const merged: any = {};
+               for (const tr of traceResponses) {
+                  if (tr.data) Object.assign(merged, tr.data);
+                  else Object.assign(merged, tr);
+               }
+               if (Object.keys(merged).length > 0) return merged;
+            }
+         } catch (_) { /* fall through */ }
+
          console.warn('[parseJsonOutput] All parse attempts failed. raw (first 300):', raw.substring(0, 300));
          return this.extractFallbackFromText(raw);
+      }
+      // Handle when outputs itself is an object with _fromTrace (proxy extracted trace data)
+      if (outputs?._fromTrace && typeof outputs === 'object') {
+         return outputs;
       }
       return outputs;
    }
 
    private extractFallbackFromText(raw: string): any {
       console.warn('[extractFallbackFromText] JSON parse failed, using safe defaults. Raw (200):', raw.substring(0, 200));
+
+      // Try to extract governance blocking_parties from trace text
+      const blockingMatch = raw.match(/"blocking_parties":\s*\[([^\]]*)\]/);
+      const blockingParties: string[] = [];
+      if (blockingMatch?.[1]) {
+         blockingMatch[1].replace(/"([^"]+)"/g, (_: string, dept: string) => { blockingParties.push(dept); return ''; });
+      }
+      // Try to extract signoff parties from trace text
+      const signoffMatch = raw.match(/"signoff_parties":\s*\[([^\]]*)\]/) || raw.match(/"required_signoffs":\s*\[([^\]]*)\]/);
+      if (signoffMatch?.[1]) {
+         signoffMatch[1].replace(/"([^"]+)"/g, (_: string, dept: string) => { blockingParties.push(dept); return ''; });
+      }
+
       return {
          _fromFallback: true,
-         _parseError: 'Agent returned narrative text instead of JSON. Classification defaulted to Variation.',
+         _parseError: 'Agent returned trace/narrative instead of structured JSON.',
          classification: { type: 'Variation', track: 'NPA_LITE' },
          scorecard: { overall_confidence: 0, scores: [] },
          risk_assessment: { overall_score: 50, overall_rating: 'MEDIUM', hard_stop: false },
          prohibited_check: { matched: false },
          mandatory_signoffs: [],
+         signoff_status: {
+            signoffs: [],
+            blocking_parties: blockingParties,
+            sla_breached: 0,
+            completion_pct: 0
+         },
          _rawSummary: raw.substring(0, 500)
       };
    }
@@ -1735,7 +1933,6 @@ export class NpaDetailComponent implements OnInit {
 
    private mapGovernanceState(rawOutputs: any): GovernanceState | null {
       const o = this.parseJsonOutput(rawOutputs);
-      console.log('[mapGovernanceState] parsed keys:', o ? Object.keys(o) : 'NULL');
       if (!o) return null;
       const ss = o.signoff_status || o;
       const ls = o.loopback_status || {};

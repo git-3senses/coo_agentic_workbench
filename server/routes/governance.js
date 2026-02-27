@@ -23,7 +23,9 @@ router.get('/projects', async (req, res) => {
 
         res.json(projects);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[GOVERNANCE ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -36,7 +38,9 @@ router.get('/readiness/:projectId', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[GOVERNANCE ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -50,7 +54,9 @@ router.post('/readiness', async (req, res) => {
         );
         res.json({ id: result.insertId, status: 'SAVED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[GOVERNANCE ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -77,6 +83,7 @@ router.get('/projects/:id', async (req, res) => {
         const [metricsRows] = await db.query('SELECT * FROM npa_performance_metrics WHERE project_id = ? ORDER BY snapshot_date DESC LIMIT 1', [projectId]);
         const [loopbacks] = await db.query('SELECT * FROM npa_loop_backs WHERE project_id = ?', [projectId]);
         const [workflowStates] = await db.query('SELECT * FROM npa_workflow_states WHERE project_id = ? ORDER BY started_at', [projectId]);
+        const [agentResults] = await db.query('SELECT project_id, agent_type, workflow_run_id, created_at FROM npa_agent_results WHERE project_id = ? ORDER BY created_at', [projectId]);
 
         // Construct response object matches frontend expectation
         const result = {
@@ -91,12 +98,15 @@ router.get('/projects/:id', async (req, res) => {
             breaches,
             metrics: metricsRows[0] || null,
             loopbacks,
-            workflowStates
+            workflowStates,
+            agentResults
         };
 
         res.json(result);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[GOVERNANCE ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -109,7 +119,9 @@ router.get('/classification/:projectId', async (req, res) => {
         );
         res.json(rows[0] || null);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[GOVERNANCE ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -119,7 +131,9 @@ router.get('/doc-rules', async (req, res) => {
         const [rows] = await db.query('SELECT * FROM ref_document_rules');
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[GOVERNANCE ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -137,7 +151,9 @@ router.post('/projects', async (req, res) => {
         res.json({ id: project_id, status: 'CREATED' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[GOVERNANCE ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -197,7 +213,9 @@ router.post('/classification', async (req, res) => {
             override_reason: trackOverrideReason
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[GOVERNANCE ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

@@ -1,8 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AGENT_REGISTRY, AgentDefinition } from '../../lib/agent-interfaces';
 import { NpaService } from '../../services/npa.service';
 import { DashboardService } from '../../services/dashboard.service';
@@ -27,6 +28,7 @@ interface KpiMetric {
 
 interface NpaItem {
     id?: string;
+    displayId?: string;
     productName: string;
     location: string;
     businessUnit: string;
@@ -47,6 +49,11 @@ interface NpaItem {
     standalone: true,
     imports: [CommonModule, LucideAngularModule, EscalationQueueComponent, PirManagementComponent, BundlingAssessmentComponent, DocumentManagerComponent, EvergreenDashboardComponent, KbListOverlayComponent],
     template: `
+    @if (loading()) {
+      <div class="flex items-center justify-center h-64">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    } @else {
     <div class="h-full w-full bg-slate-50/50 flex flex-col font-sans text-slate-900 group/dashboard relative overflow-hidden">
 
       <!-- HEADER -->
@@ -619,6 +626,7 @@ interface NpaItem {
                     <table class="text-left text-xs" style="min-width: 1800px;">
                         <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold backdrop-blur-sm sticky top-0">
                             <tr>
+                                <th class="px-4 py-3 whitespace-nowrap" style="min-width: 140px;">NPA ID</th>
                                 <th class="px-4 py-3 whitespace-nowrap" style="min-width: 200px;">Product Name</th>
                                 <th class="px-4 py-3 whitespace-nowrap" style="min-width: 120px;">Location</th>
                                 <th class="px-4 py-3 whitespace-nowrap" style="min-width: 150px;">Business Unit</th>
@@ -637,6 +645,9 @@ interface NpaItem {
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
                             <tr *ngFor="let row of npaPool" (click)="navigateToDetail(row)" class="hover:bg-slate-50 transition-colors group cursor-pointer">
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <div class="font-mono text-xs text-indigo-600 font-semibold">{{ row.displayId || row.id }}</div>
+                                </td>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     <div class="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">{{ row.productName }}</div>
                                 </td>
@@ -903,6 +914,7 @@ interface NpaItem {
           (closeOverlay)="isKbOverlayOpen = false">
       </app-kb-list-overlay>
     </div>
+    }
   `,
     styles: [`
     :host { display: block; height: 100%; }
@@ -914,11 +926,22 @@ interface NpaItem {
 })
 export class CooNpaDashboardComponent implements OnInit {
 
+    private destroyRef = inject(DestroyRef);
     private router = inject(Router);
     private npaService = inject(NpaService);
     private dashboardService = inject(DashboardService);
     private monitoringService = inject(MonitoringService);
     private difyService = inject(DifyAgentService);
+
+    loading = signal(true);
+    private pendingRequests = 3; // npaPool + dashboardKpis + monitoring
+
+    private markRequestComplete() {
+        this.pendingRequests--;
+        if (this.pendingRequests <= 0) {
+            this.loading.set(false);
+        }
+    }
 
     navigateToCreate() {
         this.router.navigate(['/agents/npa'], { queryParams: { mode: 'create' } });
@@ -967,7 +990,9 @@ export class CooNpaDashboardComponent implements OnInit {
     }
 
     private loadDifyKbs() {
-        this.difyService.getConnectedKnowledgeBases().subscribe({
+        this.difyService.getConnectedKnowledgeBases().pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe({
             next: (kbs) => this.difyKbs = kbs || [],
             error: (err) => console.warn('[COO Dashboard] Failed to load Dify KBs', err)
         });
@@ -978,10 +1003,13 @@ export class CooNpaDashboardComponent implements OnInit {
      */
     loadAllData() {
         // 1. NPA Pool from NpaService
-        this.npaService.getAll().subscribe({
+        this.npaService.getAll().pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe({
             next: (projects) => {
                 this.npaPool = projects.map(p => ({
                     id: p.id,
+                    displayId: p.display_id || p.id,
                     productName: p.title || 'Untitled',
                     location: p.jurisdictions?.[0] || 'SG',
                     businessUnit: p.pm_team || 'Global Fin. Markets',
@@ -996,8 +1024,12 @@ export class CooNpaDashboardComponent implements OnInit {
                     status: this.mapStatus(p.status),
                     ageDays: Math.floor((Date.now() - new Date(p.created_at).getTime()) / (1000 * 3600 * 24))
                 }));
+                this.markRequestComplete();
             },
-            error: (err) => console.error('[COO] Failed to load NPA pool', err)
+            error: (err) => {
+                console.error('[COO] Failed to load NPA pool', err);
+                this.markRequestComplete();
+            }
         });
 
         // 2. Dashboard KPIs + Pipeline + Ageing + Clusters + Prospects + Revenue + Classification (parallel)
@@ -1009,7 +1041,9 @@ export class CooNpaDashboardComponent implements OnInit {
             prospects: this.dashboardService.getProspects(),
             revenue: this.dashboardService.getRevenue(),
             classification: this.dashboardService.getClassificationMix(),
-        }).subscribe({
+        }).pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe({
             next: (data) => {
                 // KPIs → header stats + KPI cards
                 this.mapKpis(data.kpis);
@@ -1104,8 +1138,12 @@ export class CooNpaDashboardComponent implements OnInit {
                 } else {
                     this.classificationGradient = 'conic-gradient(#e2e8f0 0% 100%)';
                 }
+                this.markRequestComplete();
             },
-            error: (err) => console.error('[COO] Failed to load dashboard data', err)
+            error: (err) => {
+                console.error('[COO] Failed to load dashboard data', err);
+                this.markRequestComplete();
+            }
         });
 
         // 3. Monitoring data (parallel)
@@ -1113,7 +1151,9 @@ export class CooNpaDashboardComponent implements OnInit {
             summary: this.monitoringService.getSummary(),
             products: this.monitoringService.getProducts(),
             breaches: this.monitoringService.getBreaches(),
-        }).subscribe({
+        }).pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe({
             next: (data) => {
                 this.monitoringSummary = data.summary;
 
@@ -1135,8 +1175,12 @@ export class CooNpaDashboardComponent implements OnInit {
                     product: b.npa_title || 'Unknown Product',
                     triggeredAt: this.timeAgo(b.triggered_at)
                 }));
+                this.markRequestComplete();
             },
-            error: (err) => console.error('[COO] Failed to load monitoring data', err)
+            error: (err) => {
+                console.error('[COO] Failed to load monitoring data', err);
+                this.markRequestComplete();
+            }
         });
     }
 
@@ -1243,7 +1287,6 @@ export class CooNpaDashboardComponent implements OnInit {
     }
 
     onViewAll(section: string) {
-        console.log('Viewing all for section:', section);
         if (section === 'kb') {
             this.isKbOverlayOpen = true;
         }

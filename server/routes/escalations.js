@@ -24,7 +24,9 @@ router.get('/', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[ESCALATIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -37,7 +39,9 @@ router.get('/npas/:id', async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[ESCALATIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -80,7 +84,9 @@ router.post('/npas/:id/escalate', async (req, res) => {
 
         res.json({ status: 'ESCALATED', level, authority });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[ESCALATIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -127,7 +133,9 @@ router.put('/:id/resolve', async (req, res) => {
 
         res.json({ status: 'RESOLVED', decision });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[ESCALATIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -141,7 +149,9 @@ router.put('/:id/review', async (req, res) => {
         );
         res.json({ status: 'UNDER_REVIEW' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[ESCALATIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

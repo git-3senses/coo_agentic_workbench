@@ -111,7 +111,9 @@ router.post('/:id/submit', rbac('MAKER', 'ADMIN'), async (req, res) => {
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION submit]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -176,7 +178,9 @@ router.post('/:id/checker-approve', rbac('CHECKER', 'ADMIN'), async (req, res) =
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION checker-approve]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -404,7 +408,9 @@ router.post('/:id/checker-return', rbac('CHECKER', 'ADMIN'), async (req, res) =>
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION checker-return]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -470,7 +476,9 @@ router.post('/:id/resubmit', rbac('MAKER', 'ADMIN'), async (req, res) => {
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION resubmit]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -611,7 +619,9 @@ router.post('/:id/request-rework', rbac('APPROVER', 'ADMIN'), async (req, res) =
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION request-rework]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -707,7 +717,9 @@ router.post('/:id/final-approve', rbac('COO', 'ADMIN'), async (req, res) => {
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION final-approve]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -764,7 +776,9 @@ router.post('/:id/reject', rbac('COO', 'ADMIN'), async (req, res) => {
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION reject]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -818,7 +832,9 @@ router.post('/:id/withdraw', rbac('MAKER', 'ADMIN'), async (req, res) => {
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION withdraw]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -879,7 +895,9 @@ router.post('/:id/launch', rbac('COO', 'ADMIN'), async (req, res) => {
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION launch]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }
@@ -965,7 +983,9 @@ router.post('/:id/extend-validity', rbac('COO', 'ADMIN'), async (req, res) => {
     } catch (err) {
         await conn.rollback();
         console.error('[TRANSITION extend-validity]', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('[TRANSITIONS ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     } finally {
         conn.release();
     }

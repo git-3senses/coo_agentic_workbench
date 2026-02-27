@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { SharedIconsModule } from '../../shared/icons/shared-icons.module';
 import { DifyService, StreamEvent } from '../../services/dify/dify.service';
 import { MarkdownModule } from 'ngx-markdown';
+import { ToastService } from '../../services/toast.service';
 
 type ChatMsg = { role: 'user' | 'agent'; content: string; streaming?: boolean; ts: number };
 
@@ -286,6 +287,7 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private sanitizer = inject(DomSanitizer);
   private dify = inject(DifyService);
+  private toast = inject(ToastService);
 
   docId = '';
   doc: any = null;
@@ -430,7 +432,7 @@ export class KnowledgeDocComponent implements OnInit, OnDestroy {
       },
       error: (e) => {
         const msg = e?.error?.error || e?.message || 'Failed to save';
-        alert(String(msg));
+        this.toast.error(String(msg));
       }
     });
   }

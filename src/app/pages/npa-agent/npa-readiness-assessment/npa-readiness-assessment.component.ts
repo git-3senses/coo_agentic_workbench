@@ -563,7 +563,6 @@ export class NpaReadinessAssessmentComponent {
             this.governanceService.createProject(this.projectTitle, this.projectDescription)
                 .subscribe({
                     next: (proj) => {
-                        console.log('Project Created:', proj);
                         this.projectId = proj.id; // Update with real DB ID
 
                         // 2. Prepare result for saving
@@ -583,7 +582,6 @@ export class NpaReadinessAssessmentComponent {
                         this.governanceService.saveReadinessAssessment(this.projectId, result)
                             .subscribe({
                                 next: (res) => {
-                                    console.log('Readiness Saved:', res);
                                     this.completed.emit({
                                         score: this.totalScore,
                                         title: this.projectTitle,

@@ -1,15 +1,22 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { DocumentService, NpaDocument } from '../../services/document.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
     selector: 'app-document-manager',
     standalone: true,
     imports: [CommonModule, LucideAngularModule, FormsModule],
     template: `
+    @if (loading()) {
+      <div class="flex items-center justify-center h-64">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    } @else {
     <div class="h-full flex flex-col bg-slate-50 font-sans text-slate-900">
 
       <!-- HEADER -->
@@ -145,12 +152,17 @@ import { DocumentService, NpaDocument } from '../../services/document.service';
         </div>
       </div>
     </div>
+    }
     `,
     styles: [`:host { display: block; height: 100%; }`]
 })
 export class DocumentManagerComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
     private docService = inject(DocumentService);
     private route = inject(ActivatedRoute);
+    private toast = inject(ToastService);
+
+    loading = signal(true);
 
     npaId = '';
     npaIdInput = '';
@@ -159,10 +171,14 @@ export class DocumentManagerComponent implements OnInit {
     uploadProgress = false;
 
     ngOnInit() {
-        this.route.queryParams.subscribe(params => {
+        this.route.queryParams.pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(params => {
             if (params['npaId']) {
                 this.npaId = params['npaId'];
                 this.loadDocuments();
+            } else {
+                this.loading.set(false);
             }
         });
     }
@@ -177,8 +193,14 @@ export class DocumentManagerComponent implements OnInit {
     loadDocuments() {
         if (!this.npaId) return;
         this.docService.getByNpa(this.npaId).subscribe({
-            next: (docs) => this.documents = docs,
-            error: (err) => console.error('[DOCS] Load failed', err)
+            next: (docs) => {
+                this.documents = docs;
+                this.loading.set(false);
+            },
+            error: (err) => {
+                console.error('[DOCS] Load failed', err);
+                this.loading.set(false);
+            }
         });
     }
 
@@ -199,7 +221,7 @@ export class DocumentManagerComponent implements OnInit {
             },
             error: (err) => {
                 this.uploadProgress = false;
-                alert(err.error?.error || 'Upload failed');
+                this.toast.error(err.error?.error || 'Upload failed');
             }
         });
     }
@@ -207,7 +229,7 @@ export class DocumentManagerComponent implements OnInit {
     validateDoc(doc: NpaDocument, status: string) {
         this.docService.validate(doc.id, { validation_status: status }).subscribe({
             next: () => this.loadDocuments(),
-            error: (err) => alert(err.error?.error || 'Validation update failed')
+            error: (err) => this.toast.error(err.error?.error || 'Validation update failed')
         });
     }
 
@@ -215,7 +237,7 @@ export class DocumentManagerComponent implements OnInit {
         if (!confirm(`Delete "${doc.document_name}"?`)) return;
         this.docService.delete(doc.id).subscribe({
             next: () => this.loadDocuments(),
-            error: (err) => alert(err.error?.error || 'Delete failed')
+            error: (err) => this.toast.error(err.error?.error || 'Delete failed')
         });
     }
 

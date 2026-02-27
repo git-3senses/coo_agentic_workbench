@@ -47,7 +47,9 @@ router.get('/', async (req, res) => {
 
         res.json(products);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[EVERGREEN ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -117,7 +119,9 @@ router.post('/:id/record-usage', async (req, res) => {
 
         res.json({ status: 'RECORDED', limit_breached: limitBreached });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[EVERGREEN ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -144,7 +148,9 @@ router.get('/:id/utilization', async (req, res) => {
             metrics
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[EVERGREEN ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 
@@ -166,7 +172,9 @@ router.post('/:id/annual-review', async (req, res) => {
 
         res.json({ status: approved ? 'REVIEW_APPROVED' : 'REVIEW_FLAGGED' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[EVERGREEN ERROR]', err.message);
+        const errorMsg = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+        res.status(500).json({ error: errorMsg });
     }
 });
 

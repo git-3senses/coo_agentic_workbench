@@ -400,9 +400,6 @@ export class NpaAgentChatComponent implements OnInit, AfterViewChecked {
          });
          recovered++;
       }
-      if (recovered > 0) {
-         console.log(`[AgentChat] Fallback parser recovered ${recovered} fields from malformed JSON`);
-      }
    }
 
    /** Get the Dify app name for the active agent (for error messages) */

@@ -122,6 +122,7 @@ export interface IntakeAssessment {
 
 export interface NpaProject {
    id: string;
+   displayId?: string;
    title: string;
    description: string;
    submittedBy: string;

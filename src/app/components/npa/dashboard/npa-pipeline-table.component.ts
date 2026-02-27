@@ -6,6 +6,7 @@ import { NpaService } from '../../../services/npa.service';
 
 export interface NPAPipelineItem {
   id: string;
+  displayId: string;
   name: string;
   productType: string;
   businessUnit: string;
@@ -54,7 +55,7 @@ export interface NPAPipelineItem {
                   class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted group">
                 <td class="p-2 align-middle font-medium">
                   <a (click)="onViewDetail.emit(item.id)" class="text-primary hover:underline cursor-pointer">
-                    {{ item.id }}
+                    {{ item.displayId }}
                   </a>
                 </td>
                 <td class="p-2 align-middle">{{ item.name }}</td>
@@ -110,6 +111,7 @@ export class NpaPipelineTableComponent implements OnInit {
       next: (npas) => {
         this.pipelineData = npas.map(p => ({
           id: p.id,
+          displayId: p.display_id || p.id,
           name: p.title || 'Untitled',
           productType: p.npa_type || 'New Product',
           businessUnit: p.pm_team || 'Global Fin. Markets',
